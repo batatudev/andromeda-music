@@ -9,6 +9,7 @@ import threading
 import random
 from PySide6.QtCore import QObject, Signal, Qt
 from PySide6.QtMultimedia import QMediaPlayer
+from config import APP_NAME
 from utils import logger
 
 try:
@@ -102,7 +103,7 @@ class MprisPlayer:
 
     @property
     def Identity(self):
-        return "Navidrome Player"
+        return APP_NAME
 
     @property
     def DesktopEntry(self):
@@ -290,7 +291,7 @@ class MprisService:
         self.signals.volume_changed.connect(self._handle_volume, Qt.QueuedConnection)
 
         self.bus = SessionBus()
-        self.bus.request_name("org.mpris.MediaPlayer2.NavidromePlayer")
+        self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}")
         self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
         
         self.engine.track_changed.connect(self._upd_meta)

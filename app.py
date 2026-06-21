@@ -5,20 +5,25 @@
 
 import os
 os.environ["QT_API"] = "pyside6"
-os.environ["PULSE_PROP_application.name"] = "Navidrome Player"
+
+from config import APP_NAME
+
+os.environ["PULSE_PROP_application.name"] = APP_NAME
 os.environ["PULSE_PROP_application.icon_name"] = "multimedia-audio-player"
 os.environ["PULSE_PROP_media.role"] = "music"
 
 import sys
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from api_client import NavidromeClient
-from config import APP_CONFIG
+from config import APP_CONFIG, APP_NAME, APP_ICON_PATH
 from ui.main_window import MainWindow
 
 
 def run():
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(APP_ICON_PATH))
     if APP_CONFIG["url"]:
         c = NavidromeClient(APP_CONFIG["url"], APP_CONFIG["username"], APP_CONFIG["password"])
     else:

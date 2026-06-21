@@ -5,6 +5,9 @@
 import configparser
 from enum import IntEnum
 
+APP_NAME = "Andromeda Music"
+APP_ICON_PATH = "assets/logo.png"
+
 class Pages(IntEnum):
     HOME = 0
     FAVS = 1

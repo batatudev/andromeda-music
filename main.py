@@ -9,7 +9,10 @@
 
 import os
 os.environ["QT_API"] = "pyside6"
-os.environ["PULSE_PROP_application.name"] = "Navidrome Player"
+
+from config import APP_NAME
+
+os.environ["PULSE_PROP_application.name"] = APP_NAME
 os.environ["PULSE_PROP_application.icon_name"] = "multimedia-audio-player"
 os.environ["PULSE_PROP_media.role"] = "music"
 

@@ -10,6 +10,7 @@ import random
 import string
 import requests
 import time
+from config import APP_NAME
 from utils import logger, MediaItem
 
 
@@ -19,7 +20,7 @@ class NavidromeClient:
         self.user = user
         self.password = password
         self.api_version = "1.16.1"
-        self.client_name = "NavidromePlayer"
+        self.client_name = APP_NAME.replace(" ", "")
         self.failures = 0
         self.circuit_breaker_until = 0
         self.session = requests.Session()

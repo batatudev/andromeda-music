@@ -25,7 +25,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtMultimedia import QMediaPlayer
 
 from api_client import NavidromeClient
-from config import APP_CONFIG, save_config, THEME, get_app_style, Pages
+from config import APP_CONFIG, APP_NAME, save_config, THEME, get_app_style, Pages
 from utils import Worker, AsyncImageLoader, logger, telemetry_recorder, NetworkMonitor
 from core.enums import EngineState, TelemetryEvent, MediaType
 
@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
         self.history = []
         self.current_route = None
 
-        self.setWindowTitle("Navidrome Player")
+        self.setWindowTitle(APP_NAME)
         self.resize(1400, 900)
         self.setMinimumSize(1024, 720)
         self.setStyleSheet(get_app_style())
