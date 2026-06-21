@@ -1,4 +1,4 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.8
 # MODYFIKOWANY PLIK: view_now_playing.py
 # OPIS ZMIAN: Detekcja ruchu wideo przeniesiona do wątku daemon.
 # Bajty QImage kopiowane bezpiecznie na wątku głównym, porównanie w tle,
@@ -10,7 +10,7 @@ os.environ["QT_API"] = "pyside6"
 import threading
 import qtawesome as qta
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsBlurEffect, QGraphicsOpacityEffect, QStackedLayout, QScrollArea, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QScrollArea, QSizePolicy
 from PySide6.QtMultimedia import QVideoSink
 from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve, QRect, Property
 from PySide6.QtGui import QPainter, QImage
@@ -178,6 +178,7 @@ class NowPlayingWidget(QFrame):
         super().__init__()
         self.setObjectName("NowPlayingWidget")
         self.is_video_dynamic = True
+        self.raw_pixmap = None
 
         self.bg_container = QWidget(self)
         self.bg_layout = QStackedLayout(self.bg_container)
@@ -185,18 +186,10 @@ class NowPlayingWidget(QFrame):
 
         self.bg_label = QLabel()
         self.bg_label.setScaledContents(True)
-        self.blur = QGraphicsBlurEffect()
-        self.blur.setBlurRadius(80)
-        self.bg_label.setGraphicsEffect(self.blur)
 
         self.video_widget = VideoBackgroundWidget()
         self.video_widget.video_type_detected.connect(self._on_video_type_detected)
 
-        self.video_blur = QGraphicsBlurEffect()
-        self.video_widget.setGraphicsEffect(self.video_blur)
-        
-        self.blur_anim = QPropertyAnimation(self.video_blur, b"blurRadius")
-        
         self.bg_layout.addWidget(self.bg_label)
         self.bg_layout.addWidget(self.video_widget)
         self.bg_layout.setCurrentWidget(self.bg_label)
@@ -325,33 +318,14 @@ class NowPlayingWidget(QFrame):
         if self.is_video_dynamic != is_dynamic:
             self.is_video_dynamic = is_dynamic
             self.update_video_settings()
-            if self.breath_anim.state() != QPropertyAnimation.State.Running:
-                target_blur = APP_CONFIG.get("video_dynamic_blur", 0) if self.is_video_dynamic else APP_CONFIG.get("video_static_blur", 60)
-                self.blur_anim.stop()
-                self.blur_anim.setEndValue(target_blur)
-                self.blur_anim.setDuration(2500)
-                self.video_blur.setEnabled(True)
-                self.blur_anim.start()
 
     def set_seek_blur(self, is_seeking):
-        if is_seeking:
-            self.blur_anim.stop()
-            self.blur_anim.setEndValue(45)
-            self.blur_anim.setDuration(150)
-            self.video_blur.setEnabled(True)
-            self.blur_anim.start()
-        else:
+        if not is_seeking:
             self.set_buffering_state(False)
 
     def set_buffering_state(self, is_buffering):
         if is_buffering:
             self.breath_restore_anim.stop()
-            self.blur_anim.stop()
-            self.blur_anim.setEndValue(120)
-            self.blur_anim.setDuration(200)
-            self.video_blur.setEnabled(True)
-            self.blur_anim.start()
-            
             if self.breath_anim.state() != QPropertyAnimation.State.Running:
                 self.overlay_opacity.setOpacity(1.0)
                 self.breath_anim.start()
@@ -361,20 +335,13 @@ class NowPlayingWidget(QFrame):
             curr_op = self.overlay_opacity.opacity()
             self.breath_restore_anim.setStartValue(curr_op)
             self.breath_restore_anim.start()
-            
-            target_blur = APP_CONFIG.get("video_dynamic_blur", 0) if self.is_video_dynamic else APP_CONFIG.get("video_static_blur", 60)
-            self.blur_anim.stop()
-            self.blur_anim.setEndValue(target_blur)
-            self.blur_anim.setDuration(2500)
-            self.blur_anim.start()
 
     def set_image(self, p, animate=True):
         self.is_video_dynamic = True
         self.video_widget.prepare_snapshot()
         self.img.set_image(p, animate)
-        if p and not p.isNull():
-            self.bg_label.setPixmap(p)
-        else:
+        self.raw_pixmap = p
+        if not p or p.isNull():
             self.bg_label.clear()
         self.update_video_settings()
 
@@ -382,19 +349,20 @@ class NowPlayingWidget(QFrame):
         if self.bg_layout.currentWidget() == self.video_widget:
             if self.is_video_dynamic:
                 opacity = APP_CONFIG.get("video_dynamic_opacity", 30)
-                blur_val = APP_CONFIG.get("video_dynamic_blur", 0)
             else:
                 opacity = APP_CONFIG.get("video_static_opacity", 80)
-                blur_val = APP_CONFIG.get("video_static_blur", 60)
 
             alpha = int((opacity / 100.0) * 255)
             self.overlay.setStyleSheet(f"background: rgba({THEME['bg_main_rgb']}, {alpha});")
-            
-            if self.breath_anim.state() != QPropertyAnimation.State.Running:
-                self.video_blur.setBlurRadius(blur_val)
-                self.video_blur.setEnabled(blur_val > 0)
         else:
-            self.overlay.setStyleSheet(f"background: rgba({THEME['bg_main_rgb']}, 160);")
+            opacity = APP_CONFIG.get("video_static_opacity", 80)
+            blur_val = APP_CONFIG.get("video_static_blur", 60)
+            alpha = int((opacity / 100.0) * 255)
+            self.overlay.setStyleSheet(f"background: rgba({THEME['bg_main_rgb']}, {alpha});")
+            if hasattr(self, 'raw_pixmap') and self.raw_pixmap and not self.raw_pixmap.isNull():
+                from utils import get_blurred_pixmap
+                blurred = get_blurred_pixmap(self.raw_pixmap, blur_val)
+                self.bg_label.setPixmap(blurred)
 
     def set_media_mode(self, mode):
         if mode == "video":

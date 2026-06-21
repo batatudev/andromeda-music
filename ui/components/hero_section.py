@@ -1,4 +1,4 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.8
 # MODYFIKOWANY PLIK: ui/components/hero_section.py
 # OPIS ZMIAN: Wyodrębnienie HeroSection z ui_cards.py.
 
@@ -9,7 +9,6 @@ import qtawesome as qta
 import time
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame,
-    QGraphicsBlurEffect
 )
 from PySide6.QtCore import Qt, Signal, QSize
 
@@ -26,9 +25,6 @@ class HeroSection(QFrame):
 
         self.bg_label = QLabel(self)
         self.bg_label.setScaledContents(True)
-        self.blur = QGraphicsBlurEffect()
-        self.blur.setBlurRadius(60)
-        self.bg_label.setGraphicsEffect(self.blur)
 
         self.overlay = QLabel(self)
         self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba({THEME['bg_main_rgb']},100), stop:0.5 rgba({THEME['bg_main_rgb']},180), stop:1 {THEME['bg_main']}); border-radius: 15px;")
@@ -107,7 +103,9 @@ class HeroSection(QFrame):
     def set_image(self, p, animate=True):
         self.img.set_image(p, animate)
         if p and not p.isNull():
-            self.bg_label.setPixmap(p)
+            from utils import get_blurred_pixmap
+            blurred = get_blurred_pixmap(p, 60)
+            self.bg_label.setPixmap(blurred)
 
     def set_data(self, subtitle, title, song_data):
         self.hs.setText(subtitle)

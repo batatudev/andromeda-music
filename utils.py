@@ -1,4 +1,4 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.8
 # MODYFIKOWANY PLIK: utils.py
 # OPIS ZMIAN: (1) NetworkMonitor wyciąga port z URL zamiast hard-kodowanego 4533.
 # (2) Zamieniono bare except: na except Exception: w NetworkMonitor.
@@ -7,6 +7,7 @@
 #     requestu zamiast wysyłać nowe. Wynik trafia do wszystkich oczekujących.
 
 import os
+os.environ["QT_API"] = "pyside6"
 import threading
 import csv
 import shutil
@@ -383,3 +384,27 @@ class AsyncImageLoader(QObject):
                     pass
         reply.deleteLater()
         self._process()
+
+
+def get_blurred_pixmap(pixmap, radius):
+    if not pixmap or pixmap.isNull():
+        return pixmap
+    from PySide6.QtGui import QPainter, QPixmap
+    from PySide6.QtWidgets import QGraphicsScene, QGraphicsPixmapItem, QGraphicsBlurEffect
+    from PySide6.QtCore import Qt
+
+    scaled = pixmap.scaledToWidth(800, Qt.SmoothTransformation)
+
+    scene = QGraphicsScene()
+    item = QGraphicsPixmapItem(scaled)
+    blur = QGraphicsBlurEffect()
+    blur.setBlurRadius(radius)
+    item.setGraphicsEffect(blur)
+    scene.addItem(item)
+
+    result = QPixmap(scaled.size())
+    result.fill(Qt.transparent)
+    painter = QPainter(result)
+    scene.render(painter)
+    painter.end()
+    return result

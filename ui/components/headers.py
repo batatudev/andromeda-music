@@ -1,4 +1,4 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.8
 # MODYFIKOWANY PLIK: ui/components/headers.py
 # OPIS ZMIAN: Wyodrębnienie MediaHeader i QueueHeader z ui_cards.py.
 
@@ -8,7 +8,6 @@ os.environ["QT_API"] = "pyside6"
 import qtawesome as qta
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame,
-    QGraphicsBlurEffect
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -24,9 +23,6 @@ class MediaHeader(QFrame):
 
         self.bg_label = QLabel(self)
         self.bg_label.setScaledContents(True)
-        self.blur = QGraphicsBlurEffect()
-        self.blur.setBlurRadius(60)
-        self.bg_label.setGraphicsEffect(self.blur)
 
         self.overlay = QLabel(self)
         self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba({THEME['bg_main_rgb']},100), stop:0.5 rgba({THEME['bg_main_rgb']},180), stop:1 {THEME['bg_main']});")
@@ -81,7 +77,9 @@ class MediaHeader(QFrame):
     def set_image(self, p, animate=True):
         self.img.set_image(p, animate)
         if p and not p.isNull():
-            self.bg_label.setPixmap(p)
+            from utils import get_blurred_pixmap
+            blurred = get_blurred_pixmap(p, 60)
+            self.bg_label.setPixmap(blurred)
 
 class QueueHeader(QFrame):
     play_clicked = Signal()
@@ -95,9 +93,6 @@ class QueueHeader(QFrame):
 
         self.bg_label = QLabel(self)
         self.bg_label.setScaledContents(True)
-        self.blur = QGraphicsBlurEffect()
-        self.blur.setBlurRadius(60)
-        self.bg_label.setGraphicsEffect(self.blur)
 
         self.overlay = QLabel(self)
         self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba({THEME['bg_main_rgb']},100), stop:0.5 rgba({THEME['bg_main_rgb']},180), stop:1 {THEME['bg_main']}); border-radius: 15px;")
@@ -188,4 +183,6 @@ class QueueHeader(QFrame):
     def set_image(self, p, animate=True):
         self.img.set_image(p, animate)
         if p and not p.isNull():
-            self.bg_label.setPixmap(p)
+            from utils import get_blurred_pixmap
+            blurred = get_blurred_pixmap(p, 60)
+            self.bg_label.setPixmap(blurred)
