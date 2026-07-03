@@ -1,21 +1,18 @@
-# WERSJA PROJEKTU: 14.10
+# WERSJA PROJEKTU: 14.11
 # MODYFIKOWANY PLIK: view_now_playing.py
-# OPIS ZMIAN: Overlay: QGraphicsOpacityEffect + pełne krycie CSS (255).
-# Przyciemnienie steruje bazą opacityEffect, oddychanie pulsuje względem bazy.
-# Eliminacja czarnego tła: _on_has_video przełącza na tryb audio (okładka)
-# przed załadowaniem teledysku.
+# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea dla kolejki (płynne przewijanie).
 
 import os
 os.environ["QT_API"] = "pyside6"
 
 import qtawesome as qta
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QScrollArea, QSizePolicy, QGraphicsView, QGraphicsScene
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QSizePolicy, QGraphicsView, QGraphicsScene
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF
 
 from config import THEME, APP_CONFIG
-from ui.widgets import DragDropContainer, RoundedImage, ClickableLabel, HoverIconButton
+from ui.widgets import DragDropContainer, RoundedImage, ClickableLabel, HoverIconButton, SmoothScrollArea
 from ui.components import SongItem
 
 
@@ -166,7 +163,7 @@ class NowPlayingWidget(QFrame):
 
         qf_layout.addLayout(header_layout)
 
-        self.queue_scroll = QScrollArea()
+        self.queue_scroll = SmoothScrollArea()
         self.queue_scroll.setWidgetResizable(True)
         self.queue_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.queue_scroll.setStyleSheet("background: transparent; border: none;")

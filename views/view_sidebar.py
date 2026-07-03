@@ -1,17 +1,17 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.11
 # MODYFIKOWANY PLIK: view_sidebar.py
-# OPIS ZMIAN: Dodano animację płynnego wysuwania i chowania paska bocznego (Smooth Width Transition). Tekst przycisków jest elegancko ukrywany przed złożeniem i pokazywany po pełnym rozłożeniu.
+# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea dla playlist (płynne przewijanie).
 
 import os
 os.environ["QT_API"] = "pyside6"
 
 import qtawesome as qta
 
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QLabel, QScrollArea
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QLabel
 from PySide6.QtCore import Qt, Signal, QSize, QPropertyAnimation, QEasingCurve, Property
 
 from config import THEME, Pages
-from ui.widgets import HoverIconButton
+from ui.widgets import HoverIconButton, SmoothScrollArea
 
 class SidebarWidget(QFrame):
     page_requested = Signal(int)
@@ -96,7 +96,7 @@ class SidebarWidget(QFrame):
         self.lbl_pl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px; background: transparent;")
         side_l.addWidget(self.lbl_pl)
 
-        self.playlist_scroll = QScrollArea()
+        self.playlist_scroll = SmoothScrollArea()
         self.playlist_scroll.setWidgetResizable(True)
         self.playlist_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.playlist_scroll.setStyleSheet("background: transparent; border: none;")

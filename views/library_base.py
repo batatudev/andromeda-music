@@ -1,13 +1,13 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.11
 # MODYFIKOWANY PLIK: views/library_base.py
-# OPIS ZMIAN: Ekstrakcja z view_library.py (SRP)
+# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea dla płynnego przewijania.
 
 
 import os
 os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
@@ -17,10 +17,10 @@ import qtawesome as qta
 from config import THEME
 from utils import MediaItem
 from core.enums import MediaType
-from ui.widgets import FlowLayout, DragDropContainer
+from ui.widgets import FlowLayout, DragDropContainer, SmoothScrollArea
 from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
 
-class LibraryScrollArea(QScrollArea):
+class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window

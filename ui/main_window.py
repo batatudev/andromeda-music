@@ -1,6 +1,7 @@
 # WERSJA PROJEKTU: 14.9
+# WERSJA PROJEKTU: 14.11
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Przekierowanie wyjścia wideo do QGraphicsVideoItem przez setVideoOutput.
+# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea w stronach SETTINGS, DEV_MODE i QUEUE.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -27,7 +28,7 @@ from config import APP_CONFIG, APP_NAME, save_config, THEME, get_app_style, Page
 from utils import Worker, AsyncImageLoader, logger, telemetry_recorder, NetworkMonitor
 from core.enums import EngineState, TelemetryEvent, MediaType
 
-from ui.widgets import DragDropContainer, HoverIconButton
+from ui.widgets import DragDropContainer, HoverIconButton, SmoothScrollArea
 from ui.components import SongItem, QueueHeader
 from views.view_now_playing import NowPlayingWidget
 from views.view_sidebar import SidebarWidget
@@ -284,7 +285,7 @@ class MainWindow(QMainWindow):
                 self.stack.addWidget(self.now_playing_view)
             elif page_id == Pages.SETTINGS:
                 self.settings_view = SettingsView(self)
-                s = QScrollArea()
+                s = SmoothScrollArea()
                 s.setWidgetResizable(True)
                 s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
                 s.setStyleSheet("background: transparent; border: none;")
@@ -293,7 +294,7 @@ class MainWindow(QMainWindow):
                 self.stack.addWidget(s)
             elif page_id == Pages.DEV_MODE:
                 self.dev_view = DevModeView(self)
-                s = QScrollArea()
+                s = SmoothScrollArea()
                 s.setWidgetResizable(True)
                 s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
                 s.setStyleSheet("background: transparent; border: none;")
@@ -322,7 +323,7 @@ class MainWindow(QMainWindow):
                 self.pages[page_id] = DetailsView(self)
                 self.stack.addWidget(self.pages[page_id])
             elif page_id == Pages.QUEUE:
-                s = QScrollArea()
+                s = SmoothScrollArea()
                 s.setWidgetResizable(True)
                 s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
                 w = DragDropContainer()
