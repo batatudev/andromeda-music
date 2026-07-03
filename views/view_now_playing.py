@@ -1,177 +1,51 @@
-# WERSJA PROJEKTU: 14.8
+# WERSJA PROJEKTU: 14.10
 # MODYFIKOWANY PLIK: view_now_playing.py
-# OPIS ZMIAN: Detekcja ruchu wideo przeniesiona do wątku daemon.
-# Bajty QImage kopiowane bezpiecznie na wątku głównym, porównanie w tle,
-# wynik wraca przez QTimer.singleShot(0). Eliminacja blokującej pętli pikselowej.
+# OPIS ZMIAN: Overlay: QGraphicsOpacityEffect + pełne krycie CSS (255).
+# Przyciemnienie steruje bazą opacityEffect, oddychanie pulsuje względem bazy.
+# Eliminacja czarnego tła: _on_has_video przełącza na tryb audio (okładka)
+# przed załadowaniem teledysku.
 
 import os
 os.environ["QT_API"] = "pyside6"
 
-import threading
 import qtawesome as qta
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QScrollArea, QSizePolicy
-from PySide6.QtMultimedia import QVideoSink
-from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve, QRect, Property
-from PySide6.QtGui import QPainter, QImage
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QScrollArea, QSizePolicy, QGraphicsView, QGraphicsScene
+from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF
 
 from config import THEME, APP_CONFIG
 from ui.widgets import DragDropContainer, RoundedImage, ClickableLabel, HoverIconButton
 from ui.components import SongItem
 
-class VideoBackgroundWidget(QWidget):
-    video_type_detected = Signal(bool)
 
+class VideoGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.sink = QVideoSink(self)
-        self.sink.videoFrameChanged.connect(self._on_frame)
-        self.current_image = None
-        self.snapshot_image = None
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.video_scene = QGraphicsScene(self)
+        self.setScene(self.video_scene)
+        self.video_item = QGraphicsVideoItem()
+        self.video_scene.addItem(self.video_item)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setStyleSheet("background: transparent; border: none;")
 
-        self.frames_received = 0
-        self.reference_frame = None
-        self.last_motion_score = 0.0
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        view_size = self.size()
+        self.video_scene.setSceneRect(0, 0, view_size.width(), view_size.height())
+        size = self.video_item.nativeSize()
+        if size.width() > 0 and size.height() > 0:
+            scale = max(view_size.width() / size.width(), view_size.height() / size.height())
+            new_w = size.width() * scale
+            new_h = size.height() * scale
+        else:
+            new_w = view_size.width()
+            new_h = view_size.height()
+        self.video_item.setSize(QSizeF(new_w, new_h))
+        self.video_item.setPos((view_size.width() - new_w) / 2, (view_size.height() - new_h) / 2)
 
-        self.fps_counter = 0
-        self.current_fps = 0
-        self.actual_resolution = "Brak"
-
-        self._crossfade = 0.0
-        self.crossfade_anim = QPropertyAnimation(self, b"crossfade")
-        self.crossfade_anim.setDuration(1200)
-        self.crossfade_anim.setStartValue(1.0)
-        self.crossfade_anim.setEndValue(0.0)
-
-        self.fps_timer = QTimer(self)
-        self.fps_timer.timeout.connect(self._update_fps)
-        self.fps_timer.start(500)
-
-    @Property(float)
-    def crossfade(self):
-        return self._crossfade
-
-    @crossfade.setter
-    def crossfade(self, val):
-        self._crossfade = val
-        self.update()
-
-    def prepare_snapshot(self):
-        if self.current_image and not self.current_image.isNull():
-            self.snapshot_image = self.current_image.copy()
-        self._crossfade = 1.0
-        self.current_image = None
-        self.frames_received = 0
-        self.reference_frame = None
-        self.last_motion_score = 0.0
-        self.current_fps = 0
-        self.fps_counter = 0
-        self.actual_resolution = "Brak"
-        self.update()
-
-    def clear(self):
-        self.current_image = None
-        self.snapshot_image = None
-        self._crossfade = 0.0
-        self.frames_received = 0
-        self.reference_frame = None
-        self.last_motion_score = 0.0
-        self.current_fps = 0
-        self.fps_counter = 0
-        self.actual_resolution = "Brak"
-        self.update()
-
-    def _update_fps(self):
-        self.current_fps = self.fps_counter * 2
-        self.fps_counter = 0
-
-    def _calculate_difference_threaded(self, ref_bytes, cur_bytes):
-        """Uruchamiana w wątku daemon. Porównuje bajty dwóch obrazów 32x32."""
-        total = sum(abs(ref_bytes[i] - cur_bytes[i]) for i in range(len(ref_bytes)))
-        diff = total / max(len(ref_bytes), 1)
-        return diff
-
-    def _on_frame(self, frame):
-        if frame.isValid():
-            try:
-                size = frame.size()
-                if size.width() > 0 and size.height() > 0:
-                    self.actual_resolution = f"{size.width()}x{size.height()}"
-
-                self.fps_counter += 1
-                self.current_image = frame.toImage()
-                
-                if self._crossfade > 0 and self.crossfade_anim.state() != QPropertyAnimation.State.Running:
-                    self.crossfade_anim.start()
-                    
-                self.update()
-
-                self.frames_received += 1
-                cycle_frame = self.frames_received % 150
-                
-                if cycle_frame == 45:
-                    self.reference_frame = (
-                        self.current_image
-                        .scaled(32, 32, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-                        .convertToFormat(QImage.Format_Grayscale8)
-                    )
-                elif cycle_frame == 90 and self.reference_frame:
-                    current_small = (
-                        self.current_image
-                        .scaled(32, 32, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-                        .convertToFormat(QImage.Format_Grayscale8)
-                    )
-                    # Kopiujemy bajty na wątku głównym (bezpieczny dostęp do QImage)
-                    # i przekażujemy surowe bajty do wątku tła (brak obiektów Qt)
-                    try:
-                        ref_bytes = bytes(self.reference_frame.bits())
-                        cur_bytes = bytes(current_small.bits())
-                    except Exception:
-                        ref_bytes = None
-                        cur_bytes = None
-
-                    if ref_bytes and cur_bytes and len(ref_bytes) == len(cur_bytes):
-                        def _run_diff(rb, cb):
-                            diff = self._calculate_difference_threaded(rb, cb)
-                            self.last_motion_score = diff
-                            is_dynamic = diff > 6.0
-                            QTimer.singleShot(0, lambda d=is_dynamic: self.video_type_detected.emit(d))
-                        threading.Thread(
-                            target=_run_diff,
-                            args=(ref_bytes, cur_bytes),
-                            daemon=True
-                        ).start()
-            except Exception:
-                pass
-
-    def paintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.SmoothPixmapTransform)
-        rect = self.rect()
-
-        has_current = self.current_image and not self.current_image.isNull()
-        has_snapshot = self.snapshot_image and not self.snapshot_image.isNull()
-
-        if has_current:
-            img_size = self.current_image.size()
-            scale = max(rect.width() / img_size.width(), rect.height() / img_size.height())
-            new_w = int(img_size.width() * scale)
-            new_h = int(img_size.height() * scale)
-            x = (rect.width() - new_w) // 2
-            y = (rect.height() - new_h) // 2
-            p.drawImage(QRect(x, y, new_w, new_h), self.current_image)
-
-        if has_snapshot and self._crossfade > 0:
-            p.setOpacity(self._crossfade)
-            img_size = self.snapshot_image.size()
-            scale = max(rect.width() / img_size.width(), rect.height() / img_size.height())
-            new_w = int(img_size.width() * scale)
-            new_h = int(img_size.height() * scale)
-            x = (rect.width() - new_w) // 2
-            y = (rect.height() - new_h) // 2
-            p.drawImage(QRect(x, y, new_w, new_h), self.snapshot_image)
-            p.setOpacity(1.0)
 
 class NowPlayingWidget(QFrame):
     def __init__(self):
@@ -187,8 +61,7 @@ class NowPlayingWidget(QFrame):
         self.bg_label = QLabel()
         self.bg_label.setScaledContents(True)
 
-        self.video_widget = VideoBackgroundWidget()
-        self.video_widget.video_type_detected.connect(self._on_video_type_detected)
+        self.video_widget = VideoGraphicsView(self)
 
         self.bg_layout.addWidget(self.bg_label)
         self.bg_layout.addWidget(self.video_widget)
@@ -196,21 +69,25 @@ class NowPlayingWidget(QFrame):
 
         self.overlay = QLabel(self)
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.overlay.setStyleSheet(f"background: rgba({THEME['bg_main_rgb']}, 255);")
 
         self.overlay_opacity = QGraphicsOpacityEffect(self.overlay)
         self.overlay.setGraphicsEffect(self.overlay_opacity)
         
         self.breath_anim = QPropertyAnimation(self.overlay_opacity, b"opacity")
         self.breath_anim.setDuration(2400)
-        self.breath_anim.setKeyValueAt(0.0, 1.0)
-        self.breath_anim.setKeyValueAt(0.5, 0.4)
-        self.breath_anim.setKeyValueAt(1.0, 1.0)
         self.breath_anim.setLoopCount(-1)
 
         self.breath_restore_anim = QPropertyAnimation(self.overlay_opacity, b"opacity")
         self.breath_restore_anim.setDuration(800)
-        self.breath_restore_anim.setEndValue(1.0)
         self.breath_restore_anim.setEasingCurve(QEasingCurve.OutCubic)
+
+        self.crossfade_anim = QPropertyAnimation(self.overlay_opacity, b"opacity")
+        self.crossfade_anim.setDuration(500)
+        self.crossfade_anim.setEasingCurve(QEasingCurve.InOutCubic)
+
+        self._dim_base = 0.3
+        self._crossfade_callback = None
 
         self.ui_container = QWidget(self)
         self.ui_container.setStyleSheet("background: transparent;")
@@ -314,31 +191,30 @@ class NowPlayingWidget(QFrame):
         self.ui_container.resize(self.size())
         super().resizeEvent(e)
 
-    def _on_video_type_detected(self, is_dynamic):
-        if self.is_video_dynamic != is_dynamic:
-            self.is_video_dynamic = is_dynamic
-            self.update_video_settings()
-
     def set_seek_blur(self, is_seeking):
         if not is_seeking:
             self.set_buffering_state(False)
 
     def set_buffering_state(self, is_buffering):
         if is_buffering:
+            self.crossfade_anim.stop()
             self.breath_restore_anim.stop()
             if self.breath_anim.state() != QPropertyAnimation.State.Running:
-                self.overlay_opacity.setOpacity(1.0)
+                base = self.overlay_opacity.opacity()
+                self.breath_anim.setKeyValueAt(0.0, base)
+                self.breath_anim.setKeyValueAt(0.5, base * 0.4)
+                self.breath_anim.setKeyValueAt(1.0, base)
                 self.breath_anim.start()
         else:
             self.breath_anim.stop()
             self.breath_restore_anim.stop()
             curr_op = self.overlay_opacity.opacity()
             self.breath_restore_anim.setStartValue(curr_op)
+            self.breath_restore_anim.setEndValue(self._dim_base)
             self.breath_restore_anim.start()
 
     def set_image(self, p, animate=True):
         self.is_video_dynamic = True
-        self.video_widget.prepare_snapshot()
         self.img.set_image(p, animate)
         self.raw_pixmap = p
         if not p or p.isNull():
@@ -347,18 +223,26 @@ class NowPlayingWidget(QFrame):
 
     def update_video_settings(self):
         if self.bg_layout.currentWidget() == self.video_widget:
-            if self.is_video_dynamic:
-                opacity = APP_CONFIG.get("video_dynamic_opacity", 30)
-            else:
-                opacity = APP_CONFIG.get("video_static_opacity", 80)
+            opacity = APP_CONFIG.get("video_dynamic_opacity", 30)
+            blur_val = APP_CONFIG.get("video_dynamic_blur", 0)
 
-            alpha = int((opacity / 100.0) * 255)
-            self.overlay.setStyleSheet(f"background: rgba({THEME['bg_main_rgb']}, {alpha});")
+            self._dim_base = opacity / 100.0
+            self.overlay_opacity.setOpacity(self._dim_base)
+
+            if blur_val > 0:
+                from PySide6.QtWidgets import QGraphicsBlurEffect
+                blur = QGraphicsBlurEffect()
+                blur.setBlurRadius(blur_val)
+                self.video_widget.video_item.setGraphicsEffect(blur)
+            else:
+                self.video_widget.video_item.setGraphicsEffect(None)
         else:
             opacity = APP_CONFIG.get("video_static_opacity", 80)
             blur_val = APP_CONFIG.get("video_static_blur", 60)
-            alpha = int((opacity / 100.0) * 255)
-            self.overlay.setStyleSheet(f"background: rgba({THEME['bg_main_rgb']}, {alpha});")
+
+            self._dim_base = opacity / 100.0
+            self.overlay_opacity.setOpacity(self._dim_base)
+
             if hasattr(self, 'raw_pixmap') and self.raw_pixmap and not self.raw_pixmap.isNull():
                 from utils import get_blurred_pixmap
                 blurred = get_blurred_pixmap(self.raw_pixmap, blur_val)
@@ -368,10 +252,53 @@ class NowPlayingWidget(QFrame):
         if mode == "video":
             self.bg_layout.setCurrentWidget(self.video_widget)
         else:
-            self.video_widget.clear()
             self.bg_layout.setCurrentWidget(self.bg_label)
 
         self.update_video_settings()
         self.bg_container.lower()
         self.overlay.raise_()
         self.ui_container.raise_()
+
+    def transition_to_audio(self, on_done=None):
+        self.crossfade_anim.stop()
+        self.breath_anim.stop()
+        self.breath_restore_anim.stop()
+        curr = self.overlay_opacity.opacity()
+        target = APP_CONFIG.get("video_static_opacity", 80) / 100.0
+        self.crossfade_anim.setStartValue(curr)
+        self.crossfade_anim.setEndValue(target)
+        self._crossfade_callback = on_done
+        try:
+            self.crossfade_anim.finished.disconnect()
+        except RuntimeError:
+            pass
+        self.crossfade_anim.finished.connect(self._on_crossfade_to_audio)
+        self.crossfade_anim.start()
+
+    def transition_to_video(self):
+        self.crossfade_anim.stop()
+        self.breath_anim.stop()
+        self.breath_restore_anim.stop()
+        self.bg_layout.setCurrentWidget(self.video_widget)
+        curr = self.overlay_opacity.opacity()
+        target = APP_CONFIG.get("video_dynamic_opacity", 30) / 100.0
+        self.crossfade_anim.setStartValue(curr)
+        self.crossfade_anim.setEndValue(target)
+        self._crossfade_callback = None
+        try:
+            self.crossfade_anim.finished.disconnect()
+        except RuntimeError:
+            pass
+        self.crossfade_anim.finished.connect(self._on_crossfade_to_video)
+        self.crossfade_anim.start()
+
+    def _on_crossfade_to_audio(self):
+        self.bg_layout.setCurrentWidget(self.bg_label)
+        self.update_video_settings()
+        cb = self._crossfade_callback
+        self._crossfade_callback = None
+        if cb:
+            cb()
+
+    def _on_crossfade_to_video(self):
+        self.update_video_settings()

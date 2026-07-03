@@ -300,7 +300,6 @@ class PlayerBarWidget(ClickableFrame):
     def set_video_available(self, has_video):
         self.btn_video_toggle.setEnabled(True)
         if not has_video:
-            self.btn_video_toggle.setChecked(False)
             self.btn_video_toggle.set_default_color(THEME["text_muted"])
 
     def set_video_active(self, is_active):

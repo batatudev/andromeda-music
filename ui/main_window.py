@@ -1,8 +1,6 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.9
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Degradacja main.py do czystej warstwy UI. Watchdog przeniesiony do
-# engine/watchdog.py, telemetria do core/telemetry_service.py. Logika budowania
-# okna, nawigacji i kolejki pozostaje bez zmian.
+# OPIS ZMIAN: Przekierowanie wyjścia wideo do QGraphicsVideoItem przez setVideoOutput.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -336,7 +334,7 @@ class MainWindow(QMainWindow):
                 self.pages[page_id] = s
                 self.stack.addWidget(s)
 
-        self.engine.video_player.setVideoSink(self.now_playing_view.video_widget.sink)
+        self.engine.video_player.setVideoOutput(self.now_playing_view.video_widget.video_item)
         content.addWidget(self.sidebar)
         content.addWidget(self.stack)
         root.addLayout(content)
@@ -535,7 +533,7 @@ class MainWindow(QMainWindow):
 
     def _show_video_layer(self):
         if self.player_bar.btn_video_toggle.isChecked():
-            self.now_playing_view.set_media_mode("video")
+            self.now_playing_view.transition_to_video()
 
     def _on_loading_changed(self, is_loading):
         self.player_bar.set_loading_state(is_loading)
@@ -544,10 +542,13 @@ class MainWindow(QMainWindow):
         self.player_bar.set_video_available(has_video)
         is_video = self.player_bar.btn_video_toggle.isChecked()
         if is_video:
-            self.player_bar.set_video_active(True)
             if has_video:
-                self.engine.load_and_play_video()
+                def on_fade_done():
+                    self.player_bar.set_video_active(True)
+                    self.engine.load_and_play_video()
+                self.now_playing_view.transition_to_audio(on_fade_done)
             else:
+                self.player_bar.set_video_active(False)
                 self.now_playing_view.set_media_mode("audio")
                 self.engine.video_player.stop()
         else:

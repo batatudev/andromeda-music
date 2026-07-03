@@ -1,7 +1,11 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.9
 # MODYFIKOWANY PLIK: engine/player_engine.py
-# OPIS ZMIAN: sync_timer startuje tylko gdy current_yt_link != None i wstrzymuje się
-# gdy nie ma aktywnego wideo. Eliminacja ~120 pustą wywołań timera na minutę.
+# OPIS ZMIAN: (1) Inicjalizacja _seek_grace_until w __init__.
+# (2) Usunięcie nieistniejącego w Qt6 SeekingMedia z seeking storm guard.
+# (3) Naprawa błędu logicznego Sync-Start w _on_audio_track_cached.
+# (4) Poprawa late-load w _video_status_upd.
+# (5) Ochrona przed Seeking Storm i cooldown w _sync_video.
+# (6) Zwiększenie dead band Soft-Sync z 100ms do 250ms.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -84,6 +88,7 @@ class PlayerEngine(QObject):
         self._audio_loaded_for_sync = False
         self._video_loaded_for_sync = False
         self._is_new_track_starting = False
+        self._seek_grace_until = 0
         
         self.audio_status_str = "Brak"
         self.video_status_str = "Brak"
@@ -220,10 +225,7 @@ class PlayerEngine(QObject):
             self.loading_changed.emit(False)
             if getattr(self, '_sync_start_active', False):
                 self._audio_loaded_for_sync = True
-                if not getattr(self, 'video_needs_sync_on_load', True) or self.video_player.mediaStatus() == QMediaPlayer.MediaStatus.LoadedMedia:
-                    self.sync_timeout_timer.stop()
-                    self._sync_start_active = False
-                    self.player.play()
+                self._check_sync_start()
             else:
                 self.player.play()
 
@@ -237,6 +239,15 @@ class PlayerEngine(QObject):
         if getattr(self, '_sync_start_active', False):
             return
         if not self.video_player.source().isValid():
+            return
+
+        v_status = self.video_player.mediaStatus()
+        if v_status in [QMediaPlayer.MediaStatus.BufferingMedia,
+                        QMediaPlayer.MediaStatus.LoadingMedia,
+                        QMediaPlayer.MediaStatus.StalledMedia]:
+            return
+
+        if time.time() < getattr(self, '_seek_grace_until', 0):
             return
             
         a_state = self.player.playbackState()
@@ -265,13 +276,14 @@ class PlayerEngine(QObject):
             self.sync_locked = False
         
         if abs(delta) > hard_limit:
+            self._seek_grace_until = time.time() + 1.5
             self.video_player.setPosition(a_pos)
             self.video_player.setPlaybackRate(1.0)
             from utils import logger
             logger.decision("Hard-Sync", f"Delta: {delta}ms", "Twardy reset klatki")
-        elif delta > 100:
+        elif delta > 250:
             self.video_player.setPlaybackRate(1.1)
-        elif delta < -100:
+        elif delta < -250:
             self.video_player.setPlaybackRate(0.9)
         else:
             self.video_player.setPlaybackRate(1.0)
@@ -331,8 +343,7 @@ class PlayerEngine(QObject):
             if getattr(self, '_sync_start_active', False):
                 self._video_loaded_for_sync = True
                 self._check_sync_start()
-            elif getattr(self, 'video_needs_sync_on_load', False):
-                self.video_needs_sync_on_load = False
+            else:
                 self.video_player.setPosition(self.player.position())
                 self.video_player.setPlaybackRate(1.0)
                 if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
