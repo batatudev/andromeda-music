@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.12
 # MODYFIKOWANY PLIK: ui/components/song_item.py
-# OPIS ZMIAN: Wyodrębnienie SongItem z ui_cards.py.
+# OPIS ZMIAN: Wyodrębnienie SongItem z ui_cards.py. Dodano opcję pobierania teledysków w menu kontekstowym i wskaźnik statusu offline.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -115,6 +115,12 @@ class SongItem(QFrame):
 
         layout.addLayout(v_box, 1)
 
+        # Ikonka statusu offline
+        self.dl_status_lbl = QLabel()
+        self.dl_status_lbl.setFixedSize(16, 16)
+        self.dl_status_lbl.setStyleSheet("background: transparent;")
+        layout.addWidget(self.dl_status_lbl)
+
         d = song.duration_sec
         dur_lbl = QLabel(f"{int(d//60)}:{int(d%60):02d}")
         dur_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 13px; background: transparent; margin-right: 15px;")
@@ -202,6 +208,9 @@ class SongItem(QFrame):
         
         self.set_active(active)
         self.style().polish(self)
+        
+        # Inicjalizacja ikony statusu pobierania
+        self._update_dl_status_icon()
 
     def _show_context_menu(self):
         menu = QMenu(self)
@@ -273,6 +282,10 @@ class SongItem(QFrame):
         act_artist.triggered.connect(self._on_artist_click)
         menu.addAction(act_artist)
 
+        act_dl = QAction(qta.icon('fa5s.download', color=THEME['text_main']), "Pobierz teledysk offline", self)
+        act_dl.triggered.connect(self._download_video)
+        menu.addAction(act_dl)
+
         menu.addSeparator()
         
         act_custom_cov = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własną okładkę", self)
@@ -289,6 +302,50 @@ class SongItem(QFrame):
 
         global_pos = self.btn_more.mapToGlobal(QPoint(0, self.btn_more.height()))
         menu.exec(global_pos)
+
+    def _download_video(self):
+        from PySide6.QtWidgets import QApplication
+        from utils import logger
+        yt_link = getattr(self.song, 'yt_link', None) or getattr(self.song, 'youtube_url', None)
+        if not yt_link:
+            logger.log(f"Brak linku YT dla utworu {self.song.title}")
+            return
+            
+        win = QApplication.instance().activeWindow()
+        if hasattr(win, 'engine') and hasattr(win.engine, 'video_download_manager'):
+            win.engine.video_download_manager.add_to_queue(
+                self.song.item_id,
+                yt_link,
+                self.song.title,
+                high_priority=True
+            )
+            self._update_dl_status_icon()
+        else:
+            logger.log("Nie można połączyć z Download Managerem")
+
+    def _update_dl_status_icon(self):
+        from PySide6.QtWidgets import QApplication
+        win = QApplication.instance().activeWindow()
+        if hasattr(win, 'engine') and hasattr(win.engine, 'video_download_manager'):
+            # Prosty lookup
+            mgr = win.engine.video_download_manager
+            import sqlite3
+            conn = sqlite3.connect(mgr.db_path)
+            c = conn.cursor()
+            c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
+            row = c.fetchone()
+            conn.close()
+            
+            if row:
+                st = row[0]
+                if st == "COMPLETED":
+                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-circle', color=THEME['accent']).pixmap(14, 14))
+                elif st in ["QUEUED", "DOWNLOADING"]:
+                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
+                else:
+                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.times-circle', color=THEME['text_muted']).pixmap(14, 14))
+            else:
+                self.dl_status_lbl.setPixmap(qta.icon('fa5s.film', color=THEME['border']).pixmap(14, 14))
 
     def set_active(self, is_active):
         bg = THEME['accent_rgba'] if is_active else "transparent"

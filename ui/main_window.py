@@ -1,7 +1,6 @@
-# WERSJA PROJEKTU: 14.9
-# WERSJA PROJEKTU: 14.11
+# WERSJA PROJEKTU: 14.12
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea w stronach SETTINGS, DEV_MODE i QUEUE.
+# OPIS ZMIAN: Dodano widok Menadżera Pobrań (DownloadsView) do stosu okien.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -47,6 +46,7 @@ from views.view_tracks import TracksView
 from views.view_artists import ArtistsView
 from views.view_favs import FavsView
 from views.view_details import DetailsView
+from views.view_downloads import DownloadsView
 
 try:
     from mpris_adapter import MprisService
@@ -301,6 +301,15 @@ class MainWindow(QMainWindow):
                 s.setWidget(self.dev_view)
                 self.pages[page_id] = s
                 self.stack.addWidget(s)
+            elif page_id == Pages.DOWNLOADS:
+                self.downloads_view = DownloadsView(self)
+                s = SmoothScrollArea()
+                s.setWidgetResizable(True)
+                s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                s.setStyleSheet("background: transparent; border: none;")
+                s.setWidget(self.downloads_view)
+                self.pages[page_id] = s
+                self.stack.addWidget(s)
             elif page_id == Pages.HOME:
                 self.pages[page_id] = HomeView(self)
                 self.stack.addWidget(self.pages[page_id])
@@ -437,7 +446,7 @@ class MainWindow(QMainWindow):
             self.pages[Pages.DETAILS].load(data, type_str)
         elif page_idx == Pages.QUEUE:
             self._nav_queue()
-        elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH]:
+        elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
             if not is_back:
                 self.pages[page_idx].load()
 
@@ -481,7 +490,7 @@ class MainWindow(QMainWindow):
                 self.pages[idx].load(self.current_route["data"], self.current_route["type"])
             elif idx == Pages.QUEUE:
                 self._nav_queue()
-            elif idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH]:
+            elif idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
                 self.pages[idx].load()
 
     def _handle_add_to_queue(self, data, type_str):

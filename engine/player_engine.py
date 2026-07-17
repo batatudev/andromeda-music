@@ -1,11 +1,6 @@
-# WERSJA PROJEKTU: 14.9
+# WERSJA PROJEKTU: 14.12
 # MODYFIKOWANY PLIK: engine/player_engine.py
-# OPIS ZMIAN: (1) Inicjalizacja _seek_grace_until w __init__.
-# (2) Usunięcie nieistniejącego w Qt6 SeekingMedia z seeking storm guard.
-# (3) Naprawa błędu logicznego Sync-Start w _on_audio_track_cached.
-# (4) Poprawa late-load w _video_status_upd.
-# (5) Ochrona przed Seeking Storm i cooldown w _sync_video.
-# (6) Zwiększenie dead band Soft-Sync z 100ms do 250ms.
+# OPIS ZMIAN: Wdrożenie VideoDownloadManager i logiki Smart Video Mode.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -33,6 +28,7 @@ except ImportError:
 from engine.cache_manager import CacheManager
 from engine.arf_manager import ARFManager
 from engine.yt_resolver import YTResolver
+from engine.video_download_manager import VideoDownloadManager
 
 class PlayerEngine(QObject):
     track_changed = Signal(object)
@@ -72,6 +68,7 @@ class PlayerEngine(QObject):
         self.cache_manager = CacheManager(self)
         self.arf_manager = ARFManager(self)
         self.yt_resolver = YTResolver(self)
+        self.video_download_manager = VideoDownloadManager()
 
         self.is_looping = False
         self.is_shuffled = False
@@ -299,6 +296,17 @@ class PlayerEngine(QObject):
             self.sync_timer.stop()
 
     def load_and_play_video(self, force_mid_track=False):
+        # Najpierw sprawdzamy offline
+        if self.queue and self.idx >= 0:
+            song = self.queue[self.idx]
+            offline_path = self.video_download_manager.get_video_path(song.item_id)
+            if offline_path:
+                from utils import logger
+                logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
+                self._activate_sync_timer()
+                self._on_video_resolved(offline_path)
+                return
+
         self._activate_sync_timer()
         self.yt_resolver.load_and_play_video(force_mid_track)
 
@@ -622,6 +630,13 @@ class PlayerEngine(QObject):
             self._evaluate_buffering()
             self.track_changed.emit(song)
             self.cache_manager.start_audio_download(song, is_prefetch=False)
+            
+            # Smart Video Mode logic
+            if APP_CONFIG.get("video_smart_auto_play", False):
+                offline_path = self.video_download_manager.get_video_path(song.item_id)
+                if offline_path:
+                    # Automatycznie załaduje wideo w tle, a widok na to zareaguje
+                    self.load_and_play_video()
 
     def play_pause(self):
         from PySide6.QtMultimedia import QMediaPlayer

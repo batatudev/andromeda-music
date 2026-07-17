@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.11
+# WERSJA PROJEKTU: 14.12
 # MODYFIKOWANY PLIK: view_sidebar.py
-# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea dla playlist (płynne przewijanie).
+# OPIS ZMIAN: Dodano przycisk Menadżera Pobrań.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -116,6 +116,12 @@ class SidebarWidget(QFrame):
         self.btn_dev.setVisible(dev_mode)
         side_l.addWidget(self.btn_dev)
 
+        self.btn_downloads = HoverIconButton('fa5s.download', hover_color=THEME["text_main"])
+        self.btn_downloads.setText("  Pobrane")
+        self.btn_downloads.setProperty("isMenu", "true")
+        self.btn_downloads.clicked.connect(lambda: self.page_requested.emit(Pages.DOWNLOADS))
+        side_l.addWidget(self.btn_downloads)
+
         self.btn_settings = HoverIconButton('fa5s.cog', hover_color=THEME["text_main"])
         self.btn_settings.setText("  Ustawienia")
         self.btn_settings.setProperty("isMenu", "true")
@@ -189,6 +195,8 @@ class SidebarWidget(QFrame):
             self.btn_settings.setToolTip("Ustawienia")
             self.btn_dev.setText("")
             self.btn_dev.setToolTip("Dev mode")
+            self.btn_downloads.setText("")
+            self.btn_downloads.setToolTip("Pobrane")
             for btn in self.nav_btns.values():
                 btn.setToolTip(btn.text().strip())
                 btn.setText("")
@@ -203,6 +211,8 @@ class SidebarWidget(QFrame):
             self.lbl_pl.show()
             self.btn_settings.setText("  Ustawienia")
             self.btn_settings.setToolTip("")
+            self.btn_downloads.setText("  Pobrane")
+            self.btn_downloads.setToolTip("")
             self.btn_dev.setText("  Dev mode")
             self.btn_dev.setToolTip("")
             names = {Pages.HOME: "Główna", Pages.SEARCH: "Szukaj", Pages.TRACKS: "Utwory", Pages.ALBUMS: "Albumy", Pages.ARTISTS: "Artyści", Pages.FAVS: "Ulubione"}
@@ -232,6 +242,12 @@ class SidebarWidget(QFrame):
         self.btn_dev.style().polish(self.btn_dev)
         if hasattr(self.btn_dev, 'set_default_color'):
             self.btn_dev.set_default_color(THEME["accent"] if is_dev_active else THEME["text_muted"])
+
+        is_dl_active = (active_idx == Pages.DOWNLOADS)
+        self.btn_downloads.setProperty("active", str(is_dl_active).lower())
+        self.btn_downloads.style().polish(self.btn_downloads)
+        if hasattr(self.btn_downloads, 'set_default_color'):
+            self.btn_downloads.set_default_color(THEME["accent"] if is_dl_active else THEME["text_muted"])
 
         for i in range(self.playlist_layout.count()):
             w = self.playlist_layout.itemAt(i).widget()
