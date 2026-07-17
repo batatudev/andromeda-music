@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.13
 # MODYFIKOWANY PLIK: view_settings.py
-# OPIS ZMIAN: Poszerzenie szerokości etykiet (do 190px) dla poprawnej czytelności opcji ARF. Usunięcie natychmiastowego restartu wideo po zapisaniu ustawień (zmiana rozdzielczości zadziała na następnym utworze).
+# OPIS ZMIAN: Dodano nową zakładkę w ustawieniach ("Ustawienia Pobrań Offline") obsługującą opcje video_smart_auto_play i video_offline_quality.
 
 import os
 import sys
@@ -55,7 +55,9 @@ class SettingsView(QWidget):
             "video_dynamic_blur": APP_CONFIG["video_dynamic_blur"],
             "video_static_opacity": APP_CONFIG["video_static_opacity"],
             "video_static_blur": APP_CONFIG["video_static_blur"],
-            "dev_mode": APP_CONFIG.get("dev_mode", False)
+            "dev_mode": APP_CONFIG.get("dev_mode", False),
+            "video_offline_quality": APP_CONFIG.get("video_offline_quality", "1080p"),
+            "video_smart_auto_play": APP_CONFIG.get("video_smart_auto_play", False)
         }
 
         self._clear(self.main_layout)
@@ -307,6 +309,55 @@ class SettingsView(QWidget):
         video_layout.addLayout(save_v_lay)
 
         center_lay.addWidget(video_group)
+
+        offline_group = QFrame()
+        offline_group.setObjectName("SettingsCard")
+        offline_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
+        offline_layout = QVBoxLayout(offline_group)
+
+        lbl_o_title = QLabel("Ustawienia Pobrań Offline")
+        lbl_o_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
+        offline_layout.addWidget(lbl_o_title)
+
+        self.combo_smart_auto = QComboBox()
+        self.combo_smart_auto.addItems(["Wyłączone (Wymaga kliknięcia teledysku)", "Włączone (Automatycznie załaduj offline)"])
+        self.combo_smart_auto.setCurrentIndex(1 if APP_CONFIG.get("video_smart_auto_play", False) else 0)
+        self.combo_smart_auto.setStyleSheet(input_style)
+        self.combo_smart_auto.setFixedWidth(350)
+        add_row(offline_layout, "Autoodtwarzanie:", self.combo_smart_auto)
+
+        self.combo_off_quality = QComboBox()
+        self.combo_off_quality.addItems(["1080p", "720p", "480p", "240p"])
+        self.combo_off_quality.setCurrentText(APP_CONFIG.get("video_offline_quality", "1080p"))
+        self.combo_off_quality.setStyleSheet(input_style)
+        self.combo_off_quality.setFixedWidth(350)
+        add_row(offline_layout, "Jakość wideo (offline):", self.combo_off_quality)
+
+        btn_save_offline = QPushButton("Zapisz Ustawienia Offline")
+        btn_save_offline.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_save_offline.setCursor(Qt.PointingHandCursor)
+        
+        self.lbl_o_status = QLabel("")
+        self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent;")
+
+        def _save_o_conf():
+            APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
+            APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
+            save_config()
+            self._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
+            self._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
+            self.lbl_o_status.setText("Zapisano pomyślnie")
+            QTimer.singleShot(3000, lambda: self.lbl_o_status.setText(""))
+
+        btn_save_offline.clicked.connect(_save_o_conf)
+
+        save_o_lay = QHBoxLayout()
+        save_o_lay.addStretch()
+        save_o_lay.addWidget(self.lbl_o_status)
+        save_o_lay.addWidget(btn_save_offline)
+        offline_layout.addLayout(save_o_lay)
+
+        center_lay.addWidget(offline_group)
 
         dev_group = QFrame()
         dev_group.setObjectName("SettingsCard")

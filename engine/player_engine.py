@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.12
+# WERSJA PROJEKTU: 14.13
 # MODYFIKOWANY PLIK: engine/player_engine.py
-# OPIS ZMIAN: Wdrożenie VideoDownloadManager i logiki Smart Video Mode.
+# OPIS ZMIAN: Poprawka adresacji lokalnej ścieżki (QUrl.fromLocalFile) dla wideo offline.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -302,9 +302,10 @@ class PlayerEngine(QObject):
             offline_path = self.video_download_manager.get_video_path(song.item_id)
             if offline_path:
                 from utils import logger
+                from PySide6.QtCore import QUrl
                 logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
                 self._activate_sync_timer()
-                self._on_video_resolved(offline_path)
+                self._on_video_resolved(QUrl.fromLocalFile(offline_path).toString())
                 return
 
         self._activate_sync_timer()
