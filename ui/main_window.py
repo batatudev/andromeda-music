@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.15
+# WERSJA PROJEKTU: 14.16
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Globalny sygnał offline_status_changed dla aktualizacji ikon w SongItem. Poprawka logiki Smart Auto-play dla plików bez yt_link.
+# OPIS ZMIAN: Usunięcie race condition w Smart Auto-play. load_and_play_video() wywoływane natychmiastowo, bez zależności od animacji.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -557,37 +557,32 @@ class MainWindow(QMainWindow):
     def _on_has_video(self, has_video):
         self.player_bar.set_video_available(has_video)
         
-        # Sprawdz również czy jest plik offline (nawet gdy has_video = False bo brak yt_link)
+        # Sprawdz czy jest plik offline (nawet gdy has_video=False bo brak yt_link)
         if self.engine.queue and self.engine.idx >= 0:
             song = self.engine.queue[self.engine.idx]
             offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
             
             if offline_path:
-                # Jest plik offline - możemy odtworzyć wideo
+                # Jest plik offline - wideo jest dostępne lokalnie
                 if not has_video:
-                    # Informuj UI że wideo jest dostępne (lokalnie), mimo braku yt_link
                     self.player_bar.set_video_available(True)
                 
                 if APP_CONFIG.get("video_smart_auto_play", False):
-                    # Automatycznie przełącz przycisk na aktywny (bez wyzwalania sygnału)
+                    # Auto-play włączone: ustaw przycisk i ZAŁADUJ NATYCHMIAST
+                    # (bez callbacku animacji - to eliminuje race condition z _sync_start_active)
                     if not self.player_bar.btn_video_toggle.isChecked():
                         self.player_bar.btn_video_toggle.blockSignals(True)
                         self.player_bar.btn_video_toggle.setChecked(True)
                         self.player_bar.btn_video_toggle.blockSignals(False)
-                    # Zaladuj i odegraj wideo z dysku
                     self.player_bar.set_video_active(True)
-                    def on_fade_offline():
-                        self.engine.load_and_play_video()
-                    self.now_playing_view.transition_to_audio(on_fade_offline)
-                    return  # Koniec - nie wpadamy w dalszą logikę
+                    self.engine.load_and_play_video()
+                    # UI przejście do wideo obsłuży video_ready_to_show → _show_video_layer()
+                    return
                 else:
-                    # Auto-play wylączone - wyświetl dostępność ale nie włączaj
-                    # Jeśli przycisk jest już aktywny, załaduj wideo ręcznie
+                    # Auto-play wyłączone, ale przycisk już aktywny (użytkownik włączył ręcznie)
                     if self.player_bar.btn_video_toggle.isChecked():
                         self.player_bar.set_video_active(True)
-                        def on_fade_manual():
-                            self.engine.load_and_play_video()
-                        self.now_playing_view.transition_to_audio(on_fade_manual)
+                        self.engine.load_and_play_video()
                         return
 
         is_video = self.player_bar.btn_video_toggle.isChecked()
