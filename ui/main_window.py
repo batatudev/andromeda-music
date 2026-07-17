@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.16
+# WERSJA PROJEKTU: 14.17
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Usunięcie race condition w Smart Auto-play. load_and_play_video() wywoływane natychmiastowo, bez zależności od animacji.
+# OPIS ZMIAN: Poprawna logika Smart Auto-play (niezależna od stanu przycisku), poprawka _show_video_layer i _toggle_video_mode (offline first).
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -548,7 +548,15 @@ class MainWindow(QMainWindow):
                 self._show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
 
     def _show_video_layer(self):
-        if self.player_bar.btn_video_toggle.isChecked():
+        # Pokaż wideo jeśli: (1) tryb teledysku aktywny przez użytkownika,
+        # LUB (2) auto-play włączony i istnieje plik offline dla aktualnego utworu
+        should_show = self.player_bar.btn_video_toggle.isChecked()
+        if not should_show and APP_CONFIG.get("video_smart_auto_play", False):
+            if self.engine.queue and self.engine.idx >= 0:
+                song = self.engine.queue[self.engine.idx]
+                if self.engine.video_download_manager.get_video_path(song.item_id):
+                    should_show = True
+        if should_show:
             self.now_playing_view.transition_to_video()
 
     def _on_loading_changed(self, is_loading):
@@ -556,35 +564,32 @@ class MainWindow(QMainWindow):
 
     def _on_has_video(self, has_video):
         self.player_bar.set_video_available(has_video)
-        
+
         # Sprawdz czy jest plik offline (nawet gdy has_video=False bo brak yt_link)
         if self.engine.queue and self.engine.idx >= 0:
             song = self.engine.queue[self.engine.idx]
             offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
-            
+
             if offline_path:
-                # Jest plik offline - wideo jest dostępne lokalnie
                 if not has_video:
+                    # Informuj pasek że wideo jest lokalnie dostępne
                     self.player_bar.set_video_available(True)
-                
+
                 if APP_CONFIG.get("video_smart_auto_play", False):
-                    # Auto-play włączone: ustaw przycisk i ZAŁADUJ NATYCHMIAST
-                    # (bez callbacku animacji - to eliminuje race condition z _sync_start_active)
-                    if not self.player_bar.btn_video_toggle.isChecked():
-                        self.player_bar.btn_video_toggle.blockSignals(True)
-                        self.player_bar.btn_video_toggle.setChecked(True)
-                        self.player_bar.btn_video_toggle.blockSignals(False)
-                    self.player_bar.set_video_active(True)
+                    # Auto-play WŁĄCZONE: graj wideo NIEZALEŻNIE od stanu przycisku.
+                    # Nie zmieniamy stanu przycisku - to narzędzie użytkownika.
                     self.engine.load_and_play_video()
-                    # UI przejście do wideo obsłuży video_ready_to_show → _show_video_layer()
                     return
                 else:
-                    # Auto-play wyłączone, ale przycisk już aktywny (użytkownik włączył ręcznie)
+                    # Auto-play WYŁĄCZONE: graj tylko gdy przycisk użytkownika jest aktywny
                     if self.player_bar.btn_video_toggle.isChecked():
                         self.player_bar.set_video_active(True)
                         self.engine.load_and_play_video()
                         return
+                    # Przycisk nieaktywny - nic nie robimy, czekamy na akcję użytkownika
+                    return
 
+        # Standardowa ścieżka streamingu (brak pliku offline)
         is_video = self.player_bar.btn_video_toggle.isChecked()
         if is_video:
             if has_video:
@@ -601,10 +606,19 @@ class MainWindow(QMainWindow):
             self.now_playing_view.set_media_mode("audio")
             self.engine.video_player.stop()
 
+
     def _toggle_video_mode(self):
         is_video = self.player_bar.btn_video_toggle.isChecked()
         self.player_bar.set_video_active(is_video)
         if is_video:
+            # Najpierw sprawdz czy jest plik offline
+            if self.engine.queue and self.engine.idx >= 0:
+                song = self.engine.queue[self.engine.idx]
+                offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
+                if offline_path:
+                    self.engine.load_and_play_video(force_mid_track=True)
+                    return
+            # Brak pliku offline - użyj streamingu na żywo
             if self.engine.current_yt_link:
                 self.engine.load_and_play_video(force_mid_track=True)
             else:

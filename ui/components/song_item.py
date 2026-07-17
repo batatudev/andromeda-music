@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.15
+# WERSJA PROJEKTU: 14.17
 # MODYFIKOWANY PLIK: ui/components/song_item.py
-# OPIS ZMIAN: Podłączenie do globalnego sygnału offline_status_changed z MainWindow. Dynamiczna aktualizacja ikony statusu pobierania.
+# OPIS ZMIAN: Naprawa wyszukiwania MainWindow przez topLevelWidgets() zamiast activeWindow(). Naprawia pobieranie z kolejki.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -215,10 +215,18 @@ class SongItem(QFrame):
         # Podpięcie do globalnego sygnału aktualizacji statusu offline
         self._connect_offline_signal()
 
+    @staticmethod
+    def _find_main_window():
+        """Niezawodne wyszukiwanie MainWindow przez pełną listę okien."""
+        from PySide6.QtWidgets import QApplication
+        for w in QApplication.instance().topLevelWidgets():
+            if hasattr(w, 'engine') and hasattr(w.engine, 'video_download_manager'):
+                return w
+        return None
+
     def _connect_offline_signal(self):
         """Podpina się do sygnału offline_status_changed z MainWindow."""
-        from PySide6.QtWidgets import QApplication
-        win = QApplication.instance().activeWindow()
+        win = self._find_main_window()
         if win and hasattr(win, 'offline_status_changed'):
             win.offline_status_changed.connect(self._on_offline_status_updated)
 
@@ -319,15 +327,14 @@ class SongItem(QFrame):
         menu.exec(global_pos)
 
     def _download_video(self):
-        from PySide6.QtWidgets import QApplication
         from utils import logger
         yt_link = getattr(self.song, 'yt_link', None) or getattr(self.song, 'youtube_url', None)
         if not yt_link:
             logger.log(f"Brak linku YT dla utworu {self.song.title}")
             return
-            
-        win = QApplication.instance().activeWindow()
-        if hasattr(win, 'engine') and hasattr(win.engine, 'video_download_manager'):
+
+        win = self._find_main_window()
+        if win:
             win.engine.video_download_manager.add_to_queue(
                 self.song.item_id,
                 yt_link,
@@ -339,8 +346,7 @@ class SongItem(QFrame):
             logger.log("Nie można połączyć z Download Managerem")
 
     def _update_dl_status_icon(self):
-        from PySide6.QtWidgets import QApplication
-        win = QApplication.instance().activeWindow()
+        win = self._find_main_window()
         if hasattr(win, 'engine') and hasattr(win.engine, 'video_download_manager'):
             # Prosty lookup
             mgr = win.engine.video_download_manager
