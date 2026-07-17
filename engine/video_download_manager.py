@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.12
+# WERSJA PROJEKTU: 14.14
 # MODYFIKOWANY PLIK: engine/video_download_manager.py
-# OPIS ZMIAN: Nowy moduł: Menadżer Pobierania Wideo Offline (V2) z obsługą SQLite i yt-dlp.
+# OPIS ZMIAN: Wymuszenie kodeka AVC1 (H.264) dla pobieranych plików. AV1 powodowało czarny ekran w QMediaPlayer.
 
 import os
 import time
@@ -236,9 +236,9 @@ class VideoDownloadManager(QObject):
         if quality_str == "720p": h_limit = 720
         elif quality_str == "480p": h_limit = 480
         
-        # Pobieramy SAM OBRAZ lub połączony format bez narzutu na postprocessing audio
+        # Pobieramy SAM OBRAZ lub połączony format bez narzutu na postprocessing audio (wymuszamy H.264!)
         ydl_opts = {
-            'format': f'bestvideo[height<={h_limit}][ext=mp4]/best[height<={h_limit}][ext=mp4]/best',
+            'format': f'bestvideo[height<={h_limit}][vcodec^=avc1][ext=mp4]/best[height<={h_limit}][vcodec^=avc1][ext=mp4]/best',
             'outtmpl': output_template,
             'quiet': True,
             'nocheckcertificate': True,

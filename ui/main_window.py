@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.12
+# WERSJA PROJEKTU: 14.14
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Dodano widok Menadżera Pobrań (DownloadsView) do stosu okien.
+# OPIS ZMIAN: Zmiana logiki Smart Auto-play (automatyczne aktywowanie przycisku wideo i UI).
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -550,6 +550,17 @@ class MainWindow(QMainWindow):
 
     def _on_has_video(self, has_video):
         self.player_bar.set_video_available(has_video)
+        
+        if APP_CONFIG.get("video_smart_auto_play", False) and has_video:
+            if self.engine.queue and self.engine.idx >= 0:
+                song = self.engine.queue[self.engine.idx]
+                offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
+                if offline_path:
+                    if not self.player_bar.btn_video_toggle.isChecked():
+                        self.player_bar.btn_video_toggle.blockSignals(True)
+                        self.player_bar.btn_video_toggle.setChecked(True)
+                        self.player_bar.btn_video_toggle.blockSignals(False)
+
         is_video = self.player_bar.btn_video_toggle.isChecked()
         if is_video:
             if has_video:

@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.13
+# WERSJA PROJEKTU: 14.14
 # MODYFIKOWANY PLIK: engine/player_engine.py
-# OPIS ZMIAN: Poprawka adresacji lokalnej ścieżki (QUrl.fromLocalFile) dla wideo offline.
+# OPIS ZMIAN: Ujednolicenie logiki _sync_start_active dla plików lokalnych, usunięcie duplikatu wywołania Smart Auto Play.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -305,6 +305,18 @@ class PlayerEngine(QObject):
                 from PySide6.QtCore import QUrl
                 logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
                 self._activate_sync_timer()
+                
+                if force_mid_track:
+                    self._sync_start_active = False
+                    self.video_needs_sync_on_load = True
+                elif getattr(self, '_is_new_track_starting', False):
+                    self._sync_start_active = True
+                    self._is_new_track_starting = False
+                    self.video_needs_sync_on_load = False
+                    self.sync_timeout_timer.start(6000)
+                else:
+                    self.video_needs_sync_on_load = True
+
                 self._on_video_resolved(QUrl.fromLocalFile(offline_path).toString())
                 return
 
@@ -632,12 +644,7 @@ class PlayerEngine(QObject):
             self.track_changed.emit(song)
             self.cache_manager.start_audio_download(song, is_prefetch=False)
             
-            # Smart Video Mode logic
-            if APP_CONFIG.get("video_smart_auto_play", False):
-                offline_path = self.video_download_manager.get_video_path(song.item_id)
-                if offline_path:
-                    # Automatycznie załaduje wideo w tle, a widok na to zareaguje
-                    self.load_and_play_video()
+            # Smart Video Mode obsługiwany jest teraz w głównym widoku (UI), co eliminuje podwójne zlecenia odtwarzania.
 
     def play_pause(self):
         from PySide6.QtMultimedia import QMediaPlayer
