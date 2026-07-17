@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.12
+# WERSJA PROJEKTU: 14.15
 # MODYFIKOWANY PLIK: ui/components/song_item.py
-# OPIS ZMIAN: Wyodrębnienie SongItem z ui_cards.py. Dodano opcję pobierania teledysków w menu kontekstowym i wskaźnik statusu offline.
+# OPIS ZMIAN: Podłączenie do globalnego sygnału offline_status_changed z MainWindow. Dynamiczna aktualizacja ikony statusu pobierania.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -211,6 +211,21 @@ class SongItem(QFrame):
         
         # Inicjalizacja ikony statusu pobierania
         self._update_dl_status_icon()
+        
+        # Podpięcie do globalnego sygnału aktualizacji statusu offline
+        self._connect_offline_signal()
+
+    def _connect_offline_signal(self):
+        """Podpina się do sygnału offline_status_changed z MainWindow."""
+        from PySide6.QtWidgets import QApplication
+        win = QApplication.instance().activeWindow()
+        if win and hasattr(win, 'offline_status_changed'):
+            win.offline_status_changed.connect(self._on_offline_status_updated)
+
+    def _on_offline_status_updated(self, item_id, status):
+        """Wywoływane gdy status pobierania zmienił się globalnie."""
+        if item_id == self.song.item_id:
+            self._update_dl_status_icon()
 
     def _show_context_menu(self):
         menu = QMenu(self)

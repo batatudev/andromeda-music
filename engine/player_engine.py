@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.14
+# WERSJA PROJEKTU: 14.15
 # MODYFIKOWANY PLIK: engine/player_engine.py
-# OPIS ZMIAN: Ujednolicenie logiki _sync_start_active dla plików lokalnych, usunięcie duplikatu wywołania Smart Auto Play.
+# OPIS ZMIAN: Emisja has_video_signal(True) dla plików offline bez yt_link. Gwarancja uruchomienia ścieżki Smart Auto-play.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -637,7 +637,12 @@ class PlayerEngine(QObject):
             else:
                 self.current_yt_link = None
                 self._deactivate_sync_timer()
-                self.has_video_signal.emit(False)
+                # Sprawdz czy mamy plik offline - jeśli tak, wideo nadal jest dostępne
+                offline_path = self.video_download_manager.get_video_path(song.item_id)
+                if offline_path:
+                    self.has_video_signal.emit(True)
+                else:
+                    self.has_video_signal.emit(False)
                 
             self.audio_status_str = "Pobieranie do cache..."
             self._evaluate_buffering()

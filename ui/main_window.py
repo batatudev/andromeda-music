@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.14
+# WERSJA PROJEKTU: 14.15
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Zmiana logiki Smart Auto-play (automatyczne aktywowanie przycisku wideo i UI).
+# OPIS ZMIAN: Globalny sygnał offline_status_changed dla aktualizacji ikon w SongItem. Poprawka logiki Smart Auto-play dla plików bez yt_link.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -58,6 +58,7 @@ except ImportError:
 class MainWindow(QMainWindow):
     async_signal = Signal(object, object, object)
     fav_updated = Signal(str, bool)
+    offline_status_changed = Signal(str, str)  # item_id, status - broadcast do SongItem
 
     def __init__(self, client):
         super().__init__()
@@ -91,6 +92,11 @@ class MainWindow(QMainWindow):
         self.engine.queue_cleared.connect(self._on_queue_cleared)
         self.engine.video_ready_to_show.connect(self._show_video_layer)
         self.engine.loading_changed.connect(self._on_loading_changed)
+
+        # Broadcast statusu pobierania do wszystkich aktywnych SongItem
+        self.engine.video_download_manager.download_status_changed.connect(
+            lambda item_id, status: self.offline_status_changed.emit(item_id, status)
+        )
 
         self.engine.loop_mode_changed.connect(self._on_loop_mode_changed)
         self.engine.shuffle_mode_changed.connect(self._on_shuffle_mode_changed)
@@ -551,15 +557,38 @@ class MainWindow(QMainWindow):
     def _on_has_video(self, has_video):
         self.player_bar.set_video_available(has_video)
         
-        if APP_CONFIG.get("video_smart_auto_play", False) and has_video:
-            if self.engine.queue and self.engine.idx >= 0:
-                song = self.engine.queue[self.engine.idx]
-                offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
-                if offline_path:
+        # Sprawdz również czy jest plik offline (nawet gdy has_video = False bo brak yt_link)
+        if self.engine.queue and self.engine.idx >= 0:
+            song = self.engine.queue[self.engine.idx]
+            offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
+            
+            if offline_path:
+                # Jest plik offline - możemy odtworzyć wideo
+                if not has_video:
+                    # Informuj UI że wideo jest dostępne (lokalnie), mimo braku yt_link
+                    self.player_bar.set_video_available(True)
+                
+                if APP_CONFIG.get("video_smart_auto_play", False):
+                    # Automatycznie przełącz przycisk na aktywny (bez wyzwalania sygnału)
                     if not self.player_bar.btn_video_toggle.isChecked():
                         self.player_bar.btn_video_toggle.blockSignals(True)
                         self.player_bar.btn_video_toggle.setChecked(True)
                         self.player_bar.btn_video_toggle.blockSignals(False)
+                    # Zaladuj i odegraj wideo z dysku
+                    self.player_bar.set_video_active(True)
+                    def on_fade_offline():
+                        self.engine.load_and_play_video()
+                    self.now_playing_view.transition_to_audio(on_fade_offline)
+                    return  # Koniec - nie wpadamy w dalszą logikę
+                else:
+                    # Auto-play wylączone - wyświetl dostępność ale nie włączaj
+                    # Jeśli przycisk jest już aktywny, załaduj wideo ręcznie
+                    if self.player_bar.btn_video_toggle.isChecked():
+                        self.player_bar.set_video_active(True)
+                        def on_fade_manual():
+                            self.engine.load_and_play_video()
+                        self.now_playing_view.transition_to_audio(on_fade_manual)
+                        return
 
         is_video = self.player_bar.btn_video_toggle.isChecked()
         if is_video:
