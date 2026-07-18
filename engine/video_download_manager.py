@@ -162,6 +162,14 @@ class VideoDownloadManager(QObject):
         if not HAS_YTDLP or not items_list:
             return
             
+        # Deduplikacja (jeśli playlista ma ten sam utwór kilka razy)
+        unique_items = []
+        seen_ids = set()
+        for it in items_list:
+            if it[0] not in seen_ids:
+                unique_items.append(it)
+                seen_ids.add(it[0])
+            
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -175,7 +183,7 @@ class VideoDownloadManager(QObject):
         added_at = int(time.time())
         quality = APP_CONFIG.get("video_offline_quality", "1080p")
         
-        for item in items_list:
+        for item in unique_items:
             item_id, yt_link, title, cover_id = item
             if not yt_link:
                 continue
@@ -196,7 +204,7 @@ class VideoDownloadManager(QObject):
                 added_count += 1
                 
         if inserts:
-            cursor.executemany("INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", inserts)
+            cursor.executemany("INSERT OR IGNORE INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", inserts)
         if updates:
             cursor.executemany("UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = ? WHERE item_id = ?", updates)
             
@@ -205,7 +213,7 @@ class VideoDownloadManager(QObject):
         
         if added_count > 0:
             priority = 1 if high_priority else 10
-            for item in items_list:
+            for item in unique_items:
                 item_id, yt_link, title, _ = item
                 status_info = existing_status.get(item_id)
                 if yt_link and (not status_info or status_info[0] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]):
