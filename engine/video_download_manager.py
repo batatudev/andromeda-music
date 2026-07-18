@@ -166,8 +166,8 @@ class VideoDownloadManager(QObject):
         cursor = conn.cursor()
         
         # Pobieramy obecne statusy
-        cursor.execute("SELECT item_id, status FROM downloads")
-        existing_status = {row[0]: row[1] for row in cursor.fetchall()}
+        cursor.execute("SELECT item_id, status, is_hidden FROM downloads")
+        existing_status = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
         
         inserts = []
         updates = []
@@ -180,9 +180,13 @@ class VideoDownloadManager(QObject):
             if not yt_link:
                 continue
                 
-            status = existing_status.get(item_id)
-            if status:
+            status_info = existing_status.get(item_id)
+            if status_info:
+                status, is_hidden = status_info
                 if status in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
+                    if is_hidden:
+                        updates.append((status, yt_link, title, cover_id, 0, item_id))
+                        added_count += 1
                     continue # Już pobrane lub pobiera
                 else:
                     updates.append((DownloadStatus.QUEUED, yt_link, title, cover_id, 0, item_id))
@@ -203,7 +207,8 @@ class VideoDownloadManager(QObject):
             priority = 1 if high_priority else 10
             for item in items_list:
                 item_id, yt_link, title, _ = item
-                if yt_link and (item_id not in existing_status or existing_status[item_id] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]):
+                status_info = existing_status.get(item_id)
+                if yt_link and (not status_info or status_info[0] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]):
                     self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
                     self.download_status_changed.emit(item_id, DownloadStatus.QUEUED)
             self.queue_updated.emit()
