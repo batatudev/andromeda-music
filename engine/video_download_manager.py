@@ -313,6 +313,16 @@ class VideoDownloadManager(QObject):
         conn.close()
         return rows
 
+    def get_total_download_stats(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*), SUM(file_size) FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
+        row = cursor.fetchone()
+        conn.close()
+        count = row[0] if row and row[0] else 0
+        total_size = row[1] if row and row[1] else 0
+        return count, total_size
+
     def _worker_loop(self):
         while True:
             if self.is_snoozed:

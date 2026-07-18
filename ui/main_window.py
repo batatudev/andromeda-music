@@ -171,7 +171,9 @@ class MainWindow(QMainWindow):
             pl_ids = APP_CONFIG.get("video_auto_dl_playlists", [])
             for pid in pl_ids:
                 try:
-                    res = self.client._make_request("getPlaylist", {"id": pid})
+                    params = self.client._get_auth_params()
+                    params["id"] = pid
+                    res = self.client._make_request("getPlaylist", params)
                     pl_data = res.get("playlist", {})
                     entry = pl_data.get("entry", [])
                     from core.media_item import MediaItem
@@ -571,7 +573,9 @@ class MainWindow(QMainWindow):
             if bulk_type == "favorites":
                 songs = self.client.get_starred(1000) # Pobierz max 1000 ulubionych
             elif bulk_type == "playlist":
-                res = self.client._make_request("getPlaylist", {"id": target_id})
+                params = self.client._get_auth_params()
+                params["id"] = target_id
+                res = self.client._make_request("getPlaylist", params)
                 entry = res.get("playlist", {}).get("entry", [])
                 from core.media_item import MediaItem
                 songs = [MediaItem(s) for s in entry]

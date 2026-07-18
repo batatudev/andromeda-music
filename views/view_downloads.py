@@ -1,17 +1,64 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: views/view_downloads.py
 # OPIS ZMIAN: Naprawiono ładowanie okładek - używamy item_id jako fallback dla cover_id (Navidrome getCoverArt akceptuje song_id).
+# OPIS ZMIAN: Naprawiono ładowanie okładek - używamy item_id jako fallback dla cover_id (Navidrome getCoverArt akceptuje song_id). Dodano CollapsibleSection i przebudowano UI menadżera.
 
 import os
 os.environ["QT_API"] = "pyside6"
 
 import qtawesome as qta
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QScrollArea, QFrame, QProgressBar, QMenu, QToolButton, QMessageBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
+    QPushButton, QFrame, QToolButton, QMenu, QMessageBox, QProgressBar
 )
-from PySide6.QtCore import Qt, Signal
-from config import THEME
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QIcon, QPixmap
+from config import THEME, APP_CONFIG
+
+class CollapsibleSection(QWidget):
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(5)
+
+        self.btn_toggle = QPushButton(title)
+        self.btn_toggle.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                font-size: 16px;
+                font-weight: bold;
+                text-align: left;
+                padding: 10px;
+                border-radius: 6px;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['hover_card']};
+            }}
+        """)
+        self.btn_toggle.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle.clicked.connect(self.toggle)
+        self.layout.addWidget(self.btn_toggle)
+
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(10, 5, 10, 15)
+        self.content_layout.setSpacing(10)
+        self.layout.addWidget(self.content_widget)
+
+    def toggle(self):
+        self.content_widget.setVisible(not self.content_widget.isVisible())
+        
+    def addWidget(self, w):
+        self.content_layout.addWidget(w)
+        
+    def clear(self):
+        while self.content_layout.count():
+            i = self.content_layout.takeAt(0)
+            if i.widget():
+                i.widget().deleteLater()
+
 from ui.widgets import HoverIconButton, RoundedImage
 from utils import AsyncImageLoader
 
@@ -152,28 +199,43 @@ class DownloadsView(QWidget):
         header_lay.addLayout(title_lay)
         header_lay.addStretch()
 
-        # Przycisk "Akcje masowe"
-        self.btn_bulk = QToolButton()
-        self.btn_bulk.setText("Akcje masowe")
-        self.btn_bulk.setPopupMode(QToolButton.InstantPopup)
-        self.btn_bulk.setCursor(Qt.PointingHandCursor)
-        self.btn_bulk.setStyleSheet(f"""
+        # Przyciski główne zamiast jednego "Akcje masowe"
+        button_style = f"""
+            QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }}
+            QPushButton:hover {{ background-color: {THEME['hover_card']}; }}
+        """
+        
+        self.btn_dl_fav = QPushButton("Pobierz Ulubione")
+        self.btn_dl_fav.setStyleSheet(button_style)
+        self.btn_dl_fav.setCursor(Qt.PointingHandCursor)
+        self.btn_dl_fav.clicked.connect(lambda: self._start_bulk("favorites"))
+        header_lay.addWidget(self.btn_dl_fav)
+        
+        self.btn_dl_pl = QPushButton("Pobierz z Playlisty...")
+        self.btn_dl_pl.setStyleSheet(button_style)
+        self.btn_dl_pl.setCursor(Qt.PointingHandCursor)
+        self.btn_dl_pl.clicked.connect(self._show_playlist_picker)
+        header_lay.addWidget(self.btn_dl_pl)
+        
+        # Przycisk "Zarządzaj" (jako dropdown)
+        self.btn_manage = QToolButton()
+        self.btn_manage.setText("Zarządzaj")
+        self.btn_manage.setPopupMode(QToolButton.InstantPopup)
+        self.btn_manage.setCursor(Qt.PointingHandCursor)
+        self.btn_manage.setStyleSheet(f"""
             QToolButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }}
             QToolButton:hover {{ background-color: {THEME['hover_card']}; }}
             QToolButton::menu-indicator {{ image: none; }}
         """)
-        bulk_menu = QMenu(self)
-        bulk_menu.setStyleSheet(self._menu_style())
-        bulk_menu.addAction("Pobierz Ulubione", lambda: self._start_bulk("favorites"))
-        bulk_menu.addAction("Pobierz z Playlisty...", self._show_playlist_picker)
-        bulk_menu.addSeparator()
-        bulk_menu.addAction("Pobierz Wszystkie (cała baza)", lambda: self._start_bulk("all"))
-        bulk_menu.addSeparator()
-        bulk_menu.addAction("Wyczyść historię (ukryj zakończone/błędy)", lambda: self.mgr.clear_history())
-        bulk_menu.addAction("Anuluj oczekujące pobierania", lambda: self.mgr.cancel_all())
-        bulk_menu.addAction("Usuń wszystkie pobrane teledyski", lambda: self.mgr.delete_all_files())
-        self.btn_bulk.setMenu(bulk_menu)
-        header_lay.addWidget(self.btn_bulk)
+        manage_menu = QMenu(self)
+        manage_menu.setStyleSheet(self._menu_style())
+        manage_menu.addAction("Pobierz Wszystkie (cała baza)", lambda: self._start_bulk("all"))
+        manage_menu.addSeparator()
+        manage_menu.addAction("Wyczyść historię (ukryj zakończone/błędy)", lambda: self.mgr.clear_history())
+        manage_menu.addAction("Anuluj oczekujące pobierania", lambda: self.mgr.cancel_all())
+        manage_menu.addAction("Usuń wszystkie pobrane teledyski", lambda: self.mgr.delete_all_files())
+        self.btn_manage.setMenu(manage_menu)
+        header_lay.addWidget(self.btn_manage)
 
         # Przycisk wstrzymania
         self.btn_snooze = QToolButton()
@@ -205,8 +267,15 @@ class DownloadsView(QWidget):
 
         # Kontener na listę
         self.items_layout = QVBoxLayout()
-        self.items_layout.setSpacing(10)
+        self.items_layout.setSpacing(20)
         self.items_layout.setAlignment(Qt.AlignTop)
+        
+        self.pending_section = CollapsibleSection("Oczekujące i Pobierane")
+        self.completed_section = CollapsibleSection("Zakończone i Błędy")
+        
+        self.items_layout.addWidget(self.pending_section)
+        self.items_layout.addWidget(self.completed_section)
+        
         layout.addLayout(self.items_layout)
         layout.addStretch()
 
@@ -296,22 +365,31 @@ class DownloadsView(QWidget):
         # Ładowanie z bazy
         rows = self.mgr.get_all_downloads()
         
-        # Oczyść układ (bardzo proste odświeżanie, w przyszłości do zrobienia diff)
-        while self.items_layout.count():
-            i = self.items_layout.takeAt(0)
-            if i.widget():
-                i.widget().deleteLater()
+        self.pending_section.clear()
+        self.completed_section.clear()
         self.item_widgets.clear()
+        
+        total_dls, total_size_dls = self.mgr.get_total_download_stats()
+
+        if total_size_dls > 1024 * 1024 * 1024:
+            gb = total_size_dls / (1024 * 1024 * 1024)
+            self.total_size_lbl.setText(f"Pobranych: {total_dls} | Zajęte miejsce: {gb:.2f} GB")
+        elif total_size_dls > 0:
+            mb = total_size_dls / (1024 * 1024)
+            self.total_size_lbl.setText(f"Pobranych: {total_dls} | Zajęte miejsce: {mb:.1f} MB")
+        else:
+            self.total_size_lbl.setText("Pobranych: 0 | Zajęte miejsce: 0 MB")
 
         if not rows:
             self.stats_lbl.setText("Kolejka: 0 | Pobrane: 0 | Błędy: 0")
-            self.total_size_lbl.setText("Zajęte miejsce: 0 MB")
-            lbl = QLabel("Brak zadań w kolejce. Kliknij prawym przyciskiem na utwór, aby pobrać teledysk.")
-            lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
-            self.items_layout.addWidget(lbl)
+            lbl1 = QLabel("Brak elementów.")
+            lbl1.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
+            self.pending_section.addWidget(lbl1)
+            lbl2 = QLabel("Brak elementów.")
+            lbl2.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
+            self.completed_section.addWidget(lbl2)
             return
 
-        total_bytes = 0
         c_queued = 0
         c_completed = 0
         c_errors = 0
@@ -322,11 +400,7 @@ class DownloadsView(QWidget):
         for r in rows:
             # item_id, title, status, cover_id, resolution, file_size
             status = r[2]
-            file_size = r[5] if len(r) > 5 else None
             
-            if status == "COMPLETED" and file_size:
-                total_bytes += file_size
-                
             if status in ["QUEUED", "DOWNLOADING"]:
                 c_queued += 1
                 pending_list.append(r)
@@ -337,17 +411,18 @@ class DownloadsView(QWidget):
                 c_errors += 1
                 completed_list.append(r)
                 
-        self.stats_lbl.setText(f"Kolejka: {c_queued} | Pobrane: {c_completed} | Błędy: {c_errors}")
+        self.stats_lbl.setText(f"Kolejka: {c_queued} | Pobrane w sesji: {c_completed} | Błędy: {c_errors}")
         
-        # Sortowanie pending: DOWNLOADING pierwsze, reszta FIFO (najstarsze pierwsze, a default query ma DESC, więc odwracamy na ASC)
+        # Sortowanie pending: DOWNLOADING pierwsze, reszta FIFO (najstarsze pierwsze)
         pending_list.reverse() # teraz są chronologicznie
         pending_list.sort(key=lambda x: 0 if x[2] == "DOWNLOADING" else 1)
         
-        def render_section(title, row_list):
-            if not row_list: return
-            lbl = QLabel(title)
-            lbl.setStyleSheet(f"color: {THEME['text_main']}; font-size: 18px; font-weight: bold; margin-top: 15px; margin-bottom: 5px;")
-            self.items_layout.addWidget(lbl)
+        def render_section(sec, row_list):
+            if not row_list:
+                lbl = QLabel("Brak elementów.")
+                lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
+                sec.addWidget(lbl)
+                return
             for r in row_list:
                 item_id, title_str, status, cover_id, resolution, file_size = r[0], r[1], r[2], r[3] if len(r)>3 else None, r[4] if len(r)>4 else None, r[5] if len(r)>5 else None
                 w = DownloadItemWidget(item_id, title_str, status, cover_id, resolution, file_size)
@@ -356,21 +431,11 @@ class DownloadsView(QWidget):
                     url = self.main_window.client.get_cover_art_url(art_id)
                     self.main_window.loader.load(url, w.img)
                 w.btn_remove.clicked.connect(lambda ch, i_id=item_id: self.mgr.remove_download(i_id))
-                self.items_layout.addWidget(w)
+                sec.addWidget(w)
                 self.item_widgets[item_id] = w
 
-        render_section("Oczekujące i Pobierane", pending_list)
-        render_section("Zakończone i Błędy", completed_list)
-            
-        if total_bytes > 0:
-            if total_bytes > 1024 * 1024 * 1024:
-                gb = total_bytes / (1024 * 1024 * 1024)
-                self.total_size_lbl.setText(f"Zajęte miejsce: {gb:.2f} GB")
-            else:
-                mb = total_bytes / (1024 * 1024)
-                self.total_size_lbl.setText(f"Zajęte miejsce: {mb:.1f} MB")
-        else:
-            self.total_size_lbl.setText("Zajęte miejsce: 0 MB")
+        render_section(self.pending_section, pending_list)
+        render_section(self.completed_section, completed_list)
 
     def _on_status_changed(self, item_id, status):
         if item_id in self.item_widgets:
