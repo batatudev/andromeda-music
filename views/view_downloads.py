@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.18
+# WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: views/view_downloads.py
-# OPIS ZMIAN: UI menadżera: okładki, menu zaawansowanego wstrzymywania, akcje masowe, łączny rozmiar plików i rozdzielczość na kartach.
+# OPIS ZMIAN: Naprawiono ładowanie okładek - używamy item_id jako fallback dla cover_id (Navidrome getCoverArt akceptuje song_id).
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -253,8 +253,11 @@ class DownloadsView(QWidget):
                 total_bytes += file_size
                 
             w = DownloadItemWidget(item_id, title, status, cover_id, resolution, file_size)
-            if cover_id:
-                url = self.main_window.client.get_cover_art_url(cover_id)
+            # Fallback: jeśli cover_id jest puste, użyj item_id
+            # Navidrome getCoverArt akceptuje ID piosenki bezpośrednio
+            art_id = cover_id if cover_id else item_id
+            if art_id:
+                url = self.main_window.client.get_cover_art_url(art_id)
                 self.main_window.loader.load(url, w.img)
             w.btn_remove.clicked.connect(lambda ch, i_id=item_id: self.mgr.remove_download(i_id))
             self.items_layout.addWidget(w)
