@@ -103,6 +103,9 @@ class MainWindow(QMainWindow):
 
         self._is_fetching = False
         self.current_page_task_id = 0
+
+        # Odpalenie w tle synchronizacji pobrań po starcie (z opóźnieniem)
+        QTimer.singleShot(5000, self._sync_auto_downloads)
         self.sidebar_collapsed = False
         self.manual_sidebar_override = False
         self._seek_grace_until = 0
@@ -157,6 +160,38 @@ class MainWindow(QMainWindow):
         self.current_route = None
         self._load_playlists()
         self._navigate(Pages.HOME)
+
+    def _sync_auto_downloads(self):
+        """Uruchamia się w tle, pobiera z Navidrome ulubione/playlisty i dodaje brakujące do kolejki."""
+        def fetch():
+            songs_to_dl = []
+            if APP_CONFIG.get("video_auto_dl_favs", False):
+                songs_to_dl.extend(self.client.get_starred(1000))
+                
+            pl_ids = APP_CONFIG.get("video_auto_dl_playlists", [])
+            for pid in pl_ids:
+                try:
+                    res = self.client._make_request("getPlaylist", {"id": pid})
+                    pl_data = res.get("playlist", {})
+                    entry = pl_data.get("entry", [])
+                    from core.media_item import MediaItem
+                    songs_to_dl.extend([MediaItem(s) for s in entry])
+                except Exception as e:
+                    logger.error(f"Auto-sync playlist {pid} failed: {e}")
+                    
+            return songs_to_dl
+            
+        def on_ready(songs):
+            if not songs: return
+            valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
+            for s in valid_songs:
+                link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
+                if link:
+                    self.engine.video_download_manager.add_to_queue(
+                        s.item_id, link, s.title, high_priority=False, cover_id=s.cover_id
+                    )
+                    
+        self.run_async(fetch, on_ready, page_bound=False)
 
     def _handle_song_fav(self, song, new_state):
         song_id = song.item_id
@@ -529,15 +564,15 @@ class MainWindow(QMainWindow):
         if self._is_fetching:
             return
 
-        # Dla playlist - najpierw wybierz playlistę (uproszczone obejście)
-        if bulk_type == "playlists":
-            QMessageBox.information(self, "Wkrótce", "Pobieranie playlist zostanie dodane w następnej łatce.")
-            return
-
         def fetch():
             songs = []
             if bulk_type == "favorites":
                 songs = self.client.get_starred(1000) # Pobierz max 1000 ulubionych
+            elif bulk_type == "playlist":
+                res = self.client._make_request("getPlaylist", {"id": target_id})
+                entry = res.get("playlist", {}).get("entry", [])
+                from core.media_item import MediaItem
+                songs = [MediaItem(s) for s in entry]
             elif bulk_type == "album":
                 songs = self.client.get_album(target_id).get('song', [])
             elif bulk_type == "artist":

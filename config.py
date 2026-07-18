@@ -36,10 +36,11 @@ APP_CONFIG = {
     "video_dynamic_blur": 0,
     "video_static_opacity": 80,
     "video_static_blur": 60,
-    "dev_mode": False,
     "video_offline_path": "~/.cache/navidrome-player-video-offline",
     "video_offline_quality": "1080p",
-    "video_smart_auto_play": False
+    "video_smart_auto_play": False,
+    "video_auto_dl_favs": False,
+    "video_auto_dl_playlists": []
 }
 
 def load_config():
@@ -62,10 +63,12 @@ def load_config():
         APP_CONFIG["video_dynamic_blur"] = cfg["Video"].getint("dynamic_blur", fallback=0)
         APP_CONFIG["video_static_opacity"] = cfg["Video"].getint("static_opacity", fallback=80)
         APP_CONFIG["video_static_blur"] = cfg["Video"].getint("static_blur", fallback=60)
-    if "VideoOffline" in cfg:
         APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback="~/.cache/navidrome-player-video-offline")
         APP_CONFIG["video_offline_quality"] = cfg["VideoOffline"].get("quality", fallback="1080p")
         APP_CONFIG["video_smart_auto_play"] = cfg["VideoOffline"].getboolean("smart_auto_play", fallback=False)
+        APP_CONFIG["video_auto_dl_favs"] = cfg["VideoOffline"].getboolean("auto_dl_favs", fallback=False)
+        dl_pl = cfg["VideoOffline"].get("auto_dl_playlists", fallback="")
+        APP_CONFIG["video_auto_dl_playlists"] = [p.strip() for p in dl_pl.split(",") if p.strip()]
 
 def save_config():
     cfg = configparser.ConfigParser()
@@ -92,7 +95,9 @@ def save_config():
     cfg["VideoOffline"] = {
         "path": APP_CONFIG.get("video_offline_path", "~/.cache/navidrome-player-video-offline"),
         "quality": APP_CONFIG.get("video_offline_quality", "1080p"),
-        "smart_auto_play": str(APP_CONFIG.get("video_smart_auto_play", False))
+        "smart_auto_play": str(APP_CONFIG.get("video_smart_auto_play", False)),
+        "auto_dl_favs": str(APP_CONFIG.get("video_auto_dl_favs", False)),
+        "auto_dl_playlists": ",".join(APP_CONFIG.get("video_auto_dl_playlists", []))
     }
     with open("config.ini", "w") as f:
         cfg.write(f)

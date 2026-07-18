@@ -156,7 +156,7 @@ class DownloadsView(QWidget):
         bulk_menu = QMenu(self)
         bulk_menu.setStyleSheet(self._menu_style())
         bulk_menu.addAction("Pobierz Ulubione", lambda: self._start_bulk("favorites"))
-        bulk_menu.addAction("Pobierz Wybrane Playlisty", lambda: self._start_bulk("playlists"))
+        bulk_menu.addAction("Pobierz z Playlisty...", self._show_playlist_picker)
         bulk_menu.addSeparator()
         bulk_menu.addAction("Pobierz Wszystkie (cała baza)", lambda: self._start_bulk("all"))
         self.btn_bulk.setMenu(bulk_menu)
@@ -214,11 +214,54 @@ class DownloadsView(QWidget):
         """
 
     def _start_bulk(self, bulk_type):
-        # Tymczasowy alert - pełna implementacja za moment
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Akcje masowe")
-        msg.setText(f"Opcja {bulk_type} będzie dostępna po wdrożeniu logiki liczenia.")
-        msg.exec()
+        self.main_window.start_bulk_download(bulk_type)
+
+    def _show_playlist_picker(self):
+        def fetch():
+            params = self.main_window.client._get_auth_params()
+            res = self.main_window.client._make_request("getPlaylists", params)
+            return res.get('playlists', {}).get('playlist', [])
+
+        def on_ready(playlists):
+            from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QScrollArea, QWidget, QPushButton
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Wybierz playlistę do pobrania")
+            dlg.setFixedSize(320, 450)
+            from config import get_app_style
+            dlg.setStyleSheet(get_app_style())
+            layout = QVBoxLayout(dlg)
+
+            lbl = QLabel("Wybierz playlistę:")
+            lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {THEME['text_main']}; margin-bottom: 10px;")
+            layout.addWidget(lbl)
+
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setStyleSheet("background: transparent; border: none;")
+            content = QWidget()
+            v = QVBoxLayout(content)
+            v.setContentsMargins(0, 0, 0, 0)
+            v.setSpacing(5)
+
+            for pl in playlists:
+                btn = QPushButton(pl.get('name'))
+                btn.setStyleSheet(f"text-align: left; padding: 10px; border-radius: 5px; background: {THEME['bg_card']}; color: {THEME['text_main']}; border: none;")
+                btn.setCursor(Qt.PointingHandCursor)
+                def make_cb(pid, pname):
+                    return lambda: self._start_pl_bulk(dlg, pid, pname)
+                btn.clicked.connect(make_cb(pl.get('id'), pl.get('name')))
+                v.addWidget(btn)
+
+            v.addStretch()
+            scroll.setWidget(content)
+            layout.addWidget(scroll)
+
+            dlg.exec()
+        self.main_window.run_async(fetch, on_ready)
+        
+    def _start_pl_bulk(self, dlg, pid, pname):
+        dlg.accept()
+        self.main_window.start_bulk_download('playlist', pid, pname)
 
     def load(self, *args, **kwargs):
         # Aktualizacja przycisku snooze
