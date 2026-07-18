@@ -165,6 +165,11 @@ class MainWindow(QMainWindow):
         self.run_async(lambda: self.client.star_track(song_id, new_state))
         self.fav_updated.emit(song_id, new_state)
 
+        if new_state and APP_CONFIG.get("video_auto_dl_favs", False):
+            link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+            if link:
+                self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+
     def _on_fav_updated(self, song_id, is_fav):
         for q_song in self.engine.queue:
             if q_song.item_id == song_id:
@@ -905,6 +910,12 @@ class MainWindow(QMainWindow):
                         p['name'] = name
                         p['songId'] = [song.item_id]
                         self.client._make_request("createPlaylist", p)
+                        
+                        if APP_CONFIG.get("video_auto_dl_playlists", False):
+                            link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+                            if link:
+                                self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+                                
                     self.run_async(task, lambda r: self._load_playlists())
 
             btn_new_pl.clicked.connect(create_pl)
@@ -939,7 +950,13 @@ class MainWindow(QMainWindow):
 
             def select_pl(pid):
                 dlg.accept()
-                self.run_async(lambda: self.client.update_playlist(pid, song_id_to_add=song.item_id))
+                def task():
+                    self.client.update_playlist(pid, song_id_to_add=song.item_id)
+                    if APP_CONFIG.get("video_auto_dl_playlists", False):
+                        link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+                        if link:
+                            self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+                self.run_async(task)
 
             dlg.exec()
         self.run_async(fetch, on_ready)

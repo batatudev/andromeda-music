@@ -57,7 +57,9 @@ class SettingsView(QWidget):
             "video_static_blur": APP_CONFIG["video_static_blur"],
             "dev_mode": APP_CONFIG.get("dev_mode", False),
             "video_offline_quality": APP_CONFIG.get("video_offline_quality", "1080p"),
-            "video_smart_auto_play": APP_CONFIG.get("video_smart_auto_play", False)
+            "video_smart_auto_play": APP_CONFIG.get("video_smart_auto_play", False),
+            "video_auto_dl_favs": APP_CONFIG.get("video_auto_dl_favs", False),
+            "video_auto_dl_playlists": APP_CONFIG.get("video_auto_dl_playlists", False)
         }
 
         self._clear(self.main_layout)
@@ -333,6 +335,20 @@ class SettingsView(QWidget):
         self.combo_off_quality.setFixedWidth(350)
         add_row(offline_layout, "Jakość wideo (offline):", self.combo_off_quality)
 
+        self.combo_auto_favs = QComboBox()
+        self.combo_auto_favs.addItems(["Wyłączone", "Włączone (pobieraj przy polubieniu)"])
+        self.combo_auto_favs.setCurrentIndex(1 if APP_CONFIG.get("video_auto_dl_favs", False) else 0)
+        self.combo_auto_favs.setStyleSheet(input_style)
+        self.combo_auto_favs.setFixedWidth(350)
+        add_row(offline_layout, "Auto-pobieranie (Ulubione):", self.combo_auto_favs)
+
+        self.combo_auto_pl = QComboBox()
+        self.combo_auto_pl.addItems(["Wyłączone", "Włączone (przy dodaniu do dowolnej playlisty)"])
+        self.combo_auto_pl.setCurrentIndex(1 if APP_CONFIG.get("video_auto_dl_playlists", False) else 0)
+        self.combo_auto_pl.setStyleSheet(input_style)
+        self.combo_auto_pl.setFixedWidth(350)
+        add_row(offline_layout, "Auto-pobieranie (Playlisty):", self.combo_auto_pl)
+
         btn_save_offline = QPushButton("Zapisz Ustawienia Offline")
         btn_save_offline.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
         btn_save_offline.setCursor(Qt.PointingHandCursor)
@@ -343,9 +359,15 @@ class SettingsView(QWidget):
         def _save_o_conf():
             APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
             APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
+            APP_CONFIG["video_auto_dl_favs"] = (self.combo_auto_favs.currentIndex() == 1)
+            APP_CONFIG["video_auto_dl_playlists"] = (self.combo_auto_pl.currentIndex() == 1)
+            
             save_config()
             self._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
             self._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
+            self._initial_settings["video_auto_dl_favs"] = APP_CONFIG["video_auto_dl_favs"]
+            self._initial_settings["video_auto_dl_playlists"] = APP_CONFIG["video_auto_dl_playlists"]
+            
             self.lbl_o_status.setText("Zapisano pomyślnie")
             QTimer.singleShot(3000, lambda: self.lbl_o_status.setText(""))
 

@@ -29,8 +29,6 @@ class DownloadItemWidget(QFrame):
         # Okładka
         self.img = RoundedImage(size=50, radius=8)
         self.img.setFixedSize(50, 50)
-        if cover_id:
-            AsyncImageLoader.load_image(cover_id, self.img.set_image)
         layout.addWidget(self.img)
 
         # Info
@@ -255,6 +253,9 @@ class DownloadsView(QWidget):
                 total_bytes += file_size
                 
             w = DownloadItemWidget(item_id, title, status, cover_id, resolution, file_size)
+            if cover_id:
+                url = self.main_window.client.get_cover_art_url(cover_id)
+                self.main_window.loader.load(url, w.img)
             w.btn_remove.clicked.connect(lambda ch, i_id=item_id: self.mgr.remove_download(i_id))
             self.items_layout.addWidget(w)
             self.item_widgets[item_id] = w
