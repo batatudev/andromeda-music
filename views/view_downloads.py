@@ -271,10 +271,12 @@ class DownloadsView(QWidget):
         self.items_layout.setAlignment(Qt.AlignTop)
         
         self.pending_section = CollapsibleSection("Oczekujące i Pobierane")
-        self.completed_section = CollapsibleSection("Zakończone i Błędy")
+        self.completed_section = CollapsibleSection("Pobrane")
+        self.error_section = CollapsibleSection("Błędy pobierania")
         
         self.items_layout.addWidget(self.pending_section)
         self.items_layout.addWidget(self.completed_section)
+        self.items_layout.addWidget(self.error_section)
         
         layout.addLayout(self.items_layout)
         layout.addStretch()
@@ -367,6 +369,7 @@ class DownloadsView(QWidget):
         
         self.pending_section.clear()
         self.completed_section.clear()
+        self.error_section.clear()
         self.item_widgets.clear()
         
         total_dls, total_size_dls = self.mgr.get_total_download_stats()
@@ -382,12 +385,13 @@ class DownloadsView(QWidget):
 
         if not rows:
             self.stats_lbl.setText("Kolejka: 0 | Pobrane: 0 | Błędy: 0")
-            lbl1 = QLabel("Brak elementów.")
-            lbl1.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
-            self.pending_section.addWidget(lbl1)
-            lbl2 = QLabel("Brak elementów.")
-            lbl2.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
-            self.completed_section.addWidget(lbl2)
+            def set_empty(sec):
+                lbl = QLabel("Brak elementów.")
+                lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
+                sec.addWidget(lbl)
+            set_empty(self.pending_section)
+            set_empty(self.completed_section)
+            set_empty(self.error_section)
             return
 
         c_queued = 0
@@ -396,6 +400,7 @@ class DownloadsView(QWidget):
         
         pending_list = []
         completed_list = []
+        error_list = []
 
         for r in rows:
             # item_id, title, status, cover_id, resolution, file_size
@@ -409,7 +414,7 @@ class DownloadsView(QWidget):
                 completed_list.append(r)
             elif status == "ERROR":
                 c_errors += 1
-                completed_list.append(r)
+                error_list.append(r)
                 
         self.stats_lbl.setText(f"Kolejka: {c_queued} | Pobrane w sesji: {c_completed} | Błędy: {c_errors}")
         
@@ -436,6 +441,7 @@ class DownloadsView(QWidget):
 
         render_section(self.pending_section, pending_list)
         render_section(self.completed_section, completed_list)
+        render_section(self.error_section, error_list)
 
     def _on_status_changed(self, item_id, status):
         if item_id in self.item_widgets:

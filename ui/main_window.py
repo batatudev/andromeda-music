@@ -176,7 +176,7 @@ class MainWindow(QMainWindow):
                     res = self.client._make_request("getPlaylist", params)
                     pl_data = res.get("playlist", {})
                     entry = pl_data.get("entry", [])
-                    from core.media_item import MediaItem
+                    from utils import MediaItem
                     songs_to_dl.extend([MediaItem(s) for s in entry])
                 except Exception as e:
                     logger.error(f"Auto-sync playlist {pid} failed: {e}")
@@ -577,8 +577,9 @@ class MainWindow(QMainWindow):
                 params["id"] = target_id
                 res = self.client._make_request("getPlaylist", params)
                 entry = res.get("playlist", {}).get("entry", [])
-                from core.media_item import MediaItem
+                from utils import MediaItem
                 songs = [MediaItem(s) for s in entry]
+                print("PLAYLIST FETCH:", target_id, res)
             elif bulk_type == "album":
                 songs = self.client.get_album(target_id).get('song', [])
             elif bulk_type == "artist":
