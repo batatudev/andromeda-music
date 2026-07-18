@@ -138,8 +138,17 @@ class DownloadsView(QWidget):
         self.total_size_lbl = QLabel("Zajęte miejsce: 0 MB")
         self.total_size_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_muted']};")
         
+        self.stats_lbl = QLabel("Kolejka: 0 | Pobrane: 0 | Błędy: 0")
+        self.stats_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_main']}; font-weight: bold;")
+        
         title_lay.addWidget(title_lbl)
-        title_lay.addWidget(self.total_size_lbl)
+        
+        info_lay = QHBoxLayout()
+        info_lay.addWidget(self.total_size_lbl)
+        info_lay.addSpacing(20)
+        info_lay.addWidget(self.stats_lbl)
+        
+        title_lay.addLayout(info_lay)
         header_lay.addLayout(title_lay)
         header_lay.addStretch()
 
@@ -159,6 +168,10 @@ class DownloadsView(QWidget):
         bulk_menu.addAction("Pobierz z Playlisty...", self._show_playlist_picker)
         bulk_menu.addSeparator()
         bulk_menu.addAction("Pobierz Wszystkie (cała baza)", lambda: self._start_bulk("all"))
+        bulk_menu.addSeparator()
+        bulk_menu.addAction("Wyczyść historię (ukryj zakończone/błędy)", lambda: self.mgr.clear_history())
+        bulk_menu.addAction("Anuluj oczekujące pobierania", lambda: self.mgr.cancel_all())
+        bulk_menu.addAction("Usuń wszystkie pobrane teledyski", lambda: self.mgr.delete_all_files())
         self.btn_bulk.setMenu(bulk_menu)
         header_lay.addWidget(self.btn_bulk)
 
@@ -291,35 +304,63 @@ class DownloadsView(QWidget):
         self.item_widgets.clear()
 
         if not rows:
+            self.stats_lbl.setText("Kolejka: 0 | Pobrane: 0 | Błędy: 0")
+            self.total_size_lbl.setText("Zajęte miejsce: 0 MB")
             lbl = QLabel("Brak zadań w kolejce. Kliknij prawym przyciskiem na utwór, aby pobrać teledysk.")
             lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
             self.items_layout.addWidget(lbl)
             return
 
         total_bytes = 0
+        c_queued = 0
+        c_completed = 0
+        c_errors = 0
+        
+        pending_list = []
+        completed_list = []
 
         for r in rows:
             # item_id, title, status, cover_id, resolution, file_size
-            item_id = r[0]
-            title = r[1]
             status = r[2]
-            cover_id = r[3] if len(r) > 3 else None
-            resolution = r[4] if len(r) > 4 else None
             file_size = r[5] if len(r) > 5 else None
             
             if status == "COMPLETED" and file_size:
                 total_bytes += file_size
                 
-            w = DownloadItemWidget(item_id, title, status, cover_id, resolution, file_size)
-            # Fallback: jeśli cover_id jest puste, użyj item_id
-            # Navidrome getCoverArt akceptuje ID piosenki bezpośrednio
-            art_id = cover_id if cover_id else item_id
-            if art_id:
-                url = self.main_window.client.get_cover_art_url(art_id)
-                self.main_window.loader.load(url, w.img)
-            w.btn_remove.clicked.connect(lambda ch, i_id=item_id: self.mgr.remove_download(i_id))
-            self.items_layout.addWidget(w)
-            self.item_widgets[item_id] = w
+            if status in ["QUEUED", "DOWNLOADING"]:
+                c_queued += 1
+                pending_list.append(r)
+            elif status in ["COMPLETED"]:
+                c_completed += 1
+                completed_list.append(r)
+            elif status == "ERROR":
+                c_errors += 1
+                completed_list.append(r)
+                
+        self.stats_lbl.setText(f"Kolejka: {c_queued} | Pobrane: {c_completed} | Błędy: {c_errors}")
+        
+        # Sortowanie pending: DOWNLOADING pierwsze, reszta FIFO (najstarsze pierwsze, a default query ma DESC, więc odwracamy na ASC)
+        pending_list.reverse() # teraz są chronologicznie
+        pending_list.sort(key=lambda x: 0 if x[2] == "DOWNLOADING" else 1)
+        
+        def render_section(title, row_list):
+            if not row_list: return
+            lbl = QLabel(title)
+            lbl.setStyleSheet(f"color: {THEME['text_main']}; font-size: 18px; font-weight: bold; margin-top: 15px; margin-bottom: 5px;")
+            self.items_layout.addWidget(lbl)
+            for r in row_list:
+                item_id, title_str, status, cover_id, resolution, file_size = r[0], r[1], r[2], r[3] if len(r)>3 else None, r[4] if len(r)>4 else None, r[5] if len(r)>5 else None
+                w = DownloadItemWidget(item_id, title_str, status, cover_id, resolution, file_size)
+                art_id = cover_id if cover_id else item_id
+                if art_id:
+                    url = self.main_window.client.get_cover_art_url(art_id)
+                    self.main_window.loader.load(url, w.img)
+                w.btn_remove.clicked.connect(lambda ch, i_id=item_id: self.mgr.remove_download(i_id))
+                self.items_layout.addWidget(w)
+                self.item_widgets[item_id] = w
+
+        render_section("Oczekujące i Pobierane", pending_list)
+        render_section("Zakończone i Błędy", completed_list)
             
         if total_bytes > 0:
             if total_bytes > 1024 * 1024 * 1024:

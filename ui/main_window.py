@@ -184,12 +184,14 @@ class MainWindow(QMainWindow):
         def on_ready(songs):
             if not songs: return
             valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
+            items_to_add = []
             for s in valid_songs:
                 link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
                 if link:
-                    self.engine.video_download_manager.add_to_queue(
-                        s.item_id, link, s.title, high_priority=False, cover_id=s.cover_id
-                    )
+                    items_to_add.append((s.item_id, link, s.title, s.cover_id))
+            
+            if items_to_add:
+                self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
                     
         self.run_async(fetch, on_ready, page_bound=False)
 
@@ -609,13 +611,15 @@ class MainWindow(QMainWindow):
             ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
             
             if ans == QMessageBox.Yes:
+                items_to_add = []
                 for s in valid_songs:
                     link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
                     if link:
-                        self.engine.video_download_manager.add_to_queue(
-                            s.item_id, link, s.title, high_priority=False, cover_id=s.cover_id
-                        )
-                QMessageBox.information(self, "Rozpoczęto", "Zadania zostały dodane do kolejki pobierania.")
+                        items_to_add.append((s.item_id, link, s.title, s.cover_id))
+                
+                if items_to_add:
+                    self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
+                QMessageBox.information(self, "Rozpoczęto", f"Zadania ({len(items_to_add)}) zostały dodane do kolejki pobierania.")
 
         self.run_async(fetch, on_ready, page_bound=False)
 

@@ -86,6 +86,11 @@ class VideoDownloadManager(QObject):
         except sqlite3.OperationalError:
             pass
             
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN is_hidden INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+            
         # Reset unfinished downloads to QUEUED
         cursor.execute("UPDATE downloads SET status = ? WHERE status = ?", (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING))
         conn.commit()
@@ -147,9 +152,61 @@ class VideoDownloadManager(QObject):
         conn.close()
         
         priority = 1 if high_priority else 10
-        self.download_queue.put((priority, time.time(), item_id, yt_link, title))
+        # Dodajemy mikrosekundy do timestampa aby uniknąć kolizji i zapewnić FIFO
+        self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
         self.download_status_changed.emit(item_id, DownloadStatus.QUEUED)
         self.queue_updated.emit()
+
+    def add_to_queue_bulk(self, items_list, high_priority=False):
+        """Hurtowe dodawanie do kolejki. items_list = [(item_id, yt_link, title, cover_id), ...]"""
+        if not HAS_YTDLP or not items_list:
+            return
+            
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Pobieramy obecne statusy
+        cursor.execute("SELECT item_id, status FROM downloads")
+        existing_status = {row[0]: row[1] for row in cursor.fetchall()}
+        
+        inserts = []
+        updates = []
+        added_count = 0
+        added_at = int(time.time())
+        quality = APP_CONFIG.get("video_offline_quality", "1080p")
+        
+        for item in items_list:
+            item_id, yt_link, title, cover_id = item
+            if not yt_link:
+                continue
+                
+            status = existing_status.get(item_id)
+            if status:
+                if status in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
+                    continue # Już pobrane lub pobiera
+                else:
+                    updates.append((DownloadStatus.QUEUED, yt_link, title, cover_id, 0, item_id))
+                    added_count += 1
+            else:
+                inserts.append((item_id, title, yt_link, DownloadStatus.QUEUED, quality, added_at, cover_id, 0))
+                added_count += 1
+                
+        if inserts:
+            cursor.executemany("INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", inserts)
+        if updates:
+            cursor.executemany("UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = ? WHERE item_id = ?", updates)
+            
+        conn.commit()
+        conn.close()
+        
+        if added_count > 0:
+            priority = 1 if high_priority else 10
+            for item in items_list:
+                item_id, yt_link, title, _ = item
+                if yt_link and (item_id not in existing_status or existing_status[item_id] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]):
+                    self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
+                    self.download_status_changed.emit(item_id, DownloadStatus.QUEUED)
+            self.queue_updated.emit()
 
     def remove_download(self, item_id):
         # Usuwa z bazy i kasuje plik
@@ -171,6 +228,50 @@ class VideoDownloadManager(QObject):
             
         conn.close()
         self.download_status_changed.emit(item_id, "")
+        self.queue_updated.emit()
+
+    def clear_history(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE downloads SET is_hidden = 1 WHERE status IN (?, ?)", (DownloadStatus.COMPLETED, DownloadStatus.ERROR))
+        conn.commit()
+        conn.close()
+        self.queue_updated.emit()
+        
+    def cancel_all(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM downloads WHERE status = ?", (DownloadStatus.QUEUED,))
+        if self.current_download_task:
+            self.cancel_current_event.set()
+        conn.commit()
+        conn.close()
+        
+        # Czyścimy kolejkę z queue.PriorityQueue (po prostu wyciągamy wszystko)
+        while not self.download_queue.empty():
+            try:
+                self.download_queue.get_nowait()
+                self.download_queue.task_done()
+            except queue.Empty:
+                break
+                
+        self.queue_updated.emit()
+        
+    def delete_all_files(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT file_path FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
+        rows = cursor.fetchall()
+        
+        for row in rows:
+            fp = row[0]
+            if fp and os.path.exists(fp):
+                try: os.remove(fp)
+                except OSError: pass
+                
+        cursor.execute("DELETE FROM downloads WHERE status IN (?, ?)", (DownloadStatus.COMPLETED, DownloadStatus.ERROR))
+        conn.commit()
+        conn.close()
         self.queue_updated.emit()
 
     def set_snooze(self, hours):
@@ -206,7 +307,8 @@ class VideoDownloadManager(QObject):
     def get_all_downloads(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads ORDER BY added_at DESC")
+        # Pobieraj tylko nieukryte utwory, w starszych bazach is_hidden może być null
+        cursor.execute("SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC")
         rows = cursor.fetchall()
         conn.close()
         return rows
