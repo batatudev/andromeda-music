@@ -24,15 +24,18 @@ class DownloadItemWidget(QFrame):
         self.setFixedHeight(70)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(15, 10, 15, 10)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(14)
 
         # Okładka
-        self.img = RoundedImage(size=50, radius=8)
+        self.img = RoundedImage(size=50, radius=6)
         self.img.setFixedSize(50, 50)
         layout.addWidget(self.img)
 
         # Info
         info_lay = QVBoxLayout()
+        info_lay.setSpacing(3)
+        info_lay.setContentsMargins(0, 0, 0, 0)
         self.title_lbl = QLabel(title)
         self.title_lbl.setStyleSheet(f"font-weight: bold; font-size: 14px; color: {THEME['text_main']}; background: transparent;")
         
@@ -40,7 +43,7 @@ class DownloadItemWidget(QFrame):
         status_text = self._translate_status(status)
         if status == "COMPLETED" and file_size:
             sz_mb = file_size / (1024 * 1024)
-            res_str = resolution if resolution else "1080p"
+            res_str = self._parse_resolution(resolution)
             status_text += f" • {res_str} • {sz_mb:.1f} MB"
             
         self.status_lbl = QLabel(status_text)
@@ -85,6 +88,18 @@ class DownloadItemWidget(QFrame):
         }
         return trans.get(st, st)
 
+    def _parse_resolution(self, res_str):
+        """Konwertuje 'WxH' (np. '854x480') na czytelny skrót (np. '480p')."""
+        if not res_str:
+            return "1080p"
+        if 'x' in res_str:
+            try:
+                height = int(res_str.split('x')[1])
+                return f"{height}p"
+            except (ValueError, IndexError):
+                pass
+        return res_str
+
     def update_status(self, new_status, file_size=None, resolution=None):
         self.base_status = new_status
         if file_size is not None:
@@ -95,7 +110,7 @@ class DownloadItemWidget(QFrame):
         status_text = self._translate_status(new_status)
         if new_status == "COMPLETED" and self.file_size:
             sz_mb = self.file_size / (1024 * 1024)
-            res_str = self.resolution if self.resolution else "1080p"
+            res_str = self._parse_resolution(self.resolution)
             status_text += f" • {res_str} • {sz_mb:.1f} MB"
             
         self.status_lbl.setText(status_text)
