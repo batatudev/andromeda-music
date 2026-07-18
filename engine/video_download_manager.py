@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.14
+# WERSJA PROJEKTU: 14.18
 # MODYFIKOWANY PLIK: engine/video_download_manager.py
-# OPIS ZMIAN: Wymuszenie kodeka AVC1 (H.264) dla pobieranych plików. AV1 powodowało czarny ekran w QMediaPlayer.
+# OPIS ZMIAN: Migracja bazy (cover_id, resolution, file_size), zaawansowane wstrzymywanie (-1, -2), zbieranie rozmiaru plików.
 
 import os
 import time
@@ -63,10 +63,29 @@ class VideoDownloadManager(QObject):
                 file_path TEXT,
                 status TEXT,
                 quality TEXT,
-                added_at INTEGER
+                added_at INTEGER,
+                cover_id TEXT,
+                resolution TEXT,
+                file_size INTEGER
             )
         ''')
         
+        # Migracje dla starszych wersji bazy
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN cover_id TEXT")
+        except sqlite3.OperationalError:
+            pass # Kolumna już istnieje
+            
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN resolution TEXT")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN file_size INTEGER")
+        except sqlite3.OperationalError:
+            pass
+            
         # Reset unfinished downloads to QUEUED
         cursor.execute("UPDATE downloads SET status = ? WHERE status = ?", (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING))
         conn.commit()
@@ -105,7 +124,7 @@ class VideoDownloadManager(QObject):
                 self._update_db_status(item_id, DownloadStatus.ERROR)
         return None
 
-    def add_to_queue(self, item_id, yt_link, title, high_priority=False):
+    def add_to_queue(self, item_id, yt_link, title, high_priority=False, cover_id=""):
         if not HAS_YTDLP or not yt_link:
             return
             
@@ -119,11 +138,11 @@ class VideoDownloadManager(QObject):
                 conn.close()
                 return # Już jest lub pobiera
             else:
-                cursor.execute("UPDATE downloads SET status = ?, yt_link = ?, title = ? WHERE item_id = ?", 
-                               (DownloadStatus.QUEUED, yt_link, title, item_id))
+                cursor.execute("UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ? WHERE item_id = ?", 
+                               (DownloadStatus.QUEUED, yt_link, title, cover_id, item_id))
         else:
-            cursor.execute("INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at) VALUES (?, ?, ?, ?, ?, ?)",
-                           (item_id, title, yt_link, DownloadStatus.QUEUED, APP_CONFIG.get("video_offline_quality", "1080p"), int(time.time())))
+            cursor.execute("INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                           (item_id, title, yt_link, DownloadStatus.QUEUED, APP_CONFIG.get("video_offline_quality", "1080p"), int(time.time()), cover_id))
         conn.commit()
         conn.close()
         
@@ -155,30 +174,39 @@ class VideoDownloadManager(QObject):
         self.queue_updated.emit()
 
     def set_snooze(self, hours):
-        if hours <= 0:
+        if hours == 0:
             self.is_snoozed = False
             self.snooze_until = 0
             logger.log("Menadżer pobierania: Wznowiono")
         else:
             self.is_snoozed = True
-            self.snooze_until = time.time() + (hours * 3600)
+            if hours == -1: # Stałe wstrzymanie
+                self.snooze_until = -1
+                logger.log("Menadżer pobierania: Wstrzymano na stałe")
+            elif hours == -2: # Do restartu
+                self.snooze_until = -2
+                logger.log("Menadżer pobierania: Wstrzymano do ponownego uruchomienia")
+            else:
+                self.snooze_until = time.time() + (hours * 3600)
+                logger.log(f"Menadżer pobierania: Wstrzymano na {hours}h")
+                
             if self.current_download_task:
                 logger.log("Menadżer pobierania: Wstrzymywanie obecnego zadania...")
                 self.cancel_current_event.set()
-            logger.log(f"Menadżer pobierania: Uśpiono na {hours}h")
         self.queue_updated.emit()
 
     def _check_snooze(self):
-        if self.is_snoozed and time.time() > self.snooze_until:
-            self.is_snoozed = False
-            self.snooze_until = 0
-            logger.log("Menadżer pobierania: Wybudzono z uśpienia")
-            self.queue_updated.emit()
+        if self.is_snoozed:
+            if self.snooze_until > 0 and time.time() > self.snooze_until:
+                self.is_snoozed = False
+                self.snooze_until = 0
+                logger.log("Menadżer pobierania: Wybudzono z uśpienia (czas minął)")
+                self.queue_updated.emit()
 
     def get_all_downloads(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT item_id, title, status FROM downloads ORDER BY added_at DESC")
+        cursor.execute("SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads ORDER BY added_at DESC")
         rows = cursor.fetchall()
         conn.close()
         return rows
@@ -263,7 +291,18 @@ class VideoDownloadManager(QObject):
             info = ydl.extract_info(yt_link, download=True)
             filename = ydl.prepare_filename(info)
             if os.path.exists(filename):
-                self._update_db_status(item_id, DownloadStatus.COMPLETED, file_path=filename)
-                logger.log(f"Pobrano wideo offline dla: {item_id}")
+                file_size = os.path.getsize(filename)
+                resolution = info.get('resolution', quality_str)
+                
+                # Zaktualizuj bazę z rozmiarem i rozdzielczością
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute("UPDATE downloads SET status = ?, file_path = ?, resolution = ?, file_size = ? WHERE item_id = ?",
+                               (DownloadStatus.COMPLETED, filename, resolution, file_size, item_id))
+                conn.commit()
+                conn.close()
+                self.download_status_changed.emit(item_id, DownloadStatus.COMPLETED)
+                
+                logger.log(f"Pobrano wideo offline dla: {item_id} ({resolution}, {file_size} bajtów)")
             else:
                 raise Exception("Plik nie został znaleziony po pobraniu")

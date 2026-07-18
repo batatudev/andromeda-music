@@ -61,6 +61,7 @@ class ArtistsView(LibraryScrollArea):
                     c.clicked.connect(self.main_window._show_details)
                     c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_top_songs_for_artist(d.title), 0))
                     c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
+                    c.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     c.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
                     c.reset_custom_image_clicked.connect(self.main_window._reset_custom_artist_image)
                     c.save_image_clicked.connect(self.main_window._save_image_to_file)

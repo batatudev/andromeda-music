@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.7
+# WERSJA PROJEKTU: 14.18
 # MODYFIKOWANY PLIK: ui/components/media_card.py
-# OPIS ZMIAN: Wyodrębnienie MediaCard z ui_cards.py.
+# OPIS ZMIAN: Dodano sygnał download_videos_clicked i opcję w menu kontekstowym do masowego pobierania.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -26,6 +26,7 @@ class MediaCard(QFrame):
     set_custom_cover_clicked = Signal(object, str)
     reset_custom_cover_clicked = Signal(object, str)
     save_image_clicked = Signal(object, str)
+    download_videos_clicked = Signal(object, str)
 
     def __init__(self, data, type_str):
         super().__init__()
@@ -136,6 +137,12 @@ class MediaCard(QFrame):
             act_artist.triggered.connect(self._on_artist_click)
             menu.addAction(act_artist)
             
+            act_dl_videos = QAction(qta.icon('fa5s.video', color=THEME['text_main']), "Pobierz teledyski offline", self)
+            act_dl_videos.triggered.connect(lambda: self.download_videos_clicked.emit(self.data, self.type_str))
+            menu.addAction(act_dl_videos)
+            
+            menu.addSeparator()
+            
             act_custom_cov = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własną okładkę", self)
             act_custom_cov.triggered.connect(lambda: self.set_custom_cover_clicked.emit(self.data, self.type_str))
             menu.addAction(act_custom_cov)
@@ -150,6 +157,13 @@ class MediaCard(QFrame):
             
         if self.type_str == MediaType.ARTIST:
             menu.addSeparator()
+            
+            act_dl_videos = QAction(qta.icon('fa5s.video', color=THEME['text_main']), "Pobierz teledyski offline", self)
+            act_dl_videos.triggered.connect(lambda: self.download_videos_clicked.emit(self.data, self.type_str))
+            menu.addAction(act_dl_videos)
+            
+            menu.addSeparator()
+            
             act_custom_img = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własne zdjęcie", self)
             act_custom_img.triggered.connect(lambda: self.set_custom_image_clicked.emit(self.data, self.type_str))
             menu.addAction(act_custom_img)

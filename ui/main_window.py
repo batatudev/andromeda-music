@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.17
+# WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Poprawna logika Smart Auto-play (niezależna od stanu przycisku), poprawka _show_video_layer i _toggle_video_mode (offline first).
+# OPIS ZMIAN: Dodanie logiki pobierania masowego teledysków (szacowanie rozmiaru, okna dialogowe).
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -16,7 +16,7 @@ import qtawesome as qta
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QLabel, QScrollArea, QDialog, QLineEdit, QFrame, QPushButton,
-    QGraphicsOpacityEffect, QMenu, QFileDialog
+    QGraphicsOpacityEffect, QMenu, QFileDialog, QMessageBox, QInputDialog
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QThreadPool, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QPoint
 from PySide6.QtGui import QAction
@@ -512,6 +512,71 @@ class MainWindow(QMainWindow):
             if songs:
                 for s in songs:
                     self.engine.add_to_queue(s)
+        self.run_async(fetch, on_ready, page_bound=False)
+
+    def _handle_download_videos(self, data, type_str):
+        if type_str == MediaType.ALBUM:
+            self.start_bulk_download("album", data.item_id, data.title)
+        elif type_str == MediaType.ARTIST:
+            self.start_bulk_download("artist", data.title, data.title)
+
+    def start_bulk_download(self, bulk_type, target_id=None, target_name=None):
+        if self._is_fetching:
+            return
+
+        # Dla playlist - najpierw wybierz playlistę (uproszczone obejście)
+        if bulk_type == "playlists":
+            QMessageBox.information(self, "Wkrótce", "Pobieranie playlist zostanie dodane w następnej łatce.")
+            return
+
+        def fetch():
+            songs = []
+            if bulk_type == "favorites":
+                songs = self.client.get_starred(1000) # Pobierz max 1000 ulubionych
+            elif bulk_type == "album":
+                songs = self.client.get_album(target_id).get('song', [])
+            elif bulk_type == "artist":
+                songs = self.client.get_top_songs_for_artist(target_id, limit=500)
+            elif bulk_type == "all":
+                # Dla całej bazy - losowe 1000 utworów (lub search).
+                # UWAGA: Prawdziwe "wszystko" może zabić serwer. Pobieramy 1000 ostatnich/najczęstszych.
+                songs = self.client.get_random_songs(1000)
+            return songs
+
+        def on_ready(songs):
+            if not songs:
+                QMessageBox.information(self, "Brak utworów", "Nie znaleziono utworów do pobrania.")
+                return
+            
+            # Filtrowanie utworów z yt_link
+            valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
+            
+            if not valid_songs:
+                QMessageBox.information(self, "Brak linków", "Znalezione utwory nie posiadają linków do wideo.")
+                return
+
+            quality = APP_CONFIG.get("video_offline_quality", "1080p")
+            # Szacowanie wg jakości
+            avg_mb = 25 # 1080p
+            if quality == "720p": avg_mb = 15
+            elif quality == "480p": avg_mb = 10
+            
+            count = len(valid_songs)
+            est_mb = count * avg_mb
+            est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
+            
+            msg = f"Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar do pobrania: ~{est_str} (Jakość: {quality}).\n\nCzy chcesz rozpocząć pobieranie?"
+            ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
+            
+            if ans == QMessageBox.Yes:
+                for s in valid_songs:
+                    link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
+                    if link:
+                        self.engine.video_download_manager.add_to_queue(
+                            s.item_id, link, s.title, high_priority=False, cover_id=s.cover_id
+                        )
+                QMessageBox.information(self, "Rozpoczęto", "Zadania zostały dodane do kolejki pobierania.")
+
         self.run_async(fetch, on_ready, page_bound=False)
 
     def _pb_title_clicked(self):
