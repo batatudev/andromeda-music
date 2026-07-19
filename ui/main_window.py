@@ -382,17 +382,9 @@ class MainWindow(QMainWindow):
                 self.pages[page_id] = DetailsView(self)
                 self.stack.addWidget(self.pages[page_id])
             elif page_id == Pages.QUEUE:
-                s = SmoothScrollArea()
-                s.setWidgetResizable(True)
-                s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                w = DragDropContainer()
-                w.drop_occurred.connect(self._handle_queue_drop)
-                l = QVBoxLayout(w)
-                l.setContentsMargins(30, 30, 30, 30)
-                l.setSpacing(15)
-                s.setWidget(w)
-                self.pages[page_id] = s
-                self.stack.addWidget(s)
+                dummy = QWidget()
+                self.pages[page_id] = dummy
+                self.stack.addWidget(dummy)
 
         self.engine.video_player.setVideoOutput(self.now_playing_view.video_widget.video_item)
         content.addWidget(self.sidebar)
@@ -494,8 +486,6 @@ class MainWindow(QMainWindow):
 
         if page_idx == Pages.DETAILS:
             self.pages[Pages.DETAILS].load(data, type_str)
-        elif page_idx == Pages.QUEUE:
-            self._nav_queue()
         elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
             if not is_back:
                 self.pages[page_idx].load()
@@ -515,10 +505,7 @@ class MainWindow(QMainWindow):
         self._navigate(Pages.DETAILS, data=d, type_str=t)
 
     def _toggle_queue(self):
-        if self.stack.currentIndex() == Pages.QUEUE:
-            self._go_back()
-        else:
-            self._navigate(Pages.QUEUE)
+        self.now_playing_view.toggle_queue_visibility()
 
     def _toggle_settings(self):
         if self.stack.currentIndex() == Pages.SETTINGS:
@@ -538,8 +525,6 @@ class MainWindow(QMainWindow):
             idx = self.current_route["page"]
             if idx == Pages.DETAILS:
                 self.pages[idx].load(self.current_route["data"], self.current_route["type"])
-            elif idx == Pages.QUEUE:
-                self._nav_queue()
             elif idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
                 self.pages[idx].load()
 
@@ -1047,21 +1032,6 @@ class MainWindow(QMainWindow):
             elif i.layout():
                 self._clear(i.layout())
 
-    def _handle_queue_drop(self, old_idx, drop_y):
-        if not self.engine.queue:
-            return
-        layout = self.pages[Pages.QUEUE].widget().layout()
-        song_widgets = []
-        for i in range(layout.count()):
-            item = layout.itemAt(i)
-            if item.widget() and isinstance(item.widget(), SongItem):
-                song_widgets.append(item.widget())
-        target_q_idx = len(song_widgets)
-        for i, w in enumerate(song_widgets):
-            if drop_y < w.geometry().center().y():
-                target_q_idx = i
-                break
-        self.engine.handle_queue_drop(old_idx, target_q_idx)
 
     def _handle_now_playing_queue_drop(self, old_idx, drop_y):
         if not self.engine.queue:
@@ -1097,23 +1067,6 @@ class MainWindow(QMainWindow):
                     w = item.widget()
                     w.queue_index = i
                     w.set_active(w.queue_index == self.engine.idx)
-        if self.stack.currentIndex() == Pages.QUEUE:
-            q_lay = self.pages[Pages.QUEUE].widget().layout()
-            if q_lay:
-                q_idx = 0
-                for i in range(q_lay.count()):
-                    item = q_lay.itemAt(i)
-                    if item and item.widget():
-                        w = item.widget()
-                        if isinstance(w, QueueHeader):
-                            if 0 <= self.engine.idx < len(self.engine.queue):
-                                s = self.engine.queue[self.engine.idx]
-                                w.sub_lbl.setText(f"ZACZNIJ SŁUCHAĆ: {s.title.upper()}")
-                        elif isinstance(w, SongItem):
-                            w.queue_index = q_idx
-                            w.set_active(w.queue_index == self.engine.idx)
-                            q_idx += 1
-
 
     def _on_track_changed(self, song):
         self.force_telemetry_event = "TRACK_CHANGE"
@@ -1138,8 +1091,6 @@ class MainWindow(QMainWindow):
         self._queue_update_timer.start()
 
     def _actual_queue_updated(self):
-        if self.stack.currentIndex() == Pages.QUEUE:
-            self._nav_queue()
         self._rebuild_now_playing_queue()
 
     def _rebuild_now_playing_queue(self):
@@ -1186,56 +1137,4 @@ class MainWindow(QMainWindow):
     def _on_shuffle_mode_changed(self, is_shuffled):
         self.player_bar.set_shuffle_state(is_shuffled)
 
-    def _nav_queue(self):
-        scroll_area = self.pages[Pages.QUEUE].widget().parentWidget()
-        while scroll_area and not isinstance(scroll_area, QScrollArea):
-            scroll_area = scroll_area.parentWidget()
-            
-        old_val = 0
-        if scroll_area:
-            old_val = scroll_area.verticalScrollBar().value()
 
-        l = self.pages[Pages.QUEUE].widget().layout()
-        self._clear(l)
-
-        if not self.engine.queue:
-            h = QueueHeader("Twoja kolejka jest pusta", "KOLEJKA ODTWARZANIA")
-            h.set_empty_state(True)
-            l.addWidget(h)
-            l.addStretch()
-            return
-
-        active_idx = max(0, self.engine.idx)
-        if active_idx < len(self.engine.queue):
-            active_song = self.engine.queue[active_idx]
-        else:
-            active_song = self.engine.queue[0]
-
-        h = QueueHeader("Twoja Kolejka", f"ZACZNIJ SŁUCHAĆ: {active_song.title.upper()}")
-        h.set_empty_state(False)
-        h.play_clicked.connect(self.engine.play_pause)
-        h.shuffle_clicked.connect(self._shuffle_queue)
-        h.clear_clicked.connect(self.engine.clear_queue)
-        if active_song.cover_id:
-            self.loader.load(self.client.get_cover_art_url(active_song.cover_id), h)
-        l.addWidget(h)
-
-        for i, s in enumerate(self.engine.queue):
-            item = SongItem(s, active=(i == self.engine.idx), is_queue=True, queue_index=i)
-            item.clicked.connect(lambda song, idx=i: self.engine.play_list(self.engine.queue, idx))
-            item.fav_clicked.connect(self._handle_song_fav)
-            item.play_next_clicked.connect(lambda s_d, idx=i: self.engine.queue_play_next(idx))
-            item.add_to_playlist_clicked.connect(self._show_playlist_dialog)
-            item.remove_clicked.connect(lambda s_d, idx=i: self.engine.queue_remove(idx))
-            item.artist_clicked.connect(self._show_details)
-            item.album_clicked.connect(self._show_details)
-            item.set_custom_cover_clicked.connect(self._set_custom_album_cover)
-            item.reset_custom_cover_clicked.connect(self._reset_custom_album_cover)
-            item.save_image_clicked.connect(self._save_image_to_file)
-            l.addWidget(item)
-            if s.cover_id:
-                self.loader.load(self.client.get_cover_art_url(s.cover_id), item)
-        l.addStretch()
-
-        if scroll_area:
-            QTimer.singleShot(0, lambda: scroll_area.verticalScrollBar().setValue(old_val))

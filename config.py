@@ -22,6 +22,7 @@ class Pages(IntEnum):
     SEARCH = 10
     DOWNLOADS = 11
 
+
 APP_CONFIG = {
     "url": "",
     "username": "",

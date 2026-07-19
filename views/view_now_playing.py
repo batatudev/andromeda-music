@@ -188,6 +188,11 @@ class NowPlayingWidget(QFrame):
         self.ui_container.resize(self.size())
         super().resizeEvent(e)
 
+    def toggle_queue_visibility(self):
+        """Ukrywa lub pokazuje boczny panel kolejki."""
+        is_visible = self.queue_frame.isVisible()
+        self.queue_frame.setVisible(not is_visible)
+
     def set_seek_blur(self, is_seeking):
         if not is_seeking:
             self.set_buffering_state(False)
