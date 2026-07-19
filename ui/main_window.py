@@ -1113,7 +1113,7 @@ class MainWindow(QMainWindow):
                             w.queue_index = q_idx
                             w.set_active(w.queue_index == self.engine.idx)
                             q_idx += 1
-        QTimer.singleShot(100, self._scroll_now_playing_to_active)
+
 
     def _on_track_changed(self, song):
         self.force_telemetry_event = "TRACK_CHANGE"
@@ -1143,6 +1143,9 @@ class MainWindow(QMainWindow):
         self._rebuild_now_playing_queue()
 
     def _rebuild_now_playing_queue(self):
+        v_bar = self.now_playing_view.queue_scroll.verticalScrollBar()
+        old_val = v_bar.value()
+
         self._clear(self.now_playing_view.queue_layout)
         active_idx = self.engine.idx
         for i, s in enumerate(self.engine.queue):
@@ -1160,8 +1163,8 @@ class MainWindow(QMainWindow):
             self.now_playing_view.queue_layout.addWidget(item)
             if s.cover_id:
                 self.loader.load(self.client.get_cover_art_url(s.cover_id), item)
-        if 0 <= active_idx < self.now_playing_view.queue_layout.count():
-            QTimer.singleShot(100, self._scroll_now_playing_to_active)
+        
+        QTimer.singleShot(0, lambda: self.now_playing_view.queue_scroll.verticalScrollBar().setValue(old_val))
 
     def _scroll_now_playing_to_active(self):
         active_idx = self.engine.idx
@@ -1184,6 +1187,14 @@ class MainWindow(QMainWindow):
         self.player_bar.set_shuffle_state(is_shuffled)
 
     def _nav_queue(self):
+        scroll_area = self.pages[Pages.QUEUE].widget().parentWidget()
+        while scroll_area and not isinstance(scroll_area, QScrollArea):
+            scroll_area = scroll_area.parentWidget()
+            
+        old_val = 0
+        if scroll_area:
+            old_val = scroll_area.verticalScrollBar().value()
+
         l = self.pages[Pages.QUEUE].widget().layout()
         self._clear(l)
 
@@ -1225,3 +1236,6 @@ class MainWindow(QMainWindow):
             if s.cover_id:
                 self.loader.load(self.client.get_cover_art_url(s.cover_id), item)
         l.addStretch()
+
+        if scroll_area:
+            QTimer.singleShot(0, lambda: scroll_area.verticalScrollBar().setValue(old_val))
