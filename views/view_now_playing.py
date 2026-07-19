@@ -131,7 +131,7 @@ class NowPlayingWidget(QFrame):
         self.left_layout.addWidget(self.artist_lbl)
         self.left_layout.addStretch(1)
 
-        self.right_layout = QVBoxLayout()
+
         
         self.queue_frame = QFrame()
         self.queue_frame.setObjectName("NowPlayingQueueFrame")
@@ -176,10 +176,9 @@ class NowPlayingWidget(QFrame):
         self.queue_scroll.setWidget(self.queue_content)
 
         qf_layout.addWidget(self.queue_scroll)
-        self.right_layout.addWidget(self.queue_frame)
 
         self.main_layout.addLayout(self.left_layout, 3)
-        self.main_layout.addLayout(self.right_layout, 2)
+        self.main_layout.addWidget(self.queue_frame, 2)
         self.update_video_settings()
 
     def resizeEvent(self, e):
@@ -189,9 +188,67 @@ class NowPlayingWidget(QFrame):
         super().resizeEvent(e)
 
     def toggle_queue_visibility(self):
-        """Ukrywa lub pokazuje boczny panel kolejki."""
-        is_visible = self.queue_frame.isVisible()
-        self.queue_frame.setVisible(not is_visible)
+        """Płynnie ukrywa lub pokazuje boczny panel kolejki z użyciem animacji."""
+        if not hasattr(self, 'queue_anim'):
+            self.queue_anim = QPropertyAnimation(self.queue_frame, b"maximumWidth")
+            self.queue_anim.setDuration(400)
+            self.queue_anim.setEasingCurve(QEasingCurve.InOutCubic)
+            
+            effect = QGraphicsOpacityEffect(self.queue_frame)
+            self.queue_frame.setGraphicsEffect(effect)
+            self.queue_fade = QPropertyAnimation(effect, b"opacity")
+            self.queue_fade.setDuration(300)
+            self.queue_fade.setEasingCurve(QEasingCurve.InOutQuad)
+            
+            self.is_queue_hidden = False
+
+        self.queue_anim.stop()
+        self.queue_fade.stop()
+        
+        try:
+            self.queue_anim.finished.disconnect()
+        except Exception:
+            pass
+
+        if not getattr(self, 'is_queue_hidden', False):
+            # Akcja UKRYWANIA
+            self.is_queue_hidden = True
+            current_w = self.queue_frame.width()
+            self.queue_anim.setStartValue(current_w)
+            self.queue_anim.setEndValue(0)
+            
+            self.queue_fade.setStartValue(1.0)
+            self.queue_fade.setEndValue(0.0)
+            
+            def hide_after():
+                self.queue_frame.hide()
+                
+            self.queue_anim.finished.connect(hide_after)
+            
+        else:
+            # Akcja POKAZYWANIA
+            self.is_queue_hidden = False
+            
+            # Najpierw pokazujemy z szerokością 0, żeby nie było przeskoku stretchu
+            self.queue_frame.setMaximumWidth(0)
+            self.queue_frame.show()
+            
+            # 140 to poprawka na marginesy (100) i spacing (40) z main_layout
+            target_w = int((self.width() - 140) * 0.4)
+            
+            self.queue_anim.setStartValue(0)
+            self.queue_anim.setEndValue(target_w)
+            
+            self.queue_fade.setStartValue(0.0)
+            self.queue_fade.setEndValue(1.0)
+            
+            def restore_after():
+                self.queue_frame.setMaximumWidth(16777215)
+                
+            self.queue_anim.finished.connect(restore_after)
+
+        self.queue_anim.start()
+        self.queue_fade.start()
 
     def set_seek_blur(self, is_seeking):
         if not is_seeking:
