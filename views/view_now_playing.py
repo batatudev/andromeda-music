@@ -179,12 +179,26 @@ class NowPlayingWidget(QFrame):
 
         self.main_layout.addLayout(self.left_layout, 3)
         self.main_layout.addWidget(self.queue_frame, 2)
+        
+        self.right_spacer = QWidget()
+        self.right_spacer.setFixedWidth(0)
+        self.main_layout.addWidget(self.right_spacer)
+        
         self.update_video_settings()
 
     def resizeEvent(self, e):
         self.bg_container.resize(self.size())
         self.overlay.resize(self.size())
         self.ui_container.resize(self.size())
+        
+        if getattr(self, 'is_queue_hidden', False):
+            if not hasattr(self, 'spacer_anim') or self.spacer_anim.state() != QPropertyAnimation.State.Running:
+                try:
+                    offset_x = self.mapTo(self.window(), QPoint(0, 0)).x()
+                    self.right_spacer.setFixedWidth(offset_x)
+                except Exception:
+                    pass
+                    
         super().resizeEvent(e)
 
     def toggle_queue_visibility(self):
@@ -200,10 +214,15 @@ class NowPlayingWidget(QFrame):
             self.queue_fade.setDuration(300)
             self.queue_fade.setEasingCurve(QEasingCurve.InOutQuad)
             
+            self.spacer_anim = QPropertyAnimation(self.right_spacer, b"minimumWidth")
+            self.spacer_anim.setDuration(400)
+            self.spacer_anim.setEasingCurve(QEasingCurve.InOutCubic)
+            
             self.is_queue_hidden = False
 
         self.queue_anim.stop()
         self.queue_fade.stop()
+        self.spacer_anim.stop()
         
         try:
             self.queue_anim.finished.disconnect()
@@ -220,8 +239,21 @@ class NowPlayingWidget(QFrame):
             self.queue_fade.setStartValue(1.0)
             self.queue_fade.setEndValue(0.0)
             
+            # Włączamy wirtualny margines wyrównujący lewą stronę
+            try:
+                offset_x = self.mapTo(self.window(), QPoint(0, 0)).x()
+            except Exception:
+                offset_x = 200 # Fallback
+            self.spacer_anim.setStartValue(self.right_spacer.width())
+            self.spacer_anim.setEndValue(offset_x)
+            
             def hide_after():
                 self.queue_frame.hide()
+                # Zabezpieczenie szerokości marginesu po animacji
+                try:
+                    self.right_spacer.setFixedWidth(self.mapTo(self.window(), QPoint(0, 0)).x())
+                except Exception:
+                    pass
                 
             self.queue_anim.finished.connect(hide_after)
             
@@ -229,11 +261,9 @@ class NowPlayingWidget(QFrame):
             # Akcja POKAZYWANIA
             self.is_queue_hidden = False
             
-            # Najpierw pokazujemy z szerokością 0, żeby nie było przeskoku stretchu
             self.queue_frame.setMaximumWidth(0)
             self.queue_frame.show()
             
-            # 140 to poprawka na marginesy (100) i spacing (40) z main_layout
             target_w = int((self.width() - 140) * 0.4)
             
             self.queue_anim.setStartValue(0)
@@ -242,13 +272,19 @@ class NowPlayingWidget(QFrame):
             self.queue_fade.setStartValue(0.0)
             self.queue_fade.setEndValue(1.0)
             
+            # Chowamy wirtualny margines
+            self.spacer_anim.setStartValue(self.right_spacer.width())
+            self.spacer_anim.setEndValue(0)
+            
             def restore_after():
                 self.queue_frame.setMaximumWidth(16777215)
+                self.right_spacer.setFixedWidth(0)
                 
             self.queue_anim.finished.connect(restore_after)
 
         self.queue_anim.start()
         self.queue_fade.start()
+        self.spacer_anim.start()
 
     def set_seek_blur(self, is_seeking):
         if not is_seeking:
