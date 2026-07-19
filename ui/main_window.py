@@ -579,7 +579,6 @@ class MainWindow(QMainWindow):
                 entry = res.get("playlist", {}).get("entry", [])
                 from utils import MediaItem
                 songs = [MediaItem(s) for s in entry]
-                print("PLAYLIST FETCH:", target_id, res)
             elif bulk_type == "album":
                 songs = self.client.get_album(target_id).get('song', [])
             elif bulk_type == "artist":

@@ -64,15 +64,30 @@ class MediaItem(dict):
 
     @property
     def yt_link(self):
-        # Globalny parser linków YT z komentarzy - likwiduje duplikację kodu w silniku
+        # 1. Najpierw sprawdz reczny override uzytkownika
+        override = _YT_LINK_OVERRIDES.get(self.item_id)
+        if override:
+            return override
+        # 2. Fallback: parsuj link YT z pola 'comment'
         text = self.get('comment', '')
         if not text:
             return None
         if 'youtube.com' in text or 'youtu.be' in text:
-            urls = re.findall(r'(https?://[^\s",]+)', text)
+            urls = re.findall(r'(https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[^\s",&]+)', text)
             if urls:
                 return urls[0]
         return None
+
+# Globalny cache recznie ustawionych linkow YouTube (item_id -> url)
+# Ladowany przy starcie z bazy przez VideoDownloadManager
+_YT_LINK_OVERRIDES: dict = {}
+
+def _set_yt_link_override(item_id: str, url):
+    """Ustawia lub usuwa override linku YT w module-level cache."""
+    if url:
+        _YT_LINK_OVERRIDES[item_id] = url
+    else:
+        _YT_LINK_OVERRIDES.pop(item_id, None)
 
 
 class NetworkMonitor(threading.Thread):

@@ -47,6 +47,11 @@ class VideoDownloadManager(QObject):
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
         
+        # Wczytaj QUEUED do kolejki
+        self._reload_queued_to_memory()
+        # Wczytaj ręczne override'y linków YT
+        self.load_yt_link_overrides()
+        
         # Timer odświeżający stan (Snooze)
         self.snooze_timer = QTimer(self)
         self.snooze_timer.timeout.connect(self._check_snooze)
@@ -93,15 +98,60 @@ class VideoDownloadManager(QObject):
             
         # Reset unfinished downloads to QUEUED
         cursor.execute("UPDATE downloads SET status = ? WHERE status = ?", (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING))
+        # Tabela nadpisanych linków YT (override dla plików bez linku w comment)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS yt_link_overrides (
+                item_id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                title TEXT,
+                added_at INTEGER
+            )
+        ''')
         conn.commit()
-        
-        # Wczytaj QUEUED do kolejki
+        conn.close()
+
+    def _reload_queued_to_memory(self):
+        """Wczytuje rekordy QUEUED z bazy do kolejki w pamięci."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         cursor.execute("SELECT item_id, yt_link, title FROM downloads WHERE status = ? ORDER BY added_at ASC", (DownloadStatus.QUEUED,))
         for row in cursor.fetchall():
-            # Niski priorytet (10) przy starcie
             self.download_queue.put((10, time.time(), row[0], row[1], row[2]))
-            
         conn.close()
+
+    def load_yt_link_overrides(self):
+        """Ładuje wszystkie override'y do modułowego słownika w utils."""
+        from utils import _set_yt_link_override
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT item_id, url FROM yt_link_overrides")
+        for row in cursor.fetchall():
+            _set_yt_link_override(row[0], row[1])
+        conn.close()
+
+    def save_yt_link_override(self, item_id, url, title=""):
+        """Zapisuje ręczny override linku YT do bazy i odświeża cache."""
+        from utils import _set_yt_link_override
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO yt_link_overrides (item_id, url, title, added_at) VALUES (?, ?, ?, ?)",
+            (item_id, url, title, int(time.time()))
+        )
+        conn.commit()
+        conn.close()
+        _set_yt_link_override(item_id, url)
+
+    def delete_yt_link_override(self, item_id):
+        """Usuwa override linku YT z bazy i cache."""
+        from utils import _set_yt_link_override
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM yt_link_overrides WHERE item_id = ?", (item_id,))
+        conn.commit()
+        conn.close()
+        _set_yt_link_override(item_id, None)
+
 
     def _update_db_status(self, item_id, status, file_path=None):
         conn = sqlite3.connect(self.db_path)

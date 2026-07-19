@@ -309,6 +309,10 @@ class SongItem(QFrame):
         act_dl.triggered.connect(self._download_video)
         menu.addAction(act_dl)
 
+        act_set_yt = QAction(qta.icon('fa5s.link', color=THEME['text_muted']), "Ustaw link YouTube", self)
+        act_set_yt.triggered.connect(self._set_yt_link_dialog)
+        menu.addAction(act_set_yt)
+
         menu.addSeparator()
         
         act_custom_cov = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własną okładkę", self)
@@ -326,22 +330,174 @@ class SongItem(QFrame):
         global_pos = self.btn_more.mapToGlobal(QPoint(0, self.btn_more.height()))
         menu.exec(global_pos)
 
+    def _set_yt_link_dialog(self):
+        """Otwiera dialog do recznego ustawienia/usuniecia override linku YT."""
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
+        from utils import _YT_LINK_OVERRIDES
+
+        current_override = _YT_LINK_OVERRIDES.get(self.song.item_id, "")
+        current_from_comment = self.song.yt_link if not current_override else None
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Link YouTube — {self.song.title}")
+        dlg.setMinimumWidth(480)
+        dlg.setStyleSheet(f"""
+            QDialog {{ background: {THEME['bg_main']}; color: {THEME['text_main']}; }}
+            QLabel {{ background: transparent; }}
+            QLineEdit {{
+                background: {THEME['bg_card']};
+                color: {THEME['text_main']};
+                border: 1px solid {THEME['border']};
+                border-radius: 6px;
+                padding: 8px 10px;
+                font-size: 13px;
+            }}
+            QPushButton {{
+                background: {THEME['accent']};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background: {THEME['nav_hover']}; }}
+            QPushButton#btn_clear {{
+                background: {THEME['bg_card']};
+                color: {THEME['text_muted']};
+                border: 1px solid {THEME['border']};
+            }}
+            QPushButton#btn_cancel {{
+                background: transparent;
+                color: {THEME['text_muted']};
+                border: 1px solid {THEME['border']};
+            }}
+        """)
+
+        lay = QVBoxLayout(dlg)
+        lay.setSpacing(12)
+        lay.setContentsMargins(20, 20, 20, 20)
+
+        info_lbl = QLabel()
+        info_lbl.setWordWrap(True)
+        if current_override:
+            info_lbl.setText(f"<b>Aktualny override:</b> {current_override}")
+            info_lbl.setStyleSheet(f"color: {THEME['accent']}; background: transparent;")
+        elif current_from_comment:
+            info_lbl.setText(f"<b>Link z komentarza:</b> {current_from_comment}")
+            info_lbl.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent;")
+        else:
+            info_lbl.setText("Ten utwór nie ma przypisanego linku YouTube.")
+            info_lbl.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent;")
+        lay.addWidget(info_lbl)
+
+        url_input = QLineEdit()
+        url_input.setPlaceholderText("https://www.youtube.com/watch?v=... lub https://youtu.be/...")
+        url_input.setText(current_override)
+        lay.addWidget(url_input)
+
+        status_lbl = QLabel(" ")
+        status_lbl.setStyleSheet(f"color: #e74c3c; background: transparent; font-size: 12px;")
+        lay.addWidget(status_lbl)
+
+        btn_row = QHBoxLayout()
+        btn_clear = QPushButton("Usuń override")
+        btn_clear.setObjectName("btn_clear")
+        btn_clear.setEnabled(bool(current_override))
+        btn_cancel = QPushButton("Anuluj")
+        btn_cancel.setObjectName("btn_cancel")
+        btn_save = QPushButton("Zapisz")
+        btn_row.addWidget(btn_clear)
+        btn_row.addStretch()
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_save)
+        lay.addLayout(btn_row)
+
+        def validate_and_save():
+            url = url_input.text().strip()
+            if not url:
+                status_lbl.setText("URL nie może być pusty. Użyj 'Usuń override' aby skasować.")
+                return
+            if not ('youtube.com/watch' in url or 'youtu.be/' in url):
+                status_lbl.setText("Nieprawidłowy link. Wklej pełny link YouTube lub youtu.be.")
+                return
+            win = self._find_main_window()
+            if win:
+                win.engine.video_download_manager.save_yt_link_override(
+                    self.song.item_id, url, self.song.title
+                )
+            self._update_dl_status_icon()
+            dlg.accept()
+
+        def clear_override():
+            win = self._find_main_window()
+            if win:
+                win.engine.video_download_manager.delete_yt_link_override(self.song.item_id)
+            self._update_dl_status_icon()
+            dlg.accept()
+
+        btn_save.clicked.connect(validate_and_save)
+        btn_cancel.clicked.connect(dlg.reject)
+        btn_clear.clicked.connect(clear_override)
+        url_input.returnPressed.connect(validate_and_save)
+
+        dlg.exec()
+
     def _download_video(self):
         from utils import logger
+        from PySide6.QtWidgets import QMessageBox
         yt_link = getattr(self.song, 'yt_link', None) or getattr(self.song, 'youtube_url', None)
         if not yt_link:
+            # Sprawdź czy komentarz zawiera coś co sugeruje że utwór pochodzi z YT
+            comment = self.song.get('comment', '') or ''
+            has_youtube_comment = 'youtube.com' in comment.lower() or 'youtu.be' in comment.lower()
+            
+            if has_youtube_comment:
+                msg = (f"\"{ self.song.title }\" posiada opis z YouTube, ale bezpośredni link do klipu "
+                       f"nie jest zapisany w komentarzu do pliku.\n\n"
+                       f"Aby można było pobrać teledysk offline, dodaj link YouTube (np. "
+                       f"https://youtu.be/VIDEO_ID) jako pierwszą linijkę w komentarzu do "
+                       f"tego utwóru w ustawieniach Navidrome lub bezpośrednio w tagach pliku audio.")
+            else:
+                msg = (f"\"{ self.song.title }\" nie posiada linku YouTube w polu komentarza.\n\n"
+                       f"Aby pobrać teledysk offline, dodaj link YouTube (np. "
+                       f"https://youtu.be/VIDEO_ID) w komentarzu do tego utwóru.")
+            
+            QMessageBox.warning(self, "Brak linku YouTube", msg)
             logger.log(f"Brak linku YT dla utworu {self.song.title}")
             return
 
         win = self._find_main_window()
         if win:
-            win.engine.video_download_manager.add_to_queue(
+            mgr = win.engine.video_download_manager
+            
+            import sqlite3
+            conn = sqlite3.connect(mgr.db_path)
+            c = conn.cursor()
+            c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
+            row = c.fetchone()
+            
+            if row and row[0] == "ERROR":
+                ans = QMessageBox.question(self, "Błąd pobierania", 
+                                          "Ten teledysk napotkał wcześniej błąd podczas pobierania (np. brak dostępu, nieistniejący film lub problem z siecią).\n\nCzy chcesz spróbować pobrać go ponownie?", 
+                                          QMessageBox.Yes | QMessageBox.No)
+                if ans == QMessageBox.No:
+                    conn.close()
+                    return
+                # Update is_hidden so it appears in download manager if it was hidden
+                c.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (self.song.item_id,))
+                conn.commit()
+                
+            conn.close()
+            
+            mgr.add_to_queue(
                 self.song.item_id,
                 yt_link,
                 self.song.title,
-                high_priority=True
+                high_priority=True,
+                cover_id=self.song.cover_id
             )
             self._update_dl_status_icon()
+            QMessageBox.information(self, "Pobieranie", "Dodano do kolejki pobierania (lub wznowiono zadanie).")
         else:
             logger.log("Nie można połączyć z Download Managerem")
 
@@ -364,7 +520,8 @@ class SongItem(QFrame):
                 elif st in ["QUEUED", "DOWNLOADING"]:
                     self.dl_status_lbl.setPixmap(qta.icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
                 else:
-                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.times-circle', color=THEME['text_muted']).pixmap(14, 14))
+                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.exclamation-circle', color='#e74c3c').pixmap(14, 14))
+                    self.dl_status_lbl.setToolTip("Błąd pobierania")
             else:
                 self.dl_status_lbl.setPixmap(qta.icon('fa5s.film', color=THEME['border']).pixmap(14, 14))
 
