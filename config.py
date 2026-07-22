@@ -1,9 +1,14 @@
-# WERSJA PROJEKTU: 14.12
+# WERSJA PROJEKTU: 14.22
 # MODYFIKOWANY PLIK: config.py
-# OPIS ZMIAN: Dodano obsługę konfiguracji dla Menadżera Pobierania Wideo Offline.
+# OPIS ZMIAN: Wdrożenie dynamicznego wykrywania motywu systemowego (theme_mode) i opóźnionej inicjalizacji palety kolorów po utworzeniu QApplication.
+
+import os
+os.environ["QT_API"] = "pyside6"
 
 import configparser
 from enum import IntEnum
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import Qt
 
 APP_NAME = "Andromeda Music"
 APP_ICON_PATH = "assets/logo.png"
@@ -22,11 +27,11 @@ class Pages(IntEnum):
     SEARCH = 10
     DOWNLOADS = 11
 
-
 APP_CONFIG = {
     "url": "",
     "username": "",
     "password": "",
+    "theme_mode": "system",
     "dark_mode": True,
     "accent": "#1db954",
     "volume": 80,
@@ -52,7 +57,11 @@ def load_config():
         APP_CONFIG["username"] = cfg["Navidrome"].get("username", "")
         APP_CONFIG["password"] = cfg["Navidrome"].get("password", "")
     if "Theme" in cfg:
-        APP_CONFIG["dark_mode"] = cfg["Theme"].getboolean("dark_mode", fallback=True)
+        if "theme_mode" in cfg["Theme"]:
+            APP_CONFIG["theme_mode"] = cfg["Theme"].get("theme_mode", "system")
+        else:
+            legacy_dark = cfg["Theme"].getboolean("dark_mode", fallback=True)
+            APP_CONFIG["theme_mode"] = "dark" if legacy_dark else "light"
         APP_CONFIG["accent"] = cfg["Theme"].get("accent", fallback="#1db954")
         APP_CONFIG["volume"] = cfg["Theme"].getint("volume", fallback=80)
         APP_CONFIG["dev_mode"] = cfg["Theme"].getboolean("dev_mode", fallback=False)
@@ -79,7 +88,7 @@ def save_config():
         "password": APP_CONFIG["password"]
     }
     cfg["Theme"] = {
-        "dark_mode": str(APP_CONFIG["dark_mode"]),
+        "theme_mode": APP_CONFIG.get("theme_mode", "system"),
         "accent": APP_CONFIG["accent"],
         "volume": str(APP_CONFIG["volume"]),
         "dev_mode": str(APP_CONFIG.get("dev_mode", False))
@@ -136,6 +145,18 @@ def get_theme_colors():
         "btn_add_pl_hover": "rgba(46,204,113,0.2)",
         "btn_add_hover": "rgba(230,126,34,0.2)"
     }
+
+def init_theme():
+    mode = APP_CONFIG.get("theme_mode", "system")
+    if mode == "system":
+        hints = QGuiApplication.styleHints()
+        is_dark = (hints.colorScheme() == Qt.ColorScheme.Dark)
+        APP_CONFIG["dark_mode"] = is_dark
+    elif mode == "light":
+        APP_CONFIG["dark_mode"] = False
+    else:
+        APP_CONFIG["dark_mode"] = True
+    THEME.update(get_theme_colors())
 
 load_config()
 THEME = get_theme_colors()

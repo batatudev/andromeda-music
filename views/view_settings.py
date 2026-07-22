@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.13
-# MODYFIKOWANY PLIK: view_settings.py
-# OPIS ZMIAN: Dodano nową zakładkę w ustawieniach ("Ustawienia Pobrań Offline") obsługującą opcje video_smart_auto_play i video_offline_quality.
+# WERSJA PROJEKTU: 14.22
+# MODYFIKOWANY PLIK: views/view_settings.py
+# OPIS ZMIAN: Integracja 3-stanowego wyboru motywu (Systemowy, Ciemny, Jasny) z opcją theme_mode.
 
 import os
 import sys
@@ -16,7 +16,6 @@ from PySide6.QtGui import QColor
 
 from config import APP_CONFIG, save_config, THEME
 from api_client import NavidromeClient
-
 
 class SettingsView(QWidget):
     def __init__(self, main_window):
@@ -46,7 +45,7 @@ class SettingsView(QWidget):
             "url": APP_CONFIG["url"],
             "username": APP_CONFIG["username"],
             "password": APP_CONFIG["password"],
-            "dark_mode": APP_CONFIG["dark_mode"],
+            "theme_mode": APP_CONFIG.get("theme_mode", "system"),
             "accent": APP_CONFIG["accent"],
             "video_resolution": APP_CONFIG.get("video_resolution", "1080p"),
             "video_min_res": APP_CONFIG.get("video_min_res", "480p"),
@@ -147,8 +146,14 @@ class SettingsView(QWidget):
         theme_layout.addWidget(lbl_t_title)
 
         self.combo_theme = QComboBox()
-        self.combo_theme.addItems(["Ciemny", "Jasny"])
-        self.combo_theme.setCurrentIndex(0 if APP_CONFIG["dark_mode"] else 1)
+        self.combo_theme.addItems(["Systemowy", "Ciemny", "Jasny"])
+        current_mode = APP_CONFIG.get("theme_mode", "system")
+        if current_mode == "system":
+            self.combo_theme.setCurrentIndex(0)
+        elif current_mode == "light":
+            self.combo_theme.setCurrentIndex(2)
+        else:
+            self.combo_theme.setCurrentIndex(1)
         self.combo_theme.setStyleSheet(input_style)
         self.combo_theme.setFixedWidth(350)
 
@@ -287,10 +292,10 @@ class SettingsView(QWidget):
             APP_CONFIG["video_auto_res"] = (self.combo_auto_res.currentIndex() == 1)
             for k, s in self.video_sliders.items():
                 APP_CONFIG[k] = s.value()
-            
+
             save_config()
             self.main_window.now_playing_view.update_video_settings()
-            
+
             self._initial_settings["video_resolution"] = APP_CONFIG["video_resolution"]
             self._initial_settings["video_min_res"] = APP_CONFIG["video_min_res"]
             self._initial_settings["video_auto_res"] = APP_CONFIG["video_auto_res"]
@@ -347,7 +352,7 @@ class SettingsView(QWidget):
         self.btn_auto_pl.setCursor(Qt.PointingHandCursor)
         self.btn_auto_pl.setFixedWidth(350)
         self.btn_auto_pl.clicked.connect(self._show_playlists_sync_dialog)
-        
+
         pl_cnt = len(APP_CONFIG.get("video_auto_dl_playlists", []))
         self.btn_auto_pl.setText(f"Wybierz playlisty... ({pl_cnt} wybrano)")
         add_row(offline_layout, "Auto-pobieranie (Playlisty):", self.btn_auto_pl)
@@ -355,7 +360,7 @@ class SettingsView(QWidget):
         btn_save_offline = QPushButton("Zapisz Ustawienia Offline")
         btn_save_offline.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
         btn_save_offline.setCursor(Qt.PointingHandCursor)
-        
+
         self.lbl_o_status = QLabel("")
         self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent;")
 
@@ -363,12 +368,12 @@ class SettingsView(QWidget):
             APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
             APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
             APP_CONFIG["video_auto_dl_favs"] = (self.combo_auto_favs.currentIndex() == 1)
-            
+
             save_config()
             self._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
             self._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
             self._initial_settings["video_auto_dl_favs"] = APP_CONFIG["video_auto_dl_favs"]
-            
+
             self.lbl_o_status.setText("Zapisano pomyślnie")
             QTimer.singleShot(3000, lambda: self.lbl_o_status.setText(""))
 
@@ -437,22 +442,22 @@ class SettingsView(QWidget):
             from config import get_app_style
             dlg.setStyleSheet(get_app_style())
             layout = QVBoxLayout(dlg)
-            
+
             lbl = QLabel("Zaznacz playlisty, które mają być automatycznie synchronizowane:")
             lbl.setStyleSheet(f"color: {THEME['text_main']}; margin-bottom: 10px;")
             lbl.setWordWrap(True)
             layout.addWidget(lbl)
-            
+
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setStyleSheet("background: transparent; border: none;")
             content = QWidget()
             v = QVBoxLayout(content)
             v.setSpacing(5)
-            
+
             checkboxes = {}
             current_selected = APP_CONFIG.get("video_auto_dl_playlists", [])
-            
+
             for pl in playlists:
                 pl_id = pl.get('id')
                 cb = QCheckBox(pl.get('name', 'Nieznana'))
@@ -461,15 +466,15 @@ class SettingsView(QWidget):
                     cb.setChecked(True)
                 v.addWidget(cb)
                 checkboxes[pl_id] = cb
-                
+
             v.addStretch()
             scroll.setWidget(content)
             layout.addWidget(scroll)
-            
+
             btn_save = QPushButton("Zapisz wybór")
             btn_save.setStyleSheet(f"background-color: {THEME['accent']}; color: white; padding: 10px; border-radius: 5px; font-weight: bold;")
             btn_save.setCursor(Qt.PointingHandCursor)
-            
+
             def save_selection():
                 selected = [pid for pid, cb in checkboxes.items() if cb.isChecked()]
                 APP_CONFIG["video_auto_dl_playlists"] = selected
@@ -478,12 +483,12 @@ class SettingsView(QWidget):
                 self._initial_settings["video_auto_dl_playlists"] = selected
                 self.btn_auto_pl.setText(f"Wybierz playlisty... ({len(selected)} wybrano)")
                 dlg.accept()
-                
+
             btn_save.clicked.connect(save_selection)
             layout.addWidget(btn_save)
-            
+
             dlg.exec()
-            
+
         self.main_window.run_async(fetch, on_ready)
 
     def _test_connection(self):
@@ -511,14 +516,22 @@ class SettingsView(QWidget):
         APP_CONFIG["url"] = self.inp_url.text()
         APP_CONFIG["username"] = self.inp_user.text()
         APP_CONFIG["password"] = self.inp_pwd.text()
-        APP_CONFIG["dark_mode"] = (self.combo_theme.currentIndex() == 0)
+        
+        idx = self.combo_theme.currentIndex()
+        if idx == 0:
+            APP_CONFIG["theme_mode"] = "system"
+        elif idx == 2:
+            APP_CONFIG["theme_mode"] = "light"
+        else:
+            APP_CONFIG["theme_mode"] = "dark"
+            
         APP_CONFIG["accent"] = self.current_accent
         APP_CONFIG["dev_mode"] = (self.combo_dev.currentIndex() == 1)
 
         self._initial_settings["url"] = APP_CONFIG["url"]
         self._initial_settings["username"] = APP_CONFIG["username"]
         self._initial_settings["password"] = APP_CONFIG["password"]
-        self._initial_settings["dark_mode"] = APP_CONFIG["dark_mode"]
+        self._initial_settings["theme_mode"] = APP_CONFIG["theme_mode"]
         self._initial_settings["accent"] = APP_CONFIG["accent"]
         self._initial_settings["dev_mode"] = APP_CONFIG["dev_mode"]
 
