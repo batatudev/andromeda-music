@@ -106,8 +106,8 @@ class PlayerEngine(QObject):
         self.buffering_hysteresis_timer.setSingleShot(True)
         self.buffering_hysteresis_timer.timeout.connect(self._commit_buffering_state)
 
-        self.cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-audio")
-        os.makedirs(self.cache_dir, exist_ok=True)
+        from core.paths import PathsManager
+        self.cache_dir = str(PathsManager.get_audio_cache_dir())
         self.cancel_event = None
         self.audio_track_cached.connect(self._on_audio_track_cached)
         

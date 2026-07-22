@@ -446,8 +446,13 @@ class VideoDownloadManager(QObject):
             'quiet': True,
             'nocheckcertificate': True,
             'noplaylist': True,
-            'cookiesfrombrowser': ('firefox', )
         }
+        from core.paths import PathsManager
+        cookies_file = PathsManager.get_cookies_file()
+        if cookies_file.exists():
+            ydl_opts['cookiefile'] = str(cookies_file)
+        else:
+            ydl_opts['cookiesfrombrowser'] = ('firefox', )
 
         def my_hook(d):
             if self.cancel_current_event.is_set():

@@ -79,8 +79,13 @@ class YTResolver:
                 'noplaylist': True,
                 'nocheckcertificate': True,
                 'match_filter': abort_check,
-                'cookiesfrombrowser': ('firefox', )
             }
+            from core.paths import PathsManager
+            cookies_file = PathsManager.get_cookies_file()
+            if cookies_file.exists():
+                ydl_opts['cookiefile'] = str(cookies_file)
+            else:
+                ydl_opts['cookiesfrombrowser'] = ('firefox', )
             if current_event.is_set(): return
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
@@ -161,12 +166,17 @@ class YTResolver:
                         'quiet': True,
                         'noplaylist': True,
                         'nocheckcertificate': True,
-                        'cookiesfrombrowser': (browser, ),
                         'match_filter': abort_check,
                         'http_headers': {
                             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                         }
                     }
+                    from core.paths import PathsManager
+                    cookies_file = PathsManager.get_cookies_file()
+                    if cookies_file.exists():
+                        ydl_opts['cookiefile'] = str(cookies_file)
+                    else:
+                        ydl_opts['cookiesfrombrowser'] = (browser, )
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         info = ydl.extract_info(self.engine.current_yt_link, download=False)
                         if 'url' in info:

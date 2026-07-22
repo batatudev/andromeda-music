@@ -10,6 +10,8 @@ from enum import IntEnum
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtCore import Qt
 
+from core.paths import PathsManager
+
 APP_NAME = "Andromeda Music"
 APP_ICON_PATH = "assets/logo.png"
 
@@ -42,7 +44,7 @@ APP_CONFIG = {
     "video_dynamic_blur": 0,
     "video_static_opacity": 80,
     "video_static_blur": 60,
-    "video_offline_path": "~/.cache/navidrome-player-video-offline",
+    "video_offline_path": str(PathsManager.get_data_dir() / "video-offline"),
     "video_offline_quality": "1080p",
     "video_smart_auto_play": False,
     "video_auto_dl_favs": False,
@@ -51,7 +53,11 @@ APP_CONFIG = {
 
 def load_config():
     cfg = configparser.ConfigParser()
-    cfg.read("config.ini")
+    config_path = PathsManager.get_config_file()
+    
+    if config_path.exists():
+        cfg.read(config_path)
+        
     if "Navidrome" in cfg:
         APP_CONFIG["url"] = cfg["Navidrome"].get("url", "")
         APP_CONFIG["username"] = cfg["Navidrome"].get("username", "")
@@ -73,7 +79,7 @@ def load_config():
         APP_CONFIG["video_dynamic_blur"] = cfg["Video"].getint("dynamic_blur", fallback=0)
         APP_CONFIG["video_static_opacity"] = cfg["Video"].getint("static_opacity", fallback=80)
         APP_CONFIG["video_static_blur"] = cfg["Video"].getint("static_blur", fallback=60)
-        APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback="~/.cache/navidrome-player-video-offline")
+        APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback=str(PathsManager.get_data_dir() / "video-offline"))
         APP_CONFIG["video_offline_quality"] = cfg["VideoOffline"].get("quality", fallback="1080p")
         APP_CONFIG["video_smart_auto_play"] = cfg["VideoOffline"].getboolean("smart_auto_play", fallback=False)
         APP_CONFIG["video_auto_dl_favs"] = cfg["VideoOffline"].getboolean("auto_dl_favs", fallback=False)
@@ -103,13 +109,15 @@ def save_config():
         "static_blur": str(APP_CONFIG["video_static_blur"])
     }
     cfg["VideoOffline"] = {
-        "path": APP_CONFIG.get("video_offline_path", "~/.cache/navidrome-player-video-offline"),
+        "path": APP_CONFIG.get("video_offline_path", str(PathsManager.get_data_dir() / "video-offline")),
         "quality": APP_CONFIG.get("video_offline_quality", "1080p"),
         "smart_auto_play": str(APP_CONFIG.get("video_smart_auto_play", False)),
         "auto_dl_favs": str(APP_CONFIG.get("video_auto_dl_favs", False)),
         "auto_dl_playlists": ",".join(APP_CONFIG.get("video_auto_dl_playlists", []))
     }
-    with open("config.ini", "w") as f:
+    
+    config_path = PathsManager.get_config_file()
+    with open(config_path, "w") as f:
         cfg.write(f)
 
 def hex_to_rgba(hex_color, alpha):

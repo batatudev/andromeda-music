@@ -19,6 +19,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QRunnable, QUrl, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QNetworkDiskCache
+from core.paths import PathsManager
 
 
 class MediaItem(dict):
@@ -144,7 +145,7 @@ class TelemetryRecorder:
         return cls._instance
 
     def _init_recorder(self):
-        self.log_file = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-telemetry.csv")
+        self.log_file = PathsManager.get_logs_dir() / "navidrome-telemetry.csv"
         self.lock = threading.Lock()
         self.buffer =[]
 
@@ -232,7 +233,7 @@ class AppLogger:
         return cls._instance
 
     def _init_logger(self):
-        self.log_file = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-errors.log")
+        self.log_file = PathsManager.get_logs_dir() / "navidrome-player-errors.log"
         self.lock = threading.Lock()
         self.last_msg = None
         self.count = 0
@@ -309,16 +310,16 @@ class AsyncImageLoader(QObject):
         super().__init__(parent)
         self.manager = QNetworkAccessManager(self)
         self.disk_cache = QNetworkDiskCache(self)
-        cp = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-images")
-        os.makedirs(cp, exist_ok=True)
-        self.disk_cache.setCacheDirectory(cp)
+        cp = PathsManager.get_cache_dir() / "images"
+        cp.mkdir(parents=True, exist_ok=True)
+        self.disk_cache.setCacheDirectory(str(cp))
         self.manager.setCache(self.disk_cache)
         
-        self.custom_artists_dir = os.path.join(os.path.expanduser("~"), ".local", "share", "navidrome-player", "custom_artists")
-        os.makedirs(self.custom_artists_dir, exist_ok=True)
+        self.custom_artists_dir = PathsManager.get_data_dir() / "custom_artists"
+        self.custom_artists_dir.mkdir(parents=True, exist_ok=True)
         
-        self.custom_covers_dir = os.path.join(os.path.expanduser("~"), ".local", "share", "navidrome-player", "custom_covers")
-        os.makedirs(self.custom_covers_dir, exist_ok=True)
+        self.custom_covers_dir = PathsManager.get_data_dir() / "custom_covers"
+        self.custom_covers_dir.mkdir(parents=True, exist_ok=True)
         
         self.queue =[]
         self.active_reqs = 0
