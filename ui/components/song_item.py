@@ -1,6 +1,6 @@
-# WERSJA PROJEKTU: 14.17
+# WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: ui/components/song_item.py
-# OPIS ZMIAN: Naprawa wyszukiwania MainWindow przez topLevelWidgets() zamiast activeWindow(). Naprawia pobieranie z kolejki.
+# OPIS ZMIAN: Przekazanie referencji do DragHandle w celu wdrożenia duchów drag&drop.
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -100,7 +100,8 @@ class SongItem(QFrame):
         v_box.addLayout(h_info)
 
         if self.is_queue or self.is_playlist:
-            self.drag_handle = DragHandle(self.queue_index if self.is_queue else self.playlist_index)
+            # KLUCZOWA ZMIANA: Przekazujemy self (rodzica) do DragHandle
+            self.drag_handle = DragHandle(self.queue_index if self.is_queue else self.playlist_index, parent_item=self)
             layout.addWidget(self.drag_handle)
             layout.addWidget(self.img_container)
         elif track_number is not None:
@@ -115,7 +116,6 @@ class SongItem(QFrame):
 
         layout.addLayout(v_box, 1)
 
-        # Ikonka statusu offline
         self.dl_status_lbl = QLabel()
         self.dl_status_lbl.setFixedSize(16, 16)
         self.dl_status_lbl.setStyleSheet("background: transparent;")
@@ -151,7 +151,7 @@ class SongItem(QFrame):
                 layout.addWidget(self.btn_play_next)
                 layout.addWidget(self.btn_add_pl)
                 layout.addWidget(self.btn_remove)
-                
+
             elif self.is_playlist:
                 self.btn_add = HoverIconButton('fa5s.plus', icon_size=14)
                 self.btn_add.setFixedSize(32, 32)
@@ -170,11 +170,11 @@ class SongItem(QFrame):
                 self.btn_remove_pl.setStyleSheet(f"{btn_base_style} QPushButton:hover {{ background: {THEME['btn_remove_hover']}; }}")
                 self.btn_remove_pl.setToolTip("Usuń z playlisty")
                 self.btn_remove_pl.clicked.connect(lambda: self.remove_from_playlist_clicked.emit(self.song, self.playlist_index))
-                
+
                 layout.addWidget(self.btn_add)
                 layout.addWidget(self.btn_add_pl)
                 layout.addWidget(self.btn_remove_pl)
-                
+
             else:
                 self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14)
                 self.btn_add_pl.setFixedSize(32, 32)
@@ -187,12 +187,12 @@ class SongItem(QFrame):
                 self.btn_add.setStyleSheet(f"{btn_base_style} QPushButton:hover {{ background: {THEME['btn_add_hover']}; }}")
                 self.btn_add.setToolTip("Dodaj do kolejki")
                 self.btn_add.clicked.connect(lambda: self.add_to_queue_clicked.emit(self.song))
-                
+
                 layout.addWidget(self.btn_add_pl)
                 layout.addWidget(self.btn_add)
 
-        self.btn_fav = HoverIconButton('fa5s.heart' if song.is_starred else 'fa5.heart', 
-                                       default_color=THEME["accent"] if song.is_starred else THEME["heart_inactive"], 
+        self.btn_fav = HoverIconButton('fa5s.heart' if song.is_starred else 'fa5.heart',
+                                       default_color=THEME["accent"] if song.is_starred else THEME["heart_inactive"],
                                        icon_size=14)
         self.btn_fav.setFixedSize(32, 32)
         self.btn_fav.setStyleSheet(f"{btn_base_style} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
@@ -205,19 +205,15 @@ class SongItem(QFrame):
         self.btn_more.setToolTip("Więcej opcji")
         self.btn_more.clicked.connect(self._show_context_menu)
         layout.addWidget(self.btn_more)
-        
+
         self.set_active(active)
         self.style().polish(self)
-        
-        # Inicjalizacja ikony statusu pobierania
+
         self._update_dl_status_icon()
-        
-        # Podpięcie do globalnego sygnału aktualizacji statusu offline
         self._connect_offline_signal()
 
     @staticmethod
     def _find_main_window():
-        """Niezawodne wyszukiwanie MainWindow przez pełną listę okien."""
         from PySide6.QtWidgets import QApplication
         for w in QApplication.instance().topLevelWidgets():
             if hasattr(w, 'engine') and hasattr(w.engine, 'video_download_manager'):
@@ -225,13 +221,11 @@ class SongItem(QFrame):
         return None
 
     def _connect_offline_signal(self):
-        """Podpina się do sygnału offline_status_changed z MainWindow."""
         win = self._find_main_window()
         if win and hasattr(win, 'offline_status_changed'):
             win.offline_status_changed.connect(self._on_offline_status_updated)
 
     def _on_offline_status_updated(self, item_id, status):
-        """Wywoływane gdy status pobierania zmienił się globalnie."""
         if item_id == self.song.item_id:
             self._update_dl_status_icon()
 
@@ -268,33 +262,33 @@ class SongItem(QFrame):
                 act_next = QAction(qta.icon('fa5s.angle-double-up', color=THEME['text_main']), "Odtwórz jako następny", self)
                 act_next.triggered.connect(lambda: self.play_next_clicked.emit(self.song))
                 menu.addAction(act_next)
-                
+
                 act_add_pl = QAction(qta.icon('fa5s.folder-plus', color=THEME['text_main']), "Dodaj do playlisty", self)
                 act_add_pl.triggered.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
                 menu.addAction(act_add_pl)
-                
+
                 act_rm = QAction(qta.icon('fa5s.times', color=THEME['text_main']), "Usuń z kolejki", self)
                 act_rm.triggered.connect(lambda: self.remove_clicked.emit(self.song))
                 menu.addAction(act_rm)
-                
+
             elif self.is_playlist:
                 act_add = QAction(qta.icon('fa5s.plus', color=THEME['text_main']), "Dodaj do kolejki", self)
                 act_add.triggered.connect(lambda: self.add_to_queue_clicked.emit(self.song))
                 menu.addAction(act_add)
-                
+
                 act_rm_pl = QAction(qta.icon('fa5s.times', color=THEME['text_main']), "Usuń z playlisty", self)
                 act_rm_pl.triggered.connect(lambda: self.remove_from_playlist_clicked.emit(self.song, self.playlist_index))
                 menu.addAction(act_rm_pl)
-                
+
             else:
                 act_add = QAction(qta.icon('fa5s.plus', color=THEME['text_main']), "Dodaj do kolejki", self)
                 act_add.triggered.connect(lambda: self.add_to_queue_clicked.emit(self.song))
                 menu.addAction(act_add)
-                
+
                 act_add_pl = QAction(qta.icon('fa5s.folder-plus', color=THEME['text_main']), "Dodaj do playlisty", self)
                 act_add_pl.triggered.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
                 menu.addAction(act_add_pl)
-                
+
             menu.addSeparator()
 
         act_album = QAction(qta.icon('fa5s.compact-disc', color=THEME['text_main']), "Przejdź do albumu", self)
@@ -314,7 +308,7 @@ class SongItem(QFrame):
         menu.addAction(act_set_yt)
 
         menu.addSeparator()
-        
+
         act_custom_cov = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własną okładkę", self)
         act_custom_cov.triggered.connect(lambda: self.set_custom_cover_clicked.emit(self.song, MediaType.SONG))
         menu.addAction(act_custom_cov)
@@ -331,7 +325,6 @@ class SongItem(QFrame):
         menu.exec(global_pos)
 
     def _set_yt_link_dialog(self):
-        """Otwiera dialog do recznego ustawienia/usuniecia override linku YT."""
         from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
         from utils import _YT_LINK_OVERRIDES
 
@@ -447,10 +440,9 @@ class SongItem(QFrame):
         from PySide6.QtWidgets import QMessageBox
         yt_link = getattr(self.song, 'yt_link', None) or getattr(self.song, 'youtube_url', None)
         if not yt_link:
-            # Sprawdź czy komentarz zawiera coś co sugeruje że utwór pochodzi z YT
             comment = self.song.get('comment', '') or ''
             has_youtube_comment = 'youtube.com' in comment.lower() or 'youtu.be' in comment.lower()
-            
+
             if has_youtube_comment:
                 msg = (f"\"{ self.song.title }\" posiada opis z YouTube, ale bezpośredni link do klipu "
                        f"nie jest zapisany w komentarzu do pliku.\n\n"
@@ -461,7 +453,7 @@ class SongItem(QFrame):
                 msg = (f"\"{ self.song.title }\" nie posiada linku YouTube w polu komentarza.\n\n"
                        f"Aby pobrać teledysk offline, dodaj link YouTube (np. "
                        f"https://youtu.be/VIDEO_ID) w komentarzu do tego utwóru.")
-            
+
             QMessageBox.warning(self, "Brak linku YouTube", msg)
             logger.log(f"Brak linku YT dla utworu {self.song.title}")
             return
@@ -469,26 +461,24 @@ class SongItem(QFrame):
         win = self._find_main_window()
         if win:
             mgr = win.engine.video_download_manager
-            
             import sqlite3
             conn = sqlite3.connect(mgr.db_path)
             c = conn.cursor()
             c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
             row = c.fetchone()
-            
+
             if row and row[0] == "ERROR":
-                ans = QMessageBox.question(self, "Błąd pobierania", 
-                                          "Ten teledysk napotkał wcześniej błąd podczas pobierania (np. brak dostępu, nieistniejący film lub problem z siecią).\n\nCzy chcesz spróbować pobrać go ponownie?", 
+                ans = QMessageBox.question(self, "Błąd pobierania",
+                                          "Ten teledysk napotkał wcześniej błąd podczas pobierania (np. brak dostępu, nieistniejący film lub problem z siecią).\n\nCzy chcesz spróbować pobrać go ponownie?",
                                           QMessageBox.Yes | QMessageBox.No)
                 if ans == QMessageBox.No:
                     conn.close()
                     return
-                # Update is_hidden so it appears in download manager if it was hidden
                 c.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (self.song.item_id,))
                 conn.commit()
-                
+
             conn.close()
-            
+
             mgr.add_to_queue(
                 self.song.item_id,
                 yt_link,
@@ -504,7 +494,6 @@ class SongItem(QFrame):
     def _update_dl_status_icon(self):
         win = self._find_main_window()
         if hasattr(win, 'engine') and hasattr(win.engine, 'video_download_manager'):
-            # Prosty lookup
             mgr = win.engine.video_download_manager
             import sqlite3
             conn = sqlite3.connect(mgr.db_path)
@@ -512,7 +501,7 @@ class SongItem(QFrame):
             c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
             row = c.fetchone()
             conn.close()
-            
+
             if row:
                 st = row[0]
                 if st == "COMPLETED":
