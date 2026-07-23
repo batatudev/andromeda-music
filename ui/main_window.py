@@ -61,7 +61,9 @@ class MainWindow(QMainWindow):
         logger.start_session("14.6+")
         telemetry_recorder.start_session("14.6+")
 
+        from core.data_repository import DataRepository
         self.client = client
+        self.repo = DataRepository(self.client)
         self.loader = AsyncImageLoader(self)
         self.engine = PlayerEngine(self.client)
 

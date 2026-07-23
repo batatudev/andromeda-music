@@ -7,7 +7,8 @@ import string
 import requests
 import time
 from config import APP_NAME
-from utils import logger, MediaItem
+from utils import logger
+from core.models import Song, Album, Artist
 
 
 class NavidromeClient:
@@ -76,7 +77,7 @@ class NavidromeClient:
         starred_data = data.get('starred', {})
         if not starred_data:
             return[]
-        return [MediaItem(s) for s in starred_data.get('song', [])[:limit]]
+        return [Song(s) for s in starred_data.get('song', [])[:limit]]
 
     def get_albums(self, offset: int = 0, limit: int = 30) -> list:
         params = self._get_auth_params()
@@ -84,20 +85,20 @@ class NavidromeClient:
         params['size'] = limit
         params['offset'] = offset
         res = self._make_request("getAlbumList", params).get('albumList', {}).get('album',[])
-        return [MediaItem(a) for a in res]
+        return [Album(a) for a in res]
 
     def get_random_albums(self, limit: int = 10) -> list:
         params = self._get_auth_params()
         params['type'] = 'random'
         params['size'] = limit
         res = self._make_request("getAlbumList", params).get('albumList', {}).get('album',[])
-        return [MediaItem(a) for a in res]
+        return [Album(a) for a in res]
 
     def get_random_songs(self, limit: int = 50) -> list:
         params = self._get_auth_params()
         params['size'] = limit
         res = self._make_request("getRandomSongs", params).get('randomSongs', {}).get('song', [])
-        return [MediaItem(s) for s in res]
+        return [Song(s) for s in res]
 
     def get_artists(self) -> list:
         data = self._make_request("getArtists", self._get_auth_params())
@@ -105,31 +106,31 @@ class NavidromeClient:
         all_artists = []
         for i in indices:
             for a in i.get('artist',[]):
-                all_artists.append(MediaItem(a))
+                all_artists.append(Artist(a))
         return all_artists
 
-    def get_album(self, album_id: str) -> MediaItem:
+    def get_album(self, album_id: str) -> Album:
         params = self._get_auth_params()
         params['id'] = album_id
         album_data = self._make_request("getAlbum", params).get('album', {})
         if 'song' in album_data:
-            album_data['song'] = [MediaItem(s) for s in album_data['song']]
-        return MediaItem(album_data)
+            album_data['song'] = [Song(s) for s in album_data['song']]
+        return Album(album_data)
 
-    def get_artist(self, artist_id: str) -> MediaItem:
+    def get_artist(self, artist_id: str) -> Artist:
         params = self._get_auth_params()
         params['id'] = artist_id
         artist_data = self._make_request("getArtist", params).get('artist', {})
         if 'album' in artist_data:
-            artist_data['album'] =[MediaItem(a) for a in artist_data['album']]
-        return MediaItem(artist_data)
+            artist_data['album'] =[Album(a) for a in artist_data['album']]
+        return Artist(artist_data)
 
     def get_top_songs_for_artist(self, artist_name: str, limit: int = 50) -> list:
         params = self._get_auth_params()
         params['artist'] = artist_name
         params['count'] = limit
         res = self._make_request("getTopSongs", params).get('topSongs', {}).get('song', [])
-        return[MediaItem(s) for s in res]
+        return [Song(s) for s in res]
 
     def update_playlist(self, playlist_id: str, song_id_to_add: str = None, song_index_to_remove: int = None):
         params = self._get_auth_params()
@@ -161,7 +162,7 @@ class NavidromeClient:
         params['artistCount'] = limit
         res = self._make_request("search3", params).get('searchResult3', {})
         
-        for key in ['artist', 'album', 'song']:
-            if key in res:
-                res[key] = [MediaItem(i) for i in res[key]]
+        if 'artist' in res: res['artist'] = [Artist(i) for i in res['artist']]
+        if 'album' in res: res['album'] = [Album(i) for i in res['album']]
+        if 'song' in res: res['song'] = [Song(i) for i in res['song']]
         return res
