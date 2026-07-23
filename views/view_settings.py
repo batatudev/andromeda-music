@@ -398,7 +398,7 @@ class SettingsView(QWidget):
         self.combo_dev.setStyleSheet(input_style)
         self.combo_dev.setFixedWidth(350)
 
-        add_row(dev_layout, "Tryb dewelopera:", self.combo_dev)
+        add_row(dev_layout, "Dev mode:", self.combo_dev)
 
         btn_save_dev = QPushButton("Zapisz i Restartuj")
         btn_save_dev.setStyleSheet(f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
@@ -412,7 +412,7 @@ class SettingsView(QWidget):
 
         center_lay.addWidget(dev_group)
 
-        lbl_version = QLabel("Wersja programu: 11.4 (Odroczona rozdzielczość ARF, poprawki UI)")
+        lbl_version = QLabel("Andromeda Music Wersja: brak")
         lbl_version.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 12px; margin-top: 20px; background: transparent;")
         lbl_version.setAlignment(Qt.AlignCenter)
         center_lay.addWidget(lbl_version)
