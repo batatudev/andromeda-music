@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: views/settings/tab_offline.py
-# OPIS ZMIAN: Podłączenie sygnału sync_error, aby UI nie zawieszało się przy błędach bazy/API.
+# OPIS ZMIAN: Przeniesienie podłączania sygnałów z metody przycisku na start (czysta konsola).
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -116,6 +116,13 @@ class TabOffline(QWidget):
         self.layout.addWidget(offline_group)
         self.layout.addStretch()
 
+        # Podpinamy sygnały z repozytorium tylko raz, przy inicjalizacji karty ustawień
+        if hasattr(self.main_window, 'repo'):
+            sync_mgr = self.main_window.repo.library_sync
+            sync_mgr.sync_progress.connect(self._on_sync_progress)
+            sync_mgr.sync_completed.connect(self._on_sync_completed)
+            sync_mgr.sync_error.connect(self._on_sync_error)
+
     def _on_sync_progress(self, current, total):
         self.lbl_o_status.setText(f"Synchronizacja... ({current} przetworzono)")
 
@@ -130,21 +137,7 @@ class TabOffline(QWidget):
         win = self.main_window
         if hasattr(win, 'repo'):
             sync_mgr = win.repo.library_sync
-            
-            # Reset koloru labela w razie wcześniejszego błędu
             self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent; margin-top: 20px;")
-            
-            try:
-                sync_mgr.sync_progress.disconnect()
-                sync_mgr.sync_completed.disconnect()
-                sync_mgr.sync_error.disconnect()
-            except RuntimeError:
-                pass
-            
-            sync_mgr.sync_progress.connect(self._on_sync_progress, Qt.UniqueConnection)
-            sync_mgr.sync_completed.connect(self._on_sync_completed, Qt.UniqueConnection)
-            sync_mgr.sync_error.connect(self._on_sync_error, Qt.UniqueConnection)
-            
             sync_mgr.start_sync()
             self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
 

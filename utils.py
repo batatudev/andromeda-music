@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: utils.py
-# OPIS ZMIAN: Zmiana startu NetworkMonitora na pesymistyczny (is_online = False)
+# OPIS ZMIAN: Stworzenie permanentnego cache'u okładek (odpornego na losowe tokeny URL).
 import os
 os.environ["QT_API"] = "pyside6"
 import threading
@@ -30,7 +30,6 @@ class NetworkMonitor(threading.Thread):
     def __init__(self, local_url):
         super().__init__(daemon=True)
         self.local_host, self.local_port = self._extract_host_and_port(local_url)
-        # PESYMISTYCZNY START - Aplikacja domyślnie rusza bez netu i wczytuje cache
         self.is_online = False 
         self.net_ping = 0
         self.loc_lat = 0
@@ -247,6 +246,10 @@ class AsyncImageLoader(QObject):
 
         self.custom_covers_dir = PathsManager.get_data_dir() / "custom_covers"
         self.custom_covers_dir.mkdir(parents=True, exist_ok=True)
+        
+        # PERMANENTNY CACHE OFFLINE
+        self.covers_cache_dir = PathsManager.get_cache_dir() / "covers"
+        self.covers_cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.queue =[]
         self.active_reqs = 0
@@ -261,6 +264,7 @@ class AsyncImageLoader(QObject):
             qs = parse_qs(parsed.query)
             if 'id' in qs:
                 cover_id = qs['id'][0]
+                # 1. Najpierw sprawdzamy nadpisane okładki
                 for ext in ['.jpg', '.jpeg', '.png']:
                     artist_path = os.path.join(self.custom_artists_dir, f"{cover_id}{ext}")
                     if os.path.exists(artist_path):
@@ -275,6 +279,14 @@ class AsyncImageLoader(QObject):
                         if target:
                             target.set_image(pix, animate=False)
                         return
+                
+                # 2. Sprawdzamy nasz permanentny cache okładek
+                cached_path = os.path.join(self.covers_cache_dir, f"{cover_id}.jpg")
+                if os.path.exists(cached_path):
+                    pix = QPixmap(cached_path)
+                    if target:
+                        target.set_image(pix, animate=False)
+                    return
         except Exception:
             pass
 
@@ -312,8 +324,22 @@ class AsyncImageLoader(QObject):
         targets = self._in_flight.pop(url, [])
 
         if reply.error() == QNetworkReply.NoError:
+            data = reply.readAll()
             pix = QPixmap()
-            pix.loadFromData(reply.readAll())
+            pix.loadFromData(data)
+            
+            # Zapisz pobrany obrazek do permanentnego cache
+            try:
+                parsed = urlparse(url)
+                qs = parse_qs(parsed.query)
+                if 'id' in qs:
+                    cid = qs['id'][0]
+                    cached_path = os.path.join(self.covers_cache_dir, f"{cid}.jpg")
+                    with open(cached_path, "wb") as f:
+                        f.write(data.data())
+            except Exception:
+                pass
+
             for target in targets:
                 try:
                     if target:
