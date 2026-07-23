@@ -1,5 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
+
 import threading
 import csv
 import shutil
@@ -27,7 +28,7 @@ class NetworkMonitor(threading.Thread):
     def __init__(self, local_url):
         super().__init__(daemon=True)
         self.local_host, self.local_port = self._extract_host_and_port(local_url)
-        self.is_online = False 
+        self.is_online = False
         self.net_ping = 0
         self.loc_lat = 0
         self._running = True
@@ -78,7 +79,7 @@ class TelemetryRecorder:
     def _init_recorder(self):
         self.log_file = PathsManager.get_logs_dir() / "navidrome-telemetry.csv"
         self.lock = threading.Lock()
-        self.buffer =[]
+        self.buffer = []
 
     def start_session(self, version):
         with self.lock:
@@ -107,7 +108,7 @@ class TelemetryRecorder:
             buf_sec_str = f"{buf_sec:.1f}" if isinstance(buf_sec, (int, float)) else str(buf_sec)
             motion_str = f"{motion:.2f}" if isinstance(motion, (int, float)) else str(motion)
             rate_str = f"{rate:.2f}" if isinstance(rate, (int, float)) else str(rate)
-            row =[
+            row = [
                 now, event, state, a_pos_str, v_pos_str, av_delta,
                 buf_sec_str, fps, motion_str, vis_state, arf_res,
                 z_fps, rate_str, h_sync, str(grace),
@@ -120,13 +121,18 @@ class TelemetryRecorder:
     def _flush_unlocked(self):
         if not self.buffer:
             return
-        try:
-            with open(self.log_file, "a", encoding="utf-8", newline='') as f:
-                writer = csv.writer(f)
-                writer.writerows(self.buffer)
-            self.buffer.clear()
-        except Exception:
-            pass
+        rows_to_write = list(self.buffer)
+        self.buffer.clear()
+
+        def write_task():
+            try:
+                with open(self.log_file, "a", encoding="utf-8", newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerows(rows_to_write)
+            except Exception:
+                pass
+
+        threading.Thread(target=write_task, daemon=True).start()
 
     def flush(self):
         with self.lock:
@@ -162,7 +168,7 @@ class AppLogger:
         self.lock = threading.Lock()
         self.last_msg = None
         self.count = 0
-        self.session_logs =[]
+        self.session_logs = []
 
     def start_session(self, version):
         with self.lock:
@@ -198,19 +204,23 @@ class AppLogger:
             count_str = f" (Wystąpiło {self.count} razy)" if self.count > 1 else ""
             log_line = f"[{now}] {self.last_msg}{count_str}"
             self.session_logs.append(log_line)
-            try:
-                with open(self.log_file, "a", encoding="utf-8") as f:
-                    f.write(log_line + "\n")
-            except Exception:
-                pass
             self.last_msg = None
             self.count = 0
+
+            def write_log():
+                try:
+                    with open(self.log_file, "a", encoding="utf-8") as f:
+                        f.write(log_line + "\n")
+                except Exception:
+                    pass
+
+            threading.Thread(target=write_log, daemon=True).start()
 
     def clear_logs(self):
         with self.lock:
             self.last_msg = None
             self.count = 0
-            self.session_logs =[]
+            self.session_logs = []
             try:
                 with open(self.log_file, "w", encoding="utf-8") as f:
                     f.write("")
@@ -243,12 +253,11 @@ class AsyncImageLoader(QObject):
 
         self.custom_covers_dir = PathsManager.get_data_dir() / "custom_covers"
         self.custom_covers_dir.mkdir(parents=True, exist_ok=True)
-        
-        # PERMANENTNY CACHE OFFLINE
+
         self.covers_cache_dir = PathsManager.get_cache_dir() / "covers"
         self.covers_cache_dir.mkdir(parents=True, exist_ok=True)
 
-        self.queue =[]
+        self.queue = []
         self.active_reqs = 0
         self.MAX_ACTIVE = 10
         self._in_flight = {}
@@ -261,7 +270,6 @@ class AsyncImageLoader(QObject):
             qs = parse_qs(parsed.query)
             if 'id' in qs:
                 cover_id = qs['id'][0]
-                # 1. Najpierw sprawdzamy nadpisane okładki
                 for ext in ['.jpg', '.jpeg', '.png']:
                     artist_path = os.path.join(self.custom_artists_dir, f"{cover_id}{ext}")
                     if os.path.exists(artist_path):
@@ -276,8 +284,7 @@ class AsyncImageLoader(QObject):
                         if target:
                             target.set_image(pix, animate=False)
                         return
-                
-                # 2. Sprawdzamy nasz permanentny cache okładek
+
                 cached_path = os.path.join(self.covers_cache_dir, f"{cover_id}.jpg")
                 if os.path.exists(cached_path):
                     pix = QPixmap(cached_path)
@@ -322,18 +329,25 @@ class AsyncImageLoader(QObject):
 
         if reply.error() == QNetworkReply.NoError:
             data = reply.readAll()
+            raw_bytes = data.data()
             pix = QPixmap()
             pix.loadFromData(data)
-            
-            # Zapisz pobrany obrazek do permanentnego cache
+
             try:
                 parsed = urlparse(url)
                 qs = parse_qs(parsed.query)
                 if 'id' in qs:
                     cid = qs['id'][0]
                     cached_path = os.path.join(self.covers_cache_dir, f"{cid}.jpg")
-                    with open(cached_path, "wb") as f:
-                        f.write(data.data())
+
+                    def save_cover():
+                        try:
+                            with open(cached_path, "wb") as f:
+                                f.write(raw_bytes)
+                        except Exception:
+                            pass
+
+                    threading.Thread(target=save_cover, daemon=True).start()
             except Exception:
                 pass
 

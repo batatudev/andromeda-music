@@ -19,8 +19,6 @@ except ImportError:
     logger.log("Brak biblioteki yt-dlp! Funkcja wideo będzie wyłączona.")
     print("Brak biblioteki yt-dlp! Funkcja wideo będzie wyłączona. Uruchom: pip install yt-dlp")
 
-
-
 from engine.cache_manager import CacheManager
 from engine.arf_manager import ARFManager
 from engine.yt_resolver import YTResolver
@@ -39,10 +37,10 @@ class PlayerEngine(QObject):
     has_video_signal = Signal(bool)
     video_ready_to_show = Signal()
     audio_track_cached = Signal(str, str)
-    
+
     loop_mode_changed = Signal(bool)
     shuffle_mode_changed = Signal(bool)
-    
+
     buffering_changed = Signal(bool)
 
     def __init__(self, client):
@@ -59,15 +57,15 @@ class PlayerEngine(QObject):
         self.video_player = self.video_ctrl.player
         self.video_audio = self.video_ctrl._audio_output
 
-        self.queue =[]
+        self.queue = []
         self.idx = -1
-        
+
         # Managers
         self.cache_manager = CacheManager(self)
         self.arf_manager = ARFManager(self)
         self.yt_resolver = YTResolver(self)
         self.video_download_manager = VideoDownloadManager()
-        
+
         from engine.audio_download_manager import AudioDownloadManager
         self.audio_download_manager = AudioDownloadManager(self.client)
 
@@ -76,33 +74,33 @@ class PlayerEngine(QObject):
         self.current_yt_link = None
         self.video_needs_sync_on_load = False
         self.resolve_id = 0
-        
+
         self.prefetched_song_id = None
         self.prefetched_yt_url = None
         self.prefetched_yt_info_dict = None
         self._current_yt_info_dict = None
-        
+
         self._sync_start_active = False
         self._audio_loaded_for_sync = False
         self._video_loaded_for_sync = False
         self._is_new_track_starting = False
         self._seek_grace_until = 0
-        
+
         self.audio_status_str = "Brak"
         self.video_status_str = "Brak"
         self.current_engine_state = EngineState.STOPPED
         self.last_resolve_time = 0
-        
+
         self._last_buffering_state = False
         self._pending_buffering_state = False
-        
+
         self.yt_cancel_event = threading.Event()
         self.prefetch_cancel_event = threading.Event()
-        
+
         self.sync_timeout_timer = QTimer(self)
         self.sync_timeout_timer.setSingleShot(True)
         self.sync_timeout_timer.timeout.connect(self._on_sync_timeout)
-        
+
         self.buffering_hysteresis_timer = QTimer(self)
         self.buffering_hysteresis_timer.setSingleShot(True)
         self.buffering_hysteresis_timer.timeout.connect(self._commit_buffering_state)
@@ -111,7 +109,7 @@ class PlayerEngine(QObject):
         self.cache_dir = str(PathsManager.get_audio_cache_dir())
         self.cancel_event = None
         self.audio_track_cached.connect(self._on_audio_track_cached)
-        
+
         self.cache_cleanup_timer = QTimer(self)
         self.cache_cleanup_timer.timeout.connect(self.cache_manager.cleanup_cache)
         self.cache_cleanup_timer.start(3600000)
@@ -132,8 +130,6 @@ class PlayerEngine(QObject):
         self.sync_timer = QTimer(self)
         self.sync_timer.setInterval(500)
         self.sync_timer.timeout.connect(self._sync_video)
-        # Timer startowany dopiero gdy wideo jest aktywne (_activate_sync_timer)
-        # Zatrzymywany gdy wideo jest wyczyszczone (_deactivate_sync_timer)
 
         self.media_devices = QMediaDevices(self)
 
@@ -144,9 +140,6 @@ class PlayerEngine(QObject):
             self.current_audio_device_id = b''
 
         self.media_devices.audioOutputsChanged.connect(self._check_audio_device)
-        self.audio_check_timer = QTimer(self)
-        self.audio_check_timer.timeout.connect(self._check_audio_device)
-        self.audio_check_timer.start(2000)
 
         self.player.positionChanged.connect(self.position_changed.emit)
         self.player.durationChanged.connect(self.duration_changed.emit)
@@ -185,7 +178,7 @@ class PlayerEngine(QObject):
             return
         a_stat = self.player.mediaStatus()
         v_stat = self.video_player.mediaStatus()
-        buffering_states =[
+        buffering_states = [
             QMediaPlayer.MediaStatus.LoadingMedia,
             QMediaPlayer.MediaStatus.BufferingMedia,
             QMediaPlayer.MediaStatus.StalledMedia
@@ -247,24 +240,24 @@ class PlayerEngine(QObject):
 
         if time.time() < getattr(self, '_seek_grace_until', 0):
             return
-            
+
         a_state = self.player.playbackState()
-        
+
         if a_state != QMediaPlayer.PlaybackState.PlayingState:
             if self.video_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
                 self.video_player.pause()
             return
-            
+
         if self.video_player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
             self.video_player.play()
-            
+
         a_pos = self.player.position()
         v_pos = self.video_player.position()
         delta = a_pos - v_pos
-        
+
         buf_sec = self.get_buf_sec()
         hard_limit = 1200 if buf_sec < 10.0 else 800
-        
+
         if buf_sec < 2.0:
             if not getattr(self, 'sync_locked', False):
                 self.sync_locked = True
@@ -272,7 +265,7 @@ class PlayerEngine(QObject):
             return
         else:
             self.sync_locked = False
-        
+
         if abs(delta) > hard_limit:
             self._seek_grace_until = time.time() + 1.5
             self.video_player.setPosition(a_pos)
@@ -287,17 +280,14 @@ class PlayerEngine(QObject):
             self.video_player.setPlaybackRate(1.0)
 
     def _activate_sync_timer(self):
-        """Uruchamia sync_timer gdy wideo jest aktywne."""
         if not self.sync_timer.isActive():
             self.sync_timer.start()
 
     def _deactivate_sync_timer(self):
-        """Wstrzymuje sync_timer gdy nie ma aktywnego wideo."""
         if self.sync_timer.isActive():
             self.sync_timer.stop()
 
     def load_and_play_video(self, force_mid_track=False):
-        # Najpierw sprawdzamy offline
         if self.queue and self.idx >= 0:
             song = self.queue[self.idx]
             offline_path = self.video_download_manager.get_video_path(song.item_id)
@@ -306,7 +296,7 @@ class PlayerEngine(QObject):
                 from PySide6.QtCore import QUrl
                 logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
                 self._activate_sync_timer()
-                
+
                 if force_mid_track:
                     self._sync_start_active = False
                     self.video_needs_sync_on_load = True
@@ -463,7 +453,7 @@ class PlayerEngine(QObject):
             self.yt_cancel_event.set()
         if getattr(self, 'prefetch_cancel_event', None):
             self.prefetch_cancel_event.set()
-            
+
         self.queue = []
         self.idx = -1
         self._sync_start_active = False
@@ -549,14 +539,14 @@ class PlayerEngine(QObject):
         import time
         from PySide6.QtCore import QUrl
         from utils import logger
-        
+
         if 0 <= self.idx < len(self.queue):
             song = self.queue[self.idx]
             self._sync_start_active = False
             self._audio_loaded_for_sync = False
             self._video_loaded_for_sync = False
             self._is_new_track_starting = True
-            
+
             if getattr(self, 'player', None):
                 if self.player.position() > 30000:
                     if self.arf_drop_ticks == 0:
@@ -564,10 +554,10 @@ class PlayerEngine(QObject):
                             self.arf_success_streak += 1
                     else:
                         self.arf_success_streak = 0
-                        
+
             current_base_res = APP_CONFIG.get("video_resolution", VideoResolution.RES_1080P)
             current_min_res = APP_CONFIG.get("video_min_res", VideoResolution.RES_480P)
-            
+
             if getattr(self, '_last_base_res', None) != current_base_res or getattr(self, '_last_min_res', None) != current_min_res:
                 self.arf_active_res = current_base_res
                 self.arf_success_streak = 0
@@ -582,16 +572,16 @@ class PlayerEngine(QObject):
                 min_idx = res_order.index(current_min_res)
                 if min_idx < base_idx:
                     min_idx = base_idx
-                    
+
                 active_idx = res_order.index(self.arf_active_res)
-                
+
                 if active_idx < base_idx:
                     active_idx = base_idx
                     self.arf_active_res = res_order[active_idx]
                 elif active_idx > min_idx:
                     active_idx = min_idx
                     self.arf_active_res = res_order[active_idx]
-                    
+
                 if getattr(self, 'arf_pending_downgrade', False):
                     if active_idx < min_idx:
                         self.arf_active_res = res_order[active_idx + 1]
@@ -613,7 +603,7 @@ class PlayerEngine(QObject):
             self.h_sync_count = 0
             self.current_engine_state = EngineState.AUDIO_DOWNLOADING
             self.video_needs_sync_on_load = False
-            
+
             self.resolve_id += 1
             self.loading_changed.emit(True)
             self.player.stop()
@@ -622,7 +612,7 @@ class PlayerEngine(QObject):
             self.video_player.setSource(QUrl(""))
             self.video_player.setPlaybackRate(1.0)
             self.last_resolve_time = 0
-            
+
             if getattr(self, 'prefetched_song_id', None) == song.item_id:
                 self._current_yt_info_dict = getattr(self, 'prefetched_yt_info_dict', None)
             else:
@@ -638,26 +628,22 @@ class PlayerEngine(QObject):
             else:
                 self.current_yt_link = None
                 self._deactivate_sync_timer()
-                # Sprawdz czy mamy plik offline - jeśli tak, wideo nadal jest dostępne
                 offline_path = self.video_download_manager.get_video_path(song.item_id)
                 if offline_path:
                     self.has_video_signal.emit(True)
                 else:
                     self.has_video_signal.emit(False)
-                
+
             self.audio_status_str = "Pobieranie do cache..."
             self._evaluate_buffering()
             self.track_changed.emit(song)
-            
-            # Najpierw sprawdzamy, czy plik jest zapisany przez AudioDownloadManager (Offline)
+
             audio_offline_path = self.audio_download_manager.get_file_path(song.item_id)
             if audio_offline_path:
                 self.audio_status_str = "Lokalny plik (Offline)"
                 self.audio_track_cached.emit(song.item_id, audio_offline_path)
             else:
                 self.cache_manager.start_audio_download(song, is_prefetch=False)
-            
-            # Smart Video Mode obsługiwany jest teraz w głównym widoku (UI), co eliminuje podwójne zlecenia odtwarzania.
 
     def play_pause(self):
         from PySide6.QtMultimedia import QMediaPlayer

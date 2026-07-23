@@ -1,4 +1,6 @@
 import os
+os.environ["QT_API"] = "pyside6"
+
 import time
 import sqlite3
 import threading
@@ -29,7 +31,10 @@ class VideoDownloadManager(QObject):
         super().__init__()
         self.db_path = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-v3", "offline_videos.db")
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+
+        self._path_cache = {}
         self._init_db()
+        self._reload_path_cache()
 
         self.download_queue = queue.PriorityQueue()
         self.is_snoozed = False
@@ -37,7 +42,7 @@ class VideoDownloadManager(QObject):
 
         self.current_download_task = None
         self.cancel_current_event = threading.Event()
-        self._last_progress_emit = 0  # Przepustnica UI
+        self._last_progress_emit = 0
 
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
@@ -67,17 +72,25 @@ class VideoDownloadManager(QObject):
             )
         ''')
 
-        try: cursor.execute("ALTER TABLE downloads ADD COLUMN cover_id TEXT")
-        except sqlite3.OperationalError: pass
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN cover_id TEXT")
+        except sqlite3.OperationalError:
+            pass
 
-        try: cursor.execute("ALTER TABLE downloads ADD COLUMN resolution TEXT")
-        except sqlite3.OperationalError: pass
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN resolution TEXT")
+        except sqlite3.OperationalError:
+            pass
 
-        try: cursor.execute("ALTER TABLE downloads ADD COLUMN file_size INTEGER")
-        except sqlite3.OperationalError: pass
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN file_size INTEGER")
+        except sqlite3.OperationalError:
+            pass
 
-        try: cursor.execute("ALTER TABLE downloads ADD COLUMN is_hidden INTEGER DEFAULT 0")
-        except sqlite3.OperationalError: pass
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN is_hidden INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
 
         cursor.execute("UPDATE downloads SET status = ? WHERE status = ?", (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING))
         cursor.execute('''
@@ -90,6 +103,17 @@ class VideoDownloadManager(QObject):
         ''')
         conn.commit()
         conn.close()
+
+    def _reload_path_cache(self):
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT item_id, file_path FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
+            self._path_cache = {row[0]: row[1] for row in cursor.fetchall() if row[1] and os.path.exists(row[1])}
+            conn.close()
+        except Exception as e:
+            logger.log(f"Błąd ładowania path cache wideo: {e}")
+            self._path_cache = {}
 
     def _reload_queued_to_memory(self):
         conn = sqlite3.connect(self.db_path)
@@ -134,22 +158,25 @@ class VideoDownloadManager(QObject):
         cursor = conn.cursor()
         if file_path:
             cursor.execute("UPDATE downloads SET status = ?, file_path = ? WHERE item_id = ?", (status, file_path, item_id))
+            if status == DownloadStatus.COMPLETED:
+                self._path_cache[item_id] = file_path
         else:
             cursor.execute("UPDATE downloads SET status = ? WHERE item_id = ?", (status, item_id))
+
+        if status != DownloadStatus.COMPLETED:
+            self._path_cache.pop(item_id, None)
+
         conn.commit()
         conn.close()
         self.download_status_changed.emit(item_id, status)
 
     def get_video_path(self, item_id):
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT file_path, status FROM downloads WHERE item_id = ?", (item_id,))
-        row = cursor.fetchone()
-        conn.close()
-        if row and row[1] == DownloadStatus.COMPLETED:
-            if os.path.exists(row[0]):
-                return row[0]
+        path = self._path_cache.get(item_id)
+        if path:
+            if os.path.exists(path):
+                return path
             else:
+                self._path_cache.pop(item_id, None)
                 self._update_db_status(item_id, DownloadStatus.ERROR)
         return None
 
@@ -237,10 +264,10 @@ class VideoDownloadManager(QObject):
                 status_info = existing_status.get(item_id)
                 if yt_link and (not status_info or status_info[0] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]):
                     self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
-                    self.download_status_changed.emit(item_id, DownloadStatus.QUEUED)
             self.queue_updated.emit()
 
     def remove_download(self, item_id):
+        self._path_cache.pop(item_id, None)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT file_path, status FROM downloads WHERE item_id = ?", (item_id,))
@@ -251,8 +278,10 @@ class VideoDownloadManager(QObject):
 
             file_path = row[0]
             if file_path and os.path.exists(file_path):
-                try: os.remove(file_path)
-                except OSError: pass
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass
 
             cursor.execute("DELETE FROM downloads WHERE item_id = ?", (item_id,))
             conn.commit()
@@ -288,6 +317,7 @@ class VideoDownloadManager(QObject):
         self.queue_updated.emit()
 
     def delete_all_files(self):
+        self._path_cache.clear()
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT file_path FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
@@ -296,8 +326,10 @@ class VideoDownloadManager(QObject):
         for row in rows:
             fp = row[0]
             if fp and os.path.exists(fp):
-                try: os.remove(fp)
-                except OSError: pass
+                try:
+                    os.remove(fp)
+                except OSError:
+                    pass
 
         cursor.execute("DELETE FROM downloads WHERE status IN (?, ?)", (DownloadStatus.COMPLETED, DownloadStatus.ERROR))
         conn.commit()
@@ -419,7 +451,6 @@ class VideoDownloadManager(QObject):
             if self.cancel_current_event.is_set():
                 raise ValueError("Download Cancelled")
             if d['status'] == 'downloading':
-                # PRZEPUSTNICA: Ograniczenie wysyłania sygnału do max. 4 razy na sekundę (Co 0.25s)
                 current_time = time.time()
                 if current_time - getattr(self, '_last_progress_emit', 0) > 0.25:
                     p = d.get('_percent_str', '0.0%').replace('%', '').strip()
@@ -439,6 +470,7 @@ class VideoDownloadManager(QObject):
                 file_size = os.path.getsize(filename)
                 resolution = info.get('resolution', quality_str)
 
+                self._path_cache[item_id] = filename
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
                 cursor.execute("UPDATE downloads SET status = ?, file_path = ?, resolution = ?, file_size = ? WHERE item_id = ?",
