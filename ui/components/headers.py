@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.8
-# MODYFIKOWANY PLIK: ui/components/headers.py
-# OPIS ZMIAN: Wyodrębnienie MediaHeader i QueueHeader z ui_cards.py.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

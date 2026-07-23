@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.22
-# MODYFIKOWANY PLIK: core/backup_manager.py
-# OPIS ZMIAN: Dodanie systemu kopii zapasowych i przywracania ustawień fabrycznych.
-
 import os
 import shutil
 import time

@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.18
-# MODYFIKOWANY PLIK: ui/components/media_card.py
-# OPIS ZMIAN: Dodano sygnał download_videos_clicked i opcję w menu kontekstowym do masowego pobierania.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

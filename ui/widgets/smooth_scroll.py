@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.11
-# MODYFIKOWANY PLIK: ui/widgets/smooth_scroll.py
-# OPIS ZMIAN: Stworzenie klasy SmoothScrollArea z QPropertyAnimation (kinetyczne przewijanie).
-
 import os
 os.environ["QT_API"] = "pyside6"
 

@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Dodanie logiki pobierania masowego teledysków (szacowanie rozmiaru, okna dialogowe).
-
 import os
 os.environ["QT_API"] = "pyside6"
 

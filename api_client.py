@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: api_client.py
-# OPIS ZMIAN: Integracja z inteligentną klasą MediaItem. Metody zwracające kolekcje od teraz produkują ustandaryzowane obiekty. Poprawiono też timeout w `requests.Session` (rozdzielenie czasu łączenia i pobierania) na korzyść stabilności.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

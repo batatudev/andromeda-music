@@ -1,8 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: engine/watchdog.py
-# OPIS ZMIAN: Izolacja logiki Strażnika Maski (_check_mask_watchdog) z main.py.
-# Watchdog dostaje referencję do main_window i zarządza własnym timerem QTimer.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

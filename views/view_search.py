@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: views/view_search.py
-# OPIS ZMIAN: Ekstrakcja z view_library.py (SRP)
-
 
 import os
 os.environ["QT_API"] = "pyside6"

@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.18
-# MODYFIKOWANY PLIK: engine/video_download_manager.py
-# OPIS ZMIAN: Migracja bazy (cover_id, resolution, file_size), zaawansowane wstrzymywanie (-1, -2), zbieranie rozmiaru plików.
-
 import os
 import time
 import sqlite3

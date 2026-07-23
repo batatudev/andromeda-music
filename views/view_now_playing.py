@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.11
-# MODYFIKOWANY PLIK: view_now_playing.py
-# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea dla kolejki (płynne przewijanie).
-
 import os
 os.environ["QT_API"] = "pyside6"
 

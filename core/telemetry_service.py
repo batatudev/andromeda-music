@@ -1,8 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: core/telemetry_service.py
-# OPIS ZMIAN: Izolacja logiki Czarnej Skrzynki (_record_telemetry_sample) z main.py.
-# TelemetryService dostaje referencję do main_window i zarządza własnym timerem QTimer.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

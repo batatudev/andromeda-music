@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.22
-# MODYFIKOWANY PLIK: app.py
-# OPIS ZMIAN: Inicjalizacja opóźnionego mechanizmu motywu systemowego (init_theme) tuż po utworzeniu instancji QApplication.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

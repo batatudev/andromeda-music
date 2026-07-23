@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: ui/widgets/images.py
-# OPIS ZMIAN: Wyodrębnienie RoundedImage z ui_core.py.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

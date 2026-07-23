@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: ui/widgets/buttons.py
-# OPIS ZMIAN: Wyodrębnienie HoverIconButton z ui_core.py.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

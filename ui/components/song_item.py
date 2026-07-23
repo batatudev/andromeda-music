@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/components/song_item.py
-# OPIS ZMIAN: Przekazanie referencji do DragHandle w celu wdrożenia duchów drag&drop.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

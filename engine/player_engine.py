@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.15
-# MODYFIKOWANY PLIK: engine/player_engine.py
-# OPIS ZMIAN: Emisja has_video_signal(True) dla plików offline bez yt_link. Gwarancja uruchomienia ścieżki Smart Auto-play.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

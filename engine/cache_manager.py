@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: engine/cache_manager.py
-# OPIS ZMIAN: Izolacja logiki cache z audio_engine.py w sposób bezpieczny, zachowujący stan silnika głównego.
 import os
 os.environ["QT_API"] = "pyside6"
 import threading

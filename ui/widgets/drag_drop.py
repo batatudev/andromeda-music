@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.21
-# MODYFIKOWANY PLIK: ui/widgets/drag_drop.py
-# OPIS ZMIAN: Optymalizacja wydajności Drag & Drop. Redukcja repaintów (Micro-Repainting tylko obszaru wokół wskaźnika) eliminuje lagi nałożonych efektów wizualnych.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

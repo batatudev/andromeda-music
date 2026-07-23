@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.22
-# MODYFIKOWANY PLIK: views/view_settings.py
-# OPIS ZMIAN: Integracja 3-stanowego wyboru motywu (Systemowy, Ciemny, Jasny) z opcją theme_mode.
-
 import os
 import sys
 
@@ -192,7 +188,7 @@ class SettingsView(QWidget):
         video_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
         video_layout = QVBoxLayout(video_group)
 
-        lbl_v_title = QLabel("Ustawienia Wideo (Inteligentne Filtry)")
+        lbl_v_title = QLabel("Teledyski")
         lbl_v_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 5px; background: transparent;")
         video_layout.addWidget(lbl_v_title)
 
@@ -265,14 +261,14 @@ class SettingsView(QWidget):
 
             parent_layout.addLayout(lay)
 
-        lbl_v_dyn = QLabel("Profil: Teledysk (wykryto ruch w kadrze)")
+        lbl_v_dyn = QLabel("Profil: Teledysk")
         lbl_v_dyn.setStyleSheet(f"font-weight: bold; color: {THEME['accent']}; margin-top: 10px; margin-bottom: 5px; background: transparent;")
         video_layout.addWidget(lbl_v_dyn)
 
         add_slider(video_layout, "Przyciemnienie:", "video_dynamic_opacity", True)
         add_slider(video_layout, "Rozmycie wideo:", "video_dynamic_blur", False)
 
-        lbl_v_stat = QLabel("Profil: Statyczna Okładka (brak ruchu)")
+        lbl_v_stat = QLabel("Profil: Statyczny")
         lbl_v_stat.setStyleSheet(f"font-weight: bold; color: {THEME['accent']}; margin-top: 15px; margin-bottom: 5px; background: transparent;")
         video_layout.addWidget(lbl_v_stat)
 
@@ -322,7 +318,7 @@ class SettingsView(QWidget):
         offline_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
         offline_layout = QVBoxLayout(offline_group)
 
-        lbl_o_title = QLabel("Ustawienia Pobrań Offline")
+        lbl_o_title = QLabel("Ustawienia pobierania")
         lbl_o_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
         offline_layout.addWidget(lbl_o_title)
 
@@ -338,7 +334,7 @@ class SettingsView(QWidget):
         self.combo_off_quality.setCurrentText(APP_CONFIG.get("video_offline_quality", "1080p"))
         self.combo_off_quality.setStyleSheet(input_style)
         self.combo_off_quality.setFixedWidth(350)
-        add_row(offline_layout, "Jakość wideo (offline):", self.combo_off_quality)
+        add_row(offline_layout, "Jakość wideo:", self.combo_off_quality)
 
         self.combo_auto_favs = QComboBox()
         self.combo_auto_favs.addItems(["Wyłączone", "Włączone (pobieraj przy polubieniu)"])

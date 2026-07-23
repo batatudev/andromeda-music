@@ -1,8 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: engine/yt_resolver.py
-# OPIS ZMIAN: (2 z etapu 4) Zamieniono wszystkie bare except: na except Exception:
-# zapobiegając łapaniu SystemExit i KeyboardInterrupt.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

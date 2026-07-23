@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: ui/widgets/flow_layout.py
-# OPIS ZMIAN: Wyodrębnienie FlowLayout z ui_core.py w ramach dekonstrukcji warstwy UI.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

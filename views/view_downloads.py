@@ -1,8 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: views/view_downloads.py
-# OPIS ZMIAN: Naprawiono ładowanie okładek - używamy item_id jako fallback dla cover_id (Navidrome getCoverArt akceptuje song_id).
-# OPIS ZMIAN: Naprawiono ładowanie okładek - używamy item_id jako fallback dla cover_id (Navidrome getCoverArt akceptuje song_id). Dodano CollapsibleSection i przebudowano UI menadżera.
-
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -179,7 +174,7 @@ class DownloadsView(QWidget):
         # Tytuł i rozmiar
         header_lay = QHBoxLayout()
         title_lay = QVBoxLayout()
-        title_lbl = QLabel("Menadżer Pobrań (Offline)")
+        title_lbl = QLabel("Menadżer Pobrania")
         title_lbl.setStyleSheet(f"font-size: 28px; font-weight: bold; color: {THEME['text_main']};")
         
         self.total_size_lbl = QLabel("Zajęte miejsce: 0 MB")
@@ -211,7 +206,7 @@ class DownloadsView(QWidget):
         self.btn_dl_fav.clicked.connect(lambda: self._start_bulk("favorites"))
         header_lay.addWidget(self.btn_dl_fav)
         
-        self.btn_dl_pl = QPushButton("Pobierz z Playlisty...")
+        self.btn_dl_pl = QPushButton("Pobierz playlisty")
         self.btn_dl_pl.setStyleSheet(button_style)
         self.btn_dl_pl.setCursor(Qt.PointingHandCursor)
         self.btn_dl_pl.clicked.connect(self._show_playlist_picker)
@@ -270,9 +265,9 @@ class DownloadsView(QWidget):
         self.items_layout.setSpacing(20)
         self.items_layout.setAlignment(Qt.AlignTop)
         
-        self.pending_section = CollapsibleSection("Oczekujące i Pobierane")
+        self.pending_section = CollapsibleSection("Kolejka pobierania")
         self.completed_section = CollapsibleSection("Pobrane")
-        self.error_section = CollapsibleSection("Błędy pobierania")
+        self.error_section = CollapsibleSection("Błędy")
         
         self.items_layout.addWidget(self.pending_section)
         self.items_layout.addWidget(self.completed_section)

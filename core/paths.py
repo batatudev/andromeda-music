@@ -1,11 +1,7 @@
-# WERSJA PROJEKTU: 14.22
-# MODYFIKOWANY PLIK: core/paths.py
-# OPIS ZMIAN: Stworzenie centralnego menadżera ścieżek dla środowiska produkcyjnego (Linux).
-
 import os
 from pathlib import Path
 
-APP_ID = "navidrome-player"
+APP_ID = "andromeda-music"
 
 class PathsManager:
     @classmethod

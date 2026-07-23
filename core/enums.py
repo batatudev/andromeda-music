@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: core/enums.py
-# OPIS ZMIAN: Rozszerzony zestaw stanów dla pełnej eliminacji magic strings.
-
 from enum import Enum
 
 class EngineState(str, Enum):

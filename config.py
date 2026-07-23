@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.22
-# MODYFIKOWANY PLIK: config.py
-# OPIS ZMIAN: Wdrożenie dynamicznego wykrywania motywu systemowego (theme_mode) i opóźnionej inicjalizacji palety kolorów po utworzeniu QApplication.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

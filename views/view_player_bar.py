@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: view_player_bar.py
-# OPIS ZMIAN: Zmiana ikony ładowania na czyste, nowoczesne `fa5s.circle-notch` (sam łuk bez strzałki). Zachowano szybki obrót (step=6). Zlikwidowano absolutnie wszystkie średniki i wymuszono jedną instrukcję na linię.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

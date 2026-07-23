@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: engine/arf_manager.py
-# OPIS ZMIAN: Izolacja logiki ARF (Smart Bandwidth) z audio_engine.py
-
 import os
 os.environ["QT_API"] = "pyside6"
 

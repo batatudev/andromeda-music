@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: ui/widgets/sliders.py
-# OPIS ZMIAN: Wyodrębnienie PremiumSlider z ui_core.py.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

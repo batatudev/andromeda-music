@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: views/view_favs.py
-# OPIS ZMIAN: Ekstrakcja z view_library.py (SRP)
-
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -38,7 +34,7 @@ class FavsView(LibraryScrollArea):
         def on_ready(songs):
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
-            self.content_layout.addWidget(QLabel("Twoje polubienia", font=QFont("Sans", 24, QFont.Bold)))
+            self.content_layout.addWidget(QLabel("Twoje ulubione utwory", font=QFont("Sans", 24, QFont.Bold)))
             if not songs:
                 self.content_layout.addStretch()
                 iv = QVBoxLayout()

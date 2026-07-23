@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.11
-# MODYFIKOWANY PLIK: views/library_base.py
-# OPIS ZMIAN: Zastąpienie QScrollArea przez SmoothScrollArea dla płynnego przewijania.
-
 
 import os
 os.environ["QT_API"] = "pyside6"

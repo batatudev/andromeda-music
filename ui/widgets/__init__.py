@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.11
-# MODYFIKOWANY PLIK: ui/widgets/__init__.py
-# OPIS ZMIAN: Dodano eksport SmoothScrollArea z smooth_scroll.py.
-
 from .flow_layout import FlowLayout
 from .labels import ElidedLabel, ClickableLabel, ClickableElidedLabel
 from .frames import ClickableFrame

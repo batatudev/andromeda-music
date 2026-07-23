@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: views/view_home.py
-# OPIS ZMIAN: Ekstrakcja z view_library.py (SRP)
-
 
 import os
 os.environ["QT_API"] = "pyside6"
@@ -75,7 +71,7 @@ class HomeView(LibraryScrollArea):
                 if s.cover_id:
                     self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), h)
 
-            self.content_layout.addWidget(QLabel("Polecane Albumy", font=QFont("Sans", 20, QFont.Bold)))
+            self.content_layout.addWidget(QLabel("Albumy", font=QFont("Sans", 20, QFont.Bold)))
             flow_albs = FlowLayout(spacing=25)
             for i, a in enumerate(albs):
                 card = MediaCard(a, MediaType.ALBUM)
@@ -93,7 +89,7 @@ class HomeView(LibraryScrollArea):
             self.content_layout.addLayout(flow_albs)
 
             self.content_layout.addSpacing(20)
-            self.content_layout.addWidget(QLabel("Polecane Utwory", font=QFont("Sans", 20, QFont.Bold)))
+            self.content_layout.addWidget(QLabel("Utwory", font=QFont("Sans", 20, QFont.Bold)))
 
             sc = QWidget()
             vl = QVBoxLayout(sc)
@@ -119,7 +115,7 @@ class HomeView(LibraryScrollArea):
 
             if r_arts:
                 self.content_layout.addSpacing(20)
-                self.content_layout.addWidget(QLabel("Polecani Artyści", font=QFont("Sans", 20, QFont.Bold)))
+                self.content_layout.addWidget(QLabel("Artyści", font=QFont("Sans", 20, QFont.Bold)))
                 flow_arts = FlowLayout(spacing=25)
                 for i, a in enumerate(r_arts):
                     card = MediaCard(a, MediaType.ARTIST)

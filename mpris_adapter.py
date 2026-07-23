@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: mpris_adapter.py
-# OPIS ZMIAN: Integracja z modelem MediaItem. Oczyszczenie wtyczki z surowych kluczy słownikowych na rzecz jednolitych właściwości.
-
 import os
 os.environ["QT_API"] = "pyside6"
 

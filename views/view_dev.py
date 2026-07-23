@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.7
-# MODYFIKOWANY PLIK: view_dev.py
-# OPIS ZMIAN: Poszerzenie okna telemetrii (do 520px) i całkowita zmiana nomenklatury parametrów na bardziej profesjonalną (inżynierską). Usunięcie żargonu programistycznego i dopisków. Zmiana wymiarowania przycisków na setMinimumWidth.
-
 import os
 import sys
 import shutil
@@ -307,7 +303,7 @@ class DevModeView(QWidget):
         self.main_layout.setContentsMargins(30, 30, 30, 30)
         self.main_layout.setSpacing(20)
 
-        lbl_title = QLabel("Tryb Dewelopera i Diagnostyka")
+        lbl_title = QLabel("Tryb Dewelopera")
         lbl_title.setStyleSheet(f"font-size: 32px; font-weight: bold; color: {THEME['text_main']}; margin-bottom: 20px; background: transparent;")
         self.main_layout.addWidget(lbl_title)
 
@@ -315,7 +311,7 @@ class DevModeView(QWidget):
         live_group.setStyleSheet(f"background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px;")
         live_layout = QVBoxLayout(live_group)
         
-        live_title = QLabel("Panel Diagnostyczny (HUD)")
+        live_title = QLabel("Panel Diagnostyczny")
         live_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
         live_layout.addWidget(live_title)
         
@@ -333,7 +329,7 @@ class DevModeView(QWidget):
         rec_group.setStyleSheet(f"background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px;")
         rec_layout = QVBoxLayout(rec_group)
         
-        rec_title = QLabel("Zrzut Telemetrii (Czarna Skrzynka)")
+        rec_title = QLabel("Dane telemetryczne")
         rec_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
         rec_layout.addWidget(rec_title)
         
@@ -460,7 +456,7 @@ class DevModeView(QWidget):
         
         self.main_layout.addWidget(log_group)
 
-        lbl_version = QLabel("Wersja programu: 11.6 (Static Layout, Pro-HUD)")
+        lbl_version = QLabel("Andromeda Music Wersja: brak")
         lbl_version.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 12px; margin-top: 20px; background: transparent;")
         lbl_version.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(lbl_version)

@@ -1,11 +1,3 @@
-# WERSJA PROJEKTU: 14.8
-# MODYFIKOWANY PLIK: utils.py
-# OPIS ZMIAN: (1) NetworkMonitor wyciąga port z URL zamiast hard-kodowanego 4533.
-# (2) Zamieniono bare except: na except Exception: w NetworkMonitor.
-# (3) AsyncImageLoader: deduplikacja in-flight requestów (_in_flight dict).
-#     Duplikatne żądania dla tego samego URL dochączają target do istniejącego
-#     requestu zamiast wysyłać nowe. Wynik trafia do wszystkich oczekujących.
-
 import os
 os.environ["QT_API"] = "pyside6"
 import threading

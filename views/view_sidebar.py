@@ -1,7 +1,3 @@
-# WERSJA PROJEKTU: 14.12
-# MODYFIKOWANY PLIK: view_sidebar.py
-# OPIS ZMIAN: Dodano przycisk Menadżera Pobrań.
-
 import os
 os.environ["QT_API"] = "pyside6"
 
