@@ -64,6 +64,7 @@ def load_config():
         else:
             legacy_dark = cfg["Theme"].getboolean("dark_mode", fallback=True)
             APP_CONFIG["theme_mode"] = "dark" if legacy_dark else "light"
+        APP_CONFIG["language"] = cfg["Theme"].get("language", fallback="pl")
         APP_CONFIG["accent"] = cfg["Theme"].get("accent", fallback="#1db954")
         APP_CONFIG["volume"] = cfg["Theme"].getint("volume", fallback=80)
         APP_CONFIG["dev_mode"] = cfg["Theme"].getboolean("dev_mode", fallback=False)
@@ -91,6 +92,7 @@ def save_config():
     }
     cfg["Theme"] = {
         "theme_mode": APP_CONFIG.get("theme_mode", "system"),
+        "language": APP_CONFIG.get("language", "pl"),
         "accent": APP_CONFIG["accent"],
         "volume": str(APP_CONFIG["volume"]),
         "dev_mode": str(APP_CONFIG.get("dev_mode", False))
