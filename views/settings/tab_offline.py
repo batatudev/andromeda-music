@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: views/settings/tab_offline.py
-# OPIS ZMIAN: Prawidłowe podłączenie istniejącej instancji library_sync.
+# OPIS ZMIAN: Eliminacja ostrzeżenia RuntimeWarning przez zastosowanie Qt.UniqueConnection.
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -116,18 +116,23 @@ class TabOffline(QWidget):
         self.layout.addWidget(offline_group)
         self.layout.addStretch()
 
+    def _on_sync_progress(self, current, total):
+        self.lbl_o_status.setText(f"Synchronizacja... ({current} pobrano)")
+
+    def _on_sync_completed(self):
+        self.lbl_o_status.setText("Zakończono synchronizację!")
+
     def _sync_library(self):
         win = self.main_window
         if hasattr(win, 'repo'):
             sync_mgr = win.repo.library_sync
             try:
-                sync_mgr.sync_progress.disconnect()
-                sync_mgr.sync_completed.disconnect()
+                # Używamy unikalnego podłączenia - eliminuje błędy duplikacji i ostrzeżenia w konsoli
+                sync_mgr.sync_progress.connect(self._on_sync_progress, Qt.UniqueConnection)
+                sync_mgr.sync_completed.connect(self._on_sync_completed, Qt.UniqueConnection)
             except RuntimeError:
                 pass
             
-            sync_mgr.sync_progress.connect(lambda current, total: self.lbl_o_status.setText(f"Synchronizacja... ({current} pobrano)"))
-            sync_mgr.sync_completed.connect(lambda: self.lbl_o_status.setText("Zakończono synchronizację!"))
             sync_mgr.start_sync()
             self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
 
