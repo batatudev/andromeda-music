@@ -7,6 +7,7 @@ import shutil
 import time
 import socket
 import re
+import weakref
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 from PySide6.QtCore import QObject, QRunnable, QUrl, QTimer
@@ -263,8 +264,10 @@ class AsyncImageLoader(QObject):
         self._in_flight = {}
 
     def load(self, url, target):
-        if not url:
+        if not url or target is None:
             return
+
+        target_ref = weakref.ref(target)
         try:
             parsed = urlparse(url)
             qs = parse_qs(parsed.query)
@@ -274,43 +277,44 @@ class AsyncImageLoader(QObject):
                     artist_path = os.path.join(self.custom_artists_dir, f"{cover_id}{ext}")
                     if os.path.exists(artist_path):
                         pix = QPixmap(artist_path)
-                        if target:
-                            target.set_image(pix, animate=False)
+                        t = target_ref()
+                        if t:
+                            t.set_image(pix, animate=False)
                         return
 
                     cover_path = os.path.join(self.custom_covers_dir, f"{cover_id}{ext}")
                     if os.path.exists(cover_path):
                         pix = QPixmap(cover_path)
-                        if target:
-                            target.set_image(pix, animate=False)
+                        t = target_ref()
+                        if t:
+                            t.set_image(pix, animate=False)
                         return
 
                 cached_path = os.path.join(self.covers_cache_dir, f"{cover_id}.jpg")
                 if os.path.exists(cached_path):
                     pix = QPixmap(cached_path)
-                    if target:
-                        target.set_image(pix, animate=False)
+                    t = target_ref()
+                    if t:
+                        t.set_image(pix, animate=False)
                     return
         except Exception:
             pass
 
         if url in self._in_flight:
-            if target not in self._in_flight[url]:
-                self._in_flight[url].append(target)
+            if target_ref not in self._in_flight[url]:
+                self._in_flight[url].append(target_ref)
             return
 
-        self.queue.append((url, target))
+        self.queue.append((url, target_ref))
         self._process()
 
     def _process(self):
         while self.queue and self.active_reqs < self.MAX_ACTIVE:
-            url, target = self.queue.pop(0)
-            try:
-                if target is None:
-                    continue
-            except RuntimeError:
+            url, target_ref = self.queue.pop(0)
+            target = target_ref()
+            if target is None:
                 continue
-            self._in_flight[url] = [target]
+            self._in_flight[url] = [target_ref]
             self.active_reqs += 1
             req = QNetworkRequest(QUrl(url))
             reply = self.manager.get(req)
@@ -325,7 +329,7 @@ class AsyncImageLoader(QObject):
         start_time = reply.property("start_time")
         duration = time.time() - start_time
         is_fast_cache = (duration < 0.05)
-        targets = self._in_flight.pop(url, [])
+        target_refs = self._in_flight.pop(url, [])
 
         if reply.error() == QNetworkReply.NoError:
             data = reply.readAll()
@@ -351,8 +355,9 @@ class AsyncImageLoader(QObject):
             except Exception:
                 pass
 
-            for target in targets:
+            for target_ref in target_refs:
                 try:
+                    target = target_ref()
                     if target:
                         target.set_image(pix, animate=(not is_fast_cache))
                 except RuntimeError:

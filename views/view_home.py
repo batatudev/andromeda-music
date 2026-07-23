@@ -22,6 +22,9 @@ class HomeView(LibraryScrollArea):
         super().__init__(main_window)
 
     def load(self):
+        if self._is_loaded:
+            return
+
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         lbl = QLabel("Wczytywanie...")
@@ -32,7 +35,6 @@ class HomeView(LibraryScrollArea):
         self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
-            # Zmieniono client na repo
             stars = self.main_window.repo.get_starred(40)
             albs = self.main_window.repo.get_random_albums(6)
             songs = self.main_window.repo.get_random_songs(10)
@@ -122,5 +124,6 @@ class HomeView(LibraryScrollArea):
 
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
+            self._is_loaded = True
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)

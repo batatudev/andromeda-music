@@ -19,6 +19,7 @@ class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
+        self._is_loaded = False
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setStyleSheet("background: transparent; border: none;")
@@ -28,7 +29,10 @@ class LibraryScrollArea(SmoothScrollArea):
         self.content_layout.setContentsMargins(30, 30, 30, 30)
         self.content_layout.setSpacing(15)
         self.setWidget(self.content_widget)
-        
+
+    def invalidate_cache(self):
+        self._is_loaded = False
+
     def _clear(self):
         while self.content_layout.count():
             i = self.content_layout.takeAt(0)
@@ -44,4 +48,3 @@ class LibraryScrollArea(SmoothScrollArea):
                 i.widget().deleteLater()
             elif i.layout():
                 self._clear_layout(i.layout())
-

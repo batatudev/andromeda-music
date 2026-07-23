@@ -16,6 +16,9 @@ class FavsView(LibraryScrollArea):
         super().__init__(main_window)
 
     def load(self):
+        if self._is_loaded:
+            return
+
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         lbl = QLabel("Wczytywanie...")
@@ -41,6 +44,7 @@ class FavsView(LibraryScrollArea):
                 self.content_layout.addLayout(iv)
                 self.content_layout.addStretch()
                 self.content_widget.setUpdatesEnabled(True)
+                self._is_loaded = True
                 return
 
             for i, s in enumerate(songs):
@@ -59,5 +63,6 @@ class FavsView(LibraryScrollArea):
                     self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), item)
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
+            self._is_loaded = True
 
         self.main_window.run_async(lambda: self.main_window.repo.get_starred(100), on_ready, page_bound=True)

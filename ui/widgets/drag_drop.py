@@ -16,6 +16,7 @@ class DragDropContainer(QWidget):
         self.setAcceptDrops(True)
         self._drag_active = False
         self._indicator_y = -1
+        self._last_drag_pos_y = -100
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasFormat("application/x-queue-index"):
@@ -30,10 +31,14 @@ class DragDropContainer(QWidget):
         if e.mimeData().hasFormat("application/x-queue-index"):
             e.acceptProposedAction()
             pos_y = e.position().toPoint().y()
+            if abs(pos_y - self._last_drag_pos_y) < 4:
+                return
+            self._last_drag_pos_y = pos_y
+
             layout = self.layout()
             indicator_y = -1
-            
-            if layout:
+
+            if layout and layout.count() > 0:
                 for i in range(layout.count()):
                     item = layout.itemAt(i)
                     if item and item.widget():
@@ -42,31 +47,28 @@ class DragDropContainer(QWidget):
                             indicator_y = w.geometry().top() - (layout.spacing() // 2)
                             break
                 else:
-                    if layout.count() > 0:
-                        last_w = layout.itemAt(layout.count() - 1).widget()
-                        if last_w:
-                            indicator_y = last_w.geometry().bottom() + (layout.spacing() // 2)
-            
+                    last_w = layout.itemAt(layout.count() - 1).widget()
+                    if last_w:
+                        indicator_y = last_w.geometry().bottom() + (layout.spacing() // 2)
+
             self._set_indicator(indicator_y)
 
     def dropEvent(self, e):
         self._drag_active = False
         self._set_indicator(-1)
+        self._last_drag_pos_y = -100
         data = e.mimeData().data("application/x-queue-index").data().decode()
         if data.isdigit():
             self.drop_occurred.emit(int(data), e.position().toPoint().y())
         e.acceptProposedAction()
 
     def _set_indicator(self, y):
-        """Krytyczna optymalizacja: Przerysowuje TYLKO mały, 10-pikselowy obszar, zamiast całego kontenera (eliminacja lagów)."""
         if self._indicator_y != y:
-            # Wyczyść stary obszar linii
             if self._indicator_y >= 0:
                 self.update(0, self._indicator_y - 5, self.width(), 10)
-            
+
             self._indicator_y = y
-            
-            # Narysuj nową linię
+
             if self._indicator_y >= 0:
                 self.update(0, self._indicator_y - 5, self.width(), 10)
 
@@ -75,20 +77,17 @@ class DragDropContainer(QWidget):
         if self._drag_active and self._indicator_y >= 0:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.Antialiasing)
-            
+
             pen = QPen(QColor(THEME["accent"]))
             pen.setWidth(2)
             painter.setPen(pen)
-            
-            # Linia rozdzielająca
+
             painter.drawLine(20, self._indicator_y, self.width() - 20, self._indicator_y)
-            
-            # Ozdobne kropki na krawędziach
+
             painter.setBrush(QColor(THEME["accent"]))
             painter.drawEllipse(QPoint(20, self._indicator_y), 3, 3)
             painter.drawEllipse(QPoint(self.width() - 20, self._indicator_y), 3, 3)
             painter.end()
-
 
 class DragHandle(QLabel):
     def __init__(self, index, parent_item=None):
@@ -119,33 +118,29 @@ class DragHandle(QLabel):
         drag.setMimeData(mime)
 
         if self.parent_item:
-            # Tworzenie "Ducha" (Półprzezroczysty zrzut wiersza)
             pixmap = self.parent_item.grab()
             transparent_pixmap = QPixmap(pixmap.size())
             transparent_pixmap.fill(Qt.transparent)
-            
+
             painter = QPainter(transparent_pixmap)
             painter.setOpacity(0.7)
             painter.drawPixmap(0, 0, pixmap)
             painter.end()
-            
+
             drag.setPixmap(transparent_pixmap)
-            
-            # Centrowanie ducha względem kursora
+
             handle_pos_in_parent = self.mapTo(self.parent_item, e.pos())
             drag.setHotSpot(handle_pos_in_parent)
 
-            # Fizyczne wyszarzenie oryginalnego rzędu na liście
             effect = QGraphicsOpacityEffect(self.parent_item)
             effect.setOpacity(0.3)
             self.parent_item.setGraphicsEffect(effect)
 
         self.setCursor(Qt.ClosedHandCursor)
         drag.exec(Qt.MoveAction)
-        
+
         self.setCursor(Qt.OpenHandCursor)
         self.drag_start_pos = None
-        
-        # Odbudowa oryginału po zakończeniu przenoszenia
+
         if self.parent_item:
             self.parent_item.setGraphicsEffect(None)
