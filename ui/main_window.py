@@ -269,6 +269,22 @@ class MainWindow(QMainWindow):
                 self.async_signal.emit(callback_func, None, task_id)
         self.threadpool.start(Worker(worker_logic))
 
+    # --- Shimmy kompatybilnościowe dla widoków (przekierowania do routera) ---
+
+    def _show_details(self, data, type_str):
+        self.router.show_details(data, type_str)
+
+    def _go_back(self):
+        self.router.go_back()
+
+    def _switch_page(self, idx):
+        self.router.switch_page(idx)
+
+    def _navigate(self, page_idx, data=None, type_str=None, is_back=False):
+        self.router.navigate(page_idx, data, type_str, is_back)
+
+    # --- Koniec shimów ---
+
     def _manual_toggle_sidebar(self):
         self.sidebar_ctrl.toggle_sidebar(manual=True)
 
