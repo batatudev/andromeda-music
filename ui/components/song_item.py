@@ -233,10 +233,12 @@ class SongItem(QFrame):
         win = self._find_main_window()
         if not win or not hasattr(win, 'engine'): return
 
-        from utils import network_monitor
         from config import APP_CONFIG
         
-        is_offline = not getattr(network_monitor, 'is_connected', True)
+        is_offline = False
+        if hasattr(win, 'network_monitor'):
+            is_offline = not getattr(win.network_monitor, 'is_online', True)
+            
         hide_undownloaded = str(APP_CONFIG.get('hide_undownloaded_offline', 'False')).lower() == 'true'
         
         has_audio = False

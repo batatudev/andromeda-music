@@ -287,9 +287,18 @@ class MprisService:
         self.signals.volume_changed.connect(self._handle_volume, Qt.QueuedConnection)
 
         self.bus = SessionBus()
-        self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}")
-        self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
-        
+        try:
+            self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}")
+            self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
+        except RuntimeError as e:
+            logger.log(f"Nie można zarejestrować MPRIS (prawdopodobnie inna instancja działa): {e}")
+            # Nadal można zarejestrować z pidem
+            try:
+                import os
+                self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}.instance{os.getpid()}")
+                self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
+            except Exception:
+                pass
         self.engine.track_changed.connect(self._upd_meta)
         self.engine.state_changed.connect(self._upd_state)
         self.engine.loop_mode_changed.connect(self._upd_loop)

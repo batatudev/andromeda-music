@@ -32,8 +32,13 @@ class DataRepository(QObject):
         self._cache[key] = (data, time.time())
         
     def _is_offline(self):
-        from utils import network_monitor
-        return not network_monitor.is_connected
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            for w in app.topLevelWidgets():
+                if hasattr(w, 'network_monitor'):
+                    return not getattr(w.network_monitor, 'is_online', True)
+        return False
 
     def get_album(self, album_id: str) -> Album:
         key = f"album_{album_id}"
