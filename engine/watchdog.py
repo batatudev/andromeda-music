@@ -7,7 +7,6 @@ from PySide6.QtMultimedia import QMediaPlayer
 from core.enums import EngineState, TelemetryEvent
 from utils import logger
 
-
 class WatchdogService(QObject):
     def __init__(self, main_window):
         super().__init__()
@@ -30,8 +29,16 @@ class WatchdogService(QObject):
         if getattr(player_bar, '_slider_is_pressed', False):
             return
 
-        # SZYBKIE WYJŚCIE: Jeśli wideo jest wyłączone, nie musimy próbkować głębokich stanów synchronizacji
         if not player_bar.btn_video_toggle.isChecked() or not engine.current_yt_link:
+            if getattr(win, '_current_mask_state', False):
+                win._current_mask_state = False
+                now_playing.set_buffering_state(False)
+            return
+
+        playing = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
+        is_paused = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PausedState)
+
+        if not playing and not is_paused:
             if getattr(win, '_current_mask_state', False):
                 win._current_mask_state = False
                 now_playing.set_buffering_state(False)
@@ -39,8 +46,6 @@ class WatchdogService(QObject):
 
         state_str = engine.current_engine_state
         needs_mask = False
-        playing = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
-        is_paused = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PausedState)
         fps = getattr(now_playing.video_widget, 'current_fps', 0)
         buf_pct = engine.video_player.bufferProgress() * 100
         buf_sec = engine.get_buf_sec()

@@ -5,12 +5,11 @@ import qtawesome as qta
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QSizePolicy, QGraphicsView, QGraphicsScene
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF, QPoint
 
 from config import THEME, APP_CONFIG
 from ui.widgets import DragDropContainer, RoundedImage, ClickableLabel, HoverIconButton, SmoothScrollArea
 from ui.components import SongItem
-
 
 class VideoGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
@@ -39,13 +38,16 @@ class VideoGraphicsView(QGraphicsView):
         self.video_item.setSize(QSizeF(new_w, new_h))
         self.video_item.setPos((view_size.width() - new_w) / 2, (view_size.height() - new_h) / 2)
 
-
 class NowPlayingWidget(QFrame):
     def __init__(self):
         super().__init__()
         self.setObjectName("NowPlayingWidget")
         self.is_video_dynamic = True
         self.raw_pixmap = None
+
+        self._cached_blurred_pixmap = None
+        self._cached_blur_raw = None
+        self._cached_blur_val = -1
 
         self.bg_container = QWidget(self)
         self.bg_layout = QStackedLayout(self.bg_container)
@@ -66,7 +68,7 @@ class NowPlayingWidget(QFrame):
 
         self.overlay_opacity = QGraphicsOpacityEffect(self.overlay)
         self.overlay.setGraphicsEffect(self.overlay_opacity)
-        
+
         self.breath_anim = QPropertyAnimation(self.overlay_opacity, b"opacity")
         self.breath_anim.setDuration(2400)
         self.breath_anim.setLoopCount(-1)
@@ -127,12 +129,10 @@ class NowPlayingWidget(QFrame):
         self.left_layout.addWidget(self.artist_lbl)
         self.left_layout.addStretch(1)
 
-
-        
         self.queue_frame = QFrame()
         self.queue_frame.setObjectName("NowPlayingQueueFrame")
         self.queue_frame.setStyleSheet(f"#NowPlayingQueueFrame {{ background-color: rgba({THEME['bg_main_rgb']}, 100); border-radius: 12px; border: 1px solid {THEME['border']}; }}")
-        
+
         qf_layout = QVBoxLayout(self.queue_frame)
         qf_layout.setContentsMargins(15, 15, 15, 15)
 
@@ -175,18 +175,18 @@ class NowPlayingWidget(QFrame):
 
         self.main_layout.addLayout(self.left_layout, 3)
         self.main_layout.addWidget(self.queue_frame, 2)
-        
+
         self.right_spacer = QWidget()
         self.right_spacer.setFixedWidth(0)
         self.main_layout.addWidget(self.right_spacer)
-        
+
         self.update_video_settings()
 
     def resizeEvent(self, e):
         self.bg_container.resize(self.size())
         self.overlay.resize(self.size())
         self.ui_container.resize(self.size())
-        
+
         if getattr(self, 'is_queue_hidden', False):
             if not hasattr(self, 'spacer_anim') or self.spacer_anim.state() != QPropertyAnimation.State.Running:
                 try:
@@ -194,88 +194,82 @@ class NowPlayingWidget(QFrame):
                     self.right_spacer.setFixedWidth(offset_x)
                 except Exception:
                     pass
-                    
+
         super().resizeEvent(e)
 
     def toggle_queue_visibility(self):
-        """Płynnie ukrywa lub pokazuje boczny panel kolejki z użyciem animacji."""
         if not hasattr(self, 'queue_anim'):
             self.queue_anim = QPropertyAnimation(self.queue_frame, b"maximumWidth")
             self.queue_anim.setDuration(400)
             self.queue_anim.setEasingCurve(QEasingCurve.InOutCubic)
-            
+
             effect = QGraphicsOpacityEffect(self.queue_frame)
             self.queue_frame.setGraphicsEffect(effect)
             self.queue_fade = QPropertyAnimation(effect, b"opacity")
             self.queue_fade.setDuration(300)
             self.queue_fade.setEasingCurve(QEasingCurve.InOutQuad)
-            
+
             self.spacer_anim = QPropertyAnimation(self.right_spacer, b"minimumWidth")
             self.spacer_anim.setDuration(400)
             self.spacer_anim.setEasingCurve(QEasingCurve.InOutCubic)
-            
+
             self.is_queue_hidden = False
 
         self.queue_anim.stop()
         self.queue_fade.stop()
         self.spacer_anim.stop()
-        
+
         try:
             self.queue_anim.finished.disconnect()
         except Exception:
             pass
 
         if not getattr(self, 'is_queue_hidden', False):
-            # Akcja UKRYWANIA
             self.is_queue_hidden = True
             current_w = self.queue_frame.width()
             self.queue_anim.setStartValue(current_w)
             self.queue_anim.setEndValue(0)
-            
+
             self.queue_fade.setStartValue(1.0)
             self.queue_fade.setEndValue(0.0)
-            
-            # Włączamy wirtualny margines wyrównujący lewą stronę
+
             try:
                 offset_x = self.mapTo(self.window(), QPoint(0, 0)).x()
             except Exception:
-                offset_x = 200 # Fallback
+                offset_x = 200
             self.spacer_anim.setStartValue(self.right_spacer.width())
             self.spacer_anim.setEndValue(offset_x)
-            
+
             def hide_after():
                 self.queue_frame.hide()
-                # Zabezpieczenie szerokości marginesu po animacji
                 try:
                     self.right_spacer.setFixedWidth(self.mapTo(self.window(), QPoint(0, 0)).x())
                 except Exception:
                     pass
-                
+
             self.queue_anim.finished.connect(hide_after)
-            
+
         else:
-            # Akcja POKAZYWANIA
             self.is_queue_hidden = False
-            
+
             self.queue_frame.setMaximumWidth(0)
             self.queue_frame.show()
-            
+
             target_w = int((self.width() - 140) * 0.4)
-            
+
             self.queue_anim.setStartValue(0)
             self.queue_anim.setEndValue(target_w)
-            
+
             self.queue_fade.setStartValue(0.0)
             self.queue_fade.setEndValue(1.0)
-            
-            # Chowamy wirtualny margines
+
             self.spacer_anim.setStartValue(self.right_spacer.width())
             self.spacer_anim.setEndValue(0)
-            
+
             def restore_after():
                 self.queue_frame.setMaximumWidth(16777215)
                 self.right_spacer.setFixedWidth(0)
-                
+
             self.queue_anim.finished.connect(restore_after)
 
         self.queue_anim.start()
@@ -310,6 +304,8 @@ class NowPlayingWidget(QFrame):
         self.raw_pixmap = p
         if not p or p.isNull():
             self.bg_label.clear()
+            self._cached_blurred_pixmap = None
+            self._cached_blur_raw = None
         self.update_video_settings()
 
     def update_video_settings(self):
@@ -335,9 +331,19 @@ class NowPlayingWidget(QFrame):
             self.overlay_opacity.setOpacity(self._dim_base)
 
             if hasattr(self, 'raw_pixmap') and self.raw_pixmap and not self.raw_pixmap.isNull():
-                from utils import get_blurred_pixmap
-                blurred = get_blurred_pixmap(self.raw_pixmap, blur_val)
-                self.bg_label.setPixmap(blurred)
+                if (
+                    self._cached_blurred_pixmap is not None
+                    and self._cached_blur_raw is self.raw_pixmap
+                    and self._cached_blur_val == blur_val
+                ):
+                    self.bg_label.setPixmap(self._cached_blurred_pixmap)
+                else:
+                    from utils import get_blurred_pixmap
+                    blurred = get_blurred_pixmap(self.raw_pixmap, blur_val)
+                    self._cached_blurred_pixmap = blurred
+                    self._cached_blur_raw = self.raw_pixmap
+                    self._cached_blur_val = blur_val
+                    self.bg_label.setPixmap(blurred)
 
     def set_media_mode(self, mode):
         if mode == "video":

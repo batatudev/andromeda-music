@@ -8,7 +8,7 @@ from api_client import NavidromeClient
 from utils import logger
 
 class LibrarySyncManager(QObject):
-    sync_progress = Signal(int, int) # current, total
+    sync_progress = Signal(int, int)
     sync_completed = Signal()
     sync_error = Signal(str)
 
@@ -17,6 +17,7 @@ class LibrarySyncManager(QObject):
         self.client = client
         self.db_path = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-v3", "library_cache.db")
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self._memory_cache = {}
         self._init_db()
         self._is_syncing = False
 
@@ -42,6 +43,9 @@ class LibrarySyncManager(QObject):
         conn.commit()
         conn.close()
 
+    def clear_memory_cache(self):
+        self._memory_cache.clear()
+
     def start_sync(self):
         if self._is_syncing:
             return
@@ -54,19 +58,16 @@ class LibrarySyncManager(QObject):
             conn = sqlite3.connect(self.db_path)
             c = conn.cursor()
 
-            # 1. Pobieranie Artystów
             artists = self.client.get_artists()
             for art in artists:
-                # POPRAWKA: Rzutujemy obiekt na słownik za pomocą dict()
                 c.execute(
                     "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
                     ("artist", art.item_id, "", art.title, json.dumps(dict(art)))
                 )
             conn.commit()
 
-            # 2. Pobieranie pełnej bazy (Utwory + Albumy)
             offset = 0
-            limit = 500 # POPRAWKA: Bezpieczna paczka, zapobiega timeoutom serwera
+            limit = 500
             total_songs = 0
 
             while True:
@@ -98,8 +99,7 @@ class LibrarySyncManager(QObject):
 
                 count = len(songs_data)
                 total_songs += count
-                
-                # Aktualizacja interfejsu (Wysyłamy po każdej paczce)
+
                 self.sync_progress.emit(total_songs, 0)
 
                 if count < limit:
@@ -110,6 +110,7 @@ class LibrarySyncManager(QObject):
             conn.commit()
             conn.close()
 
+            self.clear_memory_cache()
             logger.log(f"Zakończono synchronizację biblioteki. Zapisano {total_songs} utworów.")
             self._is_syncing = False
             self.sync_completed.emit()
@@ -117,44 +118,66 @@ class LibrarySyncManager(QObject):
         except Exception as e:
             self._is_syncing = False
             logger.log(f"Błąd synchronizacji: {e}")
-            self.sync_error.emit(str(e)) # Wysłanie błędu do interfejsu!
+            self.sync_error.emit(str(e))
 
     def get_all_songs(self):
+        if "all_songs" in self._memory_cache:
+            return self._memory_cache["all_songs"]
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='song'")
         rows = c.fetchall()
         conn.close()
-        return [json.loads(r[0]) for r in rows]
+        res = [json.loads(r[0]) for r in rows]
+        self._memory_cache["all_songs"] = res
+        return res
 
     def get_all_albums(self):
+        if "all_albums" in self._memory_cache:
+            return self._memory_cache["all_albums"]
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='album'")
         rows = c.fetchall()
         conn.close()
-        return [json.loads(r[0]) for r in rows]
+        res = [json.loads(r[0]) for r in rows]
+        self._memory_cache["all_albums"] = res
+        return res
 
     def get_album_songs(self, album_id):
+        key = f"album_songs_{album_id}"
+        if key in self._memory_cache:
+            return self._memory_cache[key]
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='song' AND parent_id=?", (album_id,))
         rows = c.fetchall()
         conn.close()
-        return [json.loads(r[0]) for r in rows]
+        res = [json.loads(r[0]) for r in rows]
+        self._memory_cache[key] = res
+        return res
 
     def get_all_artists(self):
+        if "all_artists" in self._memory_cache:
+            return self._memory_cache["all_artists"]
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='artist'")
         rows = c.fetchall()
         conn.close()
-        return [json.loads(r[0]) for r in rows]
+        res = [json.loads(r[0]) for r in rows]
+        self._memory_cache["all_artists"] = res
+        return res
 
     def get_artist_albums(self, artist_id):
+        key = f"artist_albums_{artist_id}"
+        if key in self._memory_cache:
+            return self._memory_cache[key]
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='album' AND parent_id=?", (artist_id,))
         rows = c.fetchall()
         conn.close()
-        return [json.loads(r[0]) for r in rows]
+        res = [json.loads(r[0]) for r in rows]
+        self._memory_cache[key] = res
+        return res

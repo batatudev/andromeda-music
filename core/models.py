@@ -1,5 +1,7 @@
 import re
 
+RE_YT_URL = re.compile(r'(https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[^\s",&]+)')
+
 class MediaItem(dict):
     """
     Inteligentny adapter (Wrapper) danych z Navidrome API.
@@ -43,18 +45,16 @@ class MediaItem(dict):
     @property
     def yt_link(self):
         import utils
-        # 1. Najpierw sprawdz reczny override uzytkownika
         override = utils._YT_LINK_OVERRIDES.get(self.item_id)
         if override:
             return override
-        # 2. Fallback: parsuj link YT z pola 'comment'
         text = self.get('comment', '')
         if not text:
             return None
         if 'youtube.com' in text or 'youtu.be' in text:
-            urls = re.findall(r'(https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[^\s",&]+)', text)
-            if urls:
-                return urls[0]
+            m = RE_YT_URL.search(text)
+            if m:
+                return m.group(0)
         return None
 
 class Song(MediaItem):
