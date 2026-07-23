@@ -199,11 +199,12 @@ class NowPlayingWidget(QFrame):
 
         super().resizeEvent(e)
 
-    def toggle_queue_visibility(self):
+    def _ensure_queue_anim(self):
         if not hasattr(self, 'queue_anim'):
             self.queue_anim = QPropertyAnimation(self.queue_frame, b"maximumWidth")
             self.queue_anim.setDuration(400)
             self.queue_anim.setEasingCurve(QEasingCurve.InOutCubic)
+            self.queue_anim.finished.connect(self._on_queue_anim_finished)
 
             effect = QGraphicsOpacityEffect(self.queue_frame)
             self.queue_frame.setGraphicsEffect(effect)
@@ -217,14 +218,23 @@ class NowPlayingWidget(QFrame):
 
             self.is_queue_hidden = False
 
+    def _on_queue_anim_finished(self):
+        if getattr(self, 'is_queue_hidden', False):
+            self.queue_frame.hide()
+            try:
+                self.right_spacer.setFixedWidth(self.mapTo(self.window(), QPoint(0, 0)).x())
+            except Exception:
+                pass
+        else:
+            self.queue_frame.setMaximumWidth(16777215)
+            self.right_spacer.setFixedWidth(0)
+
+    def toggle_queue_visibility(self):
+        self._ensure_queue_anim()
+
         self.queue_anim.stop()
         self.queue_fade.stop()
         self.spacer_anim.stop()
-
-        try:
-            self.queue_anim.finished.disconnect()
-        except Exception:
-            pass
 
         if not getattr(self, 'is_queue_hidden', False):
             self.is_queue_hidden = True
@@ -242,15 +252,6 @@ class NowPlayingWidget(QFrame):
             self.spacer_anim.setStartValue(self.right_spacer.width())
             self.spacer_anim.setEndValue(offset_x)
 
-            def hide_after():
-                self.queue_frame.hide()
-                try:
-                    self.right_spacer.setFixedWidth(self.mapTo(self.window(), QPoint(0, 0)).x())
-                except Exception:
-                    pass
-
-            self.queue_anim.finished.connect(hide_after)
-
         else:
             self.is_queue_hidden = False
 
@@ -267,12 +268,6 @@ class NowPlayingWidget(QFrame):
 
             self.spacer_anim.setStartValue(self.right_spacer.width())
             self.spacer_anim.setEndValue(0)
-
-            def restore_after():
-                self.queue_frame.setMaximumWidth(16777215)
-                self.right_spacer.setFixedWidth(0)
-
-            self.queue_anim.finished.connect(restore_after)
 
         self.queue_anim.start()
         self.queue_fade.start()
