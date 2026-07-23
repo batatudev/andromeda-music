@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: utils.py
-# OPIS ZMIAN: Stworzenie permanentnego cache'u okładek (odpornego na losowe tokeny URL).
 import os
 os.environ["QT_API"] = "pyside6"
 import threading

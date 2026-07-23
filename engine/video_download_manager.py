@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: engine/video_download_manager.py
-# OPIS ZMIAN: Dodano "przepustnicę" (Throttle) na sygnał progress_hook z yt_dlp.
 import os
 import time
 import sqlite3

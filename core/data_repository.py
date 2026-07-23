@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: core/data_repository.py
-# OPIS ZMIAN: Logika awaryjnego odzyskiwania - Fallback przy błędach z serwera.
 import time
 from PySide6.QtCore import QObject, Signal
 from api_client import NavidromeClient

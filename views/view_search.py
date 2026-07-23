@@ -1,5 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: views/view_search.py
 import os
 os.environ["QT_API"] = "pyside6"
 

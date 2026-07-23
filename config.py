@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: config.py
-# OPIS ZMIAN: Dodanie zmiennych konfiguracyjnych dla automatycznego pobierania audio.
 import os
 os.environ["QT_API"] = "pyside6"
 

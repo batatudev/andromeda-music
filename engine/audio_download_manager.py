@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: engine/audio_download_manager.py
-# OPIS ZMIAN: Dodano wysoce wydajną metodę masową add_to_queue_bulk dla pobierania list/ulubionych audio.
 import os
 import time
 import sqlite3

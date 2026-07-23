@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: core/library_sync.py
-# OPIS ZMIAN: Naprawa krytycznego błędu (AttributeError) przy zapisie artystów. Zmiana paczek (limit) na bezpieczne 500.
 import os
 import json
 import time
