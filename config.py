@@ -116,54 +116,8 @@ def save_config():
     with open(config_path, "w") as f:
         cfg.write(f)
 
-def hex_to_rgba(hex_color, alpha):
-    hex_color = hex_color.lstrip('#')
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    return f"rgba({r}, {g}, {b}, {alpha})"
-
-def get_theme_colors():
-    dark = APP_CONFIG["dark_mode"]
-    acc = APP_CONFIG["accent"]
-
-    return {
-        "bg_main": "#050505" if dark else "#f5f5f5",
-        "bg_main_rgb": "5,5,5" if dark else "245,245,245",
-        "text_main": "#ffffff" if dark else "#000000",
-        "text_muted": "#888888" if dark else "#666666",
-        "bg_card": "#111111" if dark else "#ffffff",
-        "hover_card": "#181818" if dark else "#eeeeee",
-        "bg_sidebar": "#000000" if dark else "#ebebeb",
-        "border": "#121212" if dark else "#dddddd",
-        "nav_bg": "#222222" if dark else "#dddddd",
-        "nav_hover": "#333333" if dark else "#cccccc",
-        "play_bg": "white" if dark else "#111111",
-        "play_color": "black" if dark else "white",
-        "accent": acc,
-        "accent_rgba": hex_to_rgba(acc, 0.1),
-        "heart_inactive": "#444444" if dark else "#cccccc",
-        "btn_hover_bg": "rgba(255,255,255,0.1)" if dark else "rgba(0,0,0,0.1)",
-        "btn_remove_hover": "rgba(231,76,60,0.2)",
-        "btn_play_next_hover": "rgba(52,152,219,0.2)",
-        "btn_add_pl_hover": "rgba(46,204,113,0.2)",
-        "btn_add_hover": "rgba(230,126,34,0.2)"
-    }
-
-def init_theme():
-    mode = APP_CONFIG.get("theme_mode", "system")
-    if mode == "system":
-        hints = QGuiApplication.styleHints()
-        is_dark = (hints.colorScheme() == Qt.ColorScheme.Dark)
-        APP_CONFIG["dark_mode"] = is_dark
-    elif mode == "light":
-        APP_CONFIG["dark_mode"] = False
-    else:
-        APP_CONFIG["dark_mode"] = True
-    THEME.update(get_theme_colors())
-
+THEME = {}
 load_config()
-THEME = get_theme_colors()
 
 def get_app_style():
     return f"""

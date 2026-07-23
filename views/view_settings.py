@@ -142,12 +142,21 @@ class SettingsView(QWidget):
         theme_layout.addWidget(lbl_t_title)
 
         self.combo_theme = QComboBox()
-        self.combo_theme.addItems(["Systemowy", "Ciemny", "Jasny"])
+        self.combo_theme.addItems(["Systemowy", "Ciemny", "Jasny", "Własny motyw (JSON)"])
+        
+        self.combo_lang = QComboBox()
+        self.combo_lang.addItems(["Polski", "English"])
+        current_lang = APP_CONFIG.get("language", "pl")
+        self.combo_lang.setCurrentIndex(0 if current_lang == "pl" else 1)
+        self.combo_lang.setStyleSheet(input_style)
+        self.combo_lang.setFixedWidth(350)
         current_mode = APP_CONFIG.get("theme_mode", "system")
         if current_mode == "system":
             self.combo_theme.setCurrentIndex(0)
         elif current_mode == "light":
             self.combo_theme.setCurrentIndex(2)
+        elif current_mode == "custom":
+            self.combo_theme.setCurrentIndex(3)
         else:
             self.combo_theme.setCurrentIndex(1)
         self.combo_theme.setStyleSheet(input_style)
@@ -169,6 +178,7 @@ class SettingsView(QWidget):
         color_widget.setLayout(color_lay)
 
         add_row(theme_layout, "Motyw:", self.combo_theme)
+        add_row(theme_layout, "Język (Wymaga restartu):", self.combo_lang)
         add_row(theme_layout, "Kolor akcentu:", color_widget)
 
         btn_save_theme = QPushButton("Zapisz i Restartuj")
@@ -518,8 +528,12 @@ class SettingsView(QWidget):
             APP_CONFIG["theme_mode"] = "system"
         elif idx == 2:
             APP_CONFIG["theme_mode"] = "light"
+        elif idx == 3:
+            APP_CONFIG["theme_mode"] = "custom"
         else:
             APP_CONFIG["theme_mode"] = "dark"
+            
+        APP_CONFIG["language"] = "pl" if self.combo_lang.currentIndex() == 0 else "en"
             
         APP_CONFIG["accent"] = self.current_accent
         APP_CONFIG["dev_mode"] = (self.combo_dev.currentIndex() == 1)

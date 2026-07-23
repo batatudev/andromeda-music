@@ -71,13 +71,14 @@ class SidebarWidget(QFrame):
         nav_lay.addStretch()
         side_l.addWidget(top)
 
+        from core.i18n import tr
         items =[
-            ("Główna", 'fa5s.home', Pages.HOME),
-            ("Szukaj", 'fa5s.search', Pages.SEARCH),
-            ("Utwory", 'fa5s.music', Pages.TRACKS),
-            ("Albumy", 'fa5s.compact-disc', Pages.ALBUMS),
-            ("Artyści", 'fa5s.users', Pages.ARTISTS),
-            ("Ulubione", 'fa5s.heart', Pages.FAVS)
+            (tr("menu.home", "Główna"), 'fa5s.home', Pages.HOME),
+            (tr("menu.search", "Szukaj"), 'fa5s.search', Pages.SEARCH),
+            (tr("menu.tracks", "Utwory"), 'fa5s.music', Pages.TRACKS),
+            (tr("menu.albums", "Albumy"), 'fa5s.compact-disc', Pages.ALBUMS),
+            (tr("menu.artists", "Artyści"), 'fa5s.users', Pages.ARTISTS),
+            (tr("menu.favs", "Ulubione"), 'fa5s.heart', Pages.FAVS)
         ]
 
         for name, icon, idx in items:

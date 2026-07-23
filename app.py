@@ -12,13 +12,14 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from api_client import NavidromeClient
-from config import APP_CONFIG, APP_NAME, APP_ICON_PATH, init_theme
+from config import APP_CONFIG, APP_NAME, APP_ICON_PATH
+from ui.theme_manager import theme_manager
 from ui.main_window import MainWindow
 
 def run():
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(APP_ICON_PATH))
-    init_theme()
+    theme_manager.reload_theme()
     if APP_CONFIG["url"]:
         c = NavidromeClient(APP_CONFIG["url"], APP_CONFIG["username"], APP_CONFIG["password"])
     else:
