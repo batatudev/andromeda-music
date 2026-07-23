@@ -15,14 +15,17 @@ class HoverIconButton(QPushButton):
         self.hover_color = hover_color
         self.base_icon_size = icon_size
         self._scale = 1.0
-        
+        self.anim = None
+
         self.setIcon(qta.icon(self.icon_name, color=self.default_color))
         self.setIconSize(QSize(self.base_icon_size, self.base_icon_size))
         self.setCursor(Qt.PointingHandCursor)
-        
-        self.anim = QPropertyAnimation(self, b"iconScale")
-        self.anim.setDuration(200)
-        self.anim.setEasingCurve(QEasingCurve.OutBack)
+
+    def _ensure_anim(self):
+        if self.anim is None:
+            self.anim = QPropertyAnimation(self, b"iconScale")
+            self.anim.setDuration(200)
+            self.anim.setEasingCurve(QEasingCurve.OutBack)
 
     @Property(float)
     def iconScale(self):
@@ -44,6 +47,7 @@ class HoverIconButton(QPushButton):
 
     def enterEvent(self, e):
         self.setIcon(qta.icon(self.icon_name, color=self.hover_color))
+        self._ensure_anim()
         self.anim.stop()
         self.anim.setEndValue(1.15)
         self.anim.start()
@@ -51,7 +55,8 @@ class HoverIconButton(QPushButton):
 
     def leaveEvent(self, e):
         self.setIcon(qta.icon(self.icon_name, color=self.default_color))
-        self.anim.stop()
-        self.anim.setEndValue(1.0)
-        self.anim.start()
+        if self.anim:
+            self.anim.stop()
+            self.anim.setEndValue(1.0)
+            self.anim.start()
         super().leaveEvent(e)

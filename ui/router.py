@@ -1,3 +1,6 @@
+import os
+os.environ["QT_API"] = "pyside6"
+
 from PySide6.QtCore import QObject, QPoint, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
 from PySide6.QtWidgets import QStackedWidget, QScrollArea, QGraphicsOpacityEffect
 from config import Pages
@@ -41,7 +44,6 @@ class AppRouter(QObject):
         self.win.current_page_task_id += 1
         self.current_route = {"page": page_idx, "data": data, "type": type_str}
 
-        # Zatrzymanie animacji w głównym oknie (jeśli istnieje)
         if hasattr(self.win, 'anim_group') and self.win.anim_group.state() == QParallelAnimationGroup.State.Running:
             self.win.anim_group.stop()
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
@@ -55,14 +57,14 @@ class AppRouter(QObject):
         self.win.current_anim_page.setGraphicsEffect(self.win.page_effect)
 
         self.win.fade_anim = QPropertyAnimation(self.win.page_effect, b"opacity")
-        self.win.fade_anim.setDuration(400)
+        self.win.fade_anim.setDuration(300)
         self.win.fade_anim.setStartValue(0.0)
         self.win.fade_anim.setEndValue(1.0)
         self.win.fade_anim.setEasingCurve(QEasingCurve.OutCubic)
 
         self.win.pos_anim = QPropertyAnimation(self.win.current_anim_page, b"pos")
-        self.win.pos_anim.setDuration(400)
-        self.win.pos_anim.setStartValue(QPoint(0, 30))
+        self.win.pos_anim.setDuration(300)
+        self.win.pos_anim.setStartValue(QPoint(0, 20))
         self.win.pos_anim.setEndValue(QPoint(0, 0))
         self.win.pos_anim.setEasingCurve(QEasingCurve.OutCubic)
 
@@ -74,26 +76,26 @@ class AppRouter(QObject):
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
                 self.win.current_anim_page.setGraphicsEffect(None)
 
+            page_widget = self.pages[page_idx]
+            target_widget = None
+
+            if hasattr(page_widget, 'load'):
+                target_widget = page_widget
+            elif isinstance(page_widget, QScrollArea) and hasattr(page_widget.widget(), 'load'):
+                target_widget = page_widget.widget()
+
+            if target_widget:
+                if page_idx == Pages.DETAILS:
+                    target_widget.load(data, type_str)
+                elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
+                    if not is_back:
+                        target_widget.load()
+
         self.win.anim_group.finished.connect(on_fade_finished)
         self.win.page_effect.setOpacity(0.0)
         self.win.anim_group.start()
 
         self.win._update_sidebar_active_state()
-
-        page_widget = self.pages[page_idx]
-        target_widget = None
-
-        if hasattr(page_widget, 'load'):
-            target_widget = page_widget
-        elif isinstance(page_widget, QScrollArea) and hasattr(page_widget.widget(), 'load'):
-            target_widget = page_widget.widget()
-
-        if target_widget:
-            if page_idx == Pages.DETAILS:
-                target_widget.load(data, type_str)
-            elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
-                if not is_back:
-                    target_widget.load()
 
     def go_back(self):
         if getattr(self.win, '_is_fetching', False):

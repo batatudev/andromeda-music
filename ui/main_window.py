@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
         self.current_page_task_id = 0
 
         QTimer.singleShot(5000, self._sync_auto_downloads)
-        
+
         self.sidebar_collapsed = False
         self.manual_sidebar_override = False
         self._seek_grace_until = 0
@@ -235,37 +235,6 @@ class MainWindow(QMainWindow):
             if current_song.item_id == song_id:
                 self.player_bar.pb_fav_btn.set_default_color(THEME["accent"] if is_fav else THEME["heart_inactive"])
                 self.player_bar.pb_fav_btn.update_icon('fa5s.heart' if is_fav else 'fa5.heart')
-
-        for page in self.pages:
-            if page is None:
-                continue
-            if isinstance(page, QScrollArea) and page.widget():
-                layout = page.widget().layout()
-                if layout:
-                    self._update_song_items_fav(layout, song_id, is_fav)
-            elif isinstance(page, NowPlayingWidget):
-                if hasattr(page, 'ui_container') and page.ui_container.layout():
-                    self._update_song_items_fav(page.ui_container.layout(), song_id, is_fav)
-            elif hasattr(page, 'layout') and page.layout():
-                self._update_song_items_fav(page.layout(), song_id, is_fav)
-
-    def _update_song_items_fav(self, layout, song_id, is_fav):
-        if not layout:
-            return
-        for i in range(layout.count()):
-            item = layout.itemAt(i)
-            if item.widget():
-                w = item.widget()
-                if isinstance(w, SongItem):
-                    if w.song.item_id == song_id:
-                        w.update_fav_state(is_fav)
-                else:
-                    if isinstance(w, QScrollArea) and w.widget() and w.widget().layout():
-                        self._update_song_items_fav(w.widget().layout(), song_id, is_fav)
-                    elif w.layout():
-                        self._update_song_items_fav(w.layout(), song_id, is_fav)
-            elif item.layout():
-                self._update_song_items_fav(item.layout(), song_id, is_fav)
 
     def _handle_async(self, callback, result, task_id):
         if task_id is not None and task_id != self.current_page_task_id:
@@ -551,7 +520,7 @@ class MainWindow(QMainWindow):
                 from core.models import MediaItem
                 valid_songs = [s if isinstance(s, MediaItem) else MediaItem(s) for s in songs]
 
-                avg_mb = 6 
+                avg_mb = 6
                 count = len(valid_songs)
                 est_mb = count * avg_mb
                 est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"

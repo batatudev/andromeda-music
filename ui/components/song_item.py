@@ -96,7 +96,6 @@ class SongItem(QFrame):
         v_box.addLayout(h_info)
 
         if self.is_queue or self.is_playlist:
-            # KLUCZOWA ZMIANA: Przekazujemy self (rodzica) do DragHandle
             self.drag_handle = DragHandle(self.queue_index if self.is_queue else self.playlist_index, parent_item=self)
             layout.addWidget(self.drag_handle)
             layout.addWidget(self.img_container)
@@ -206,7 +205,7 @@ class SongItem(QFrame):
         self.style().polish(self)
 
         self._update_dl_status_icon()
-        self._connect_offline_signal()
+        self._connect_signals()
 
     @staticmethod
     def _find_main_window():
@@ -216,10 +215,17 @@ class SongItem(QFrame):
                 return w
         return None
 
-    def _connect_offline_signal(self):
+    def _connect_signals(self):
         win = self._find_main_window()
-        if win and hasattr(win, 'offline_status_changed'):
-            win.offline_status_changed.connect(self._on_offline_status_updated)
+        if win:
+            if hasattr(win, 'offline_status_changed'):
+                win.offline_status_changed.connect(self._on_offline_status_updated)
+            if hasattr(win, 'fav_updated'):
+                win.fav_updated.connect(self._on_fav_updated_signal)
+
+    def _on_fav_updated_signal(self, song_id, is_fav):
+        if self.song and self.song.item_id == song_id:
+            self.update_fav_state(is_fav)
 
     def _on_offline_status_updated(self, item_id, status):
         if item_id == self.song.item_id:
@@ -234,36 +240,25 @@ class SongItem(QFrame):
         if not win or not hasattr(win, 'engine'): return
 
         from config import APP_CONFIG
-        
+
         is_offline = False
         if hasattr(win, 'network_monitor'):
             is_offline = not getattr(win.network_monitor, 'is_online', True)
-            
+
         hide_undownloaded = str(APP_CONFIG.get('hide_undownloaded_offline', 'False')).lower() == 'true'
-        
+
         has_audio = False
         has_video = False
         vid_status = None
-        
+
         if hasattr(win.engine, 'audio_download_manager'):
             has_audio = win.engine.audio_download_manager.is_downloaded(self.song.item_id)
-            
+
         if hasattr(win.engine, 'video_download_manager'):
-            import sqlite3
-            try:
-                conn = sqlite3.connect(win.engine.video_download_manager.db_path)
-                c = conn.cursor()
-                c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
-                row = c.fetchone()
-                conn.close()
-                if row:
-                    vid_status = row[0]
-                    if vid_status == "COMPLETED":
-                        has_video = True
-            except:
-                pass
-                
-        # Ustalanie ikony
+            vid_path = win.engine.video_download_manager.get_video_path(self.song.item_id)
+            if vid_path:
+                has_video = True
+
         if has_audio and has_video:
             self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-double', color=THEME['accent']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Pobrane Audio i Wideo")
@@ -282,14 +277,13 @@ class SongItem(QFrame):
         else:
             self.dl_status_lbl.setPixmap(qta.icon('fa5s.cloud', color=THEME['border']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Dostępne w chmurze (Online)")
-            
-        # Logika Offline UX
+
         if is_offline and not has_audio:
             if hide_undownloaded:
                 self.setVisible(False)
             else:
                 self.setVisible(True)
-                self.setEnabled(False) # Powoduje "wyszarzenie" i zablokowanie kliknięć
+                self.setEnabled(False)
         else:
             self.setVisible(True)
             self.setEnabled(True)
