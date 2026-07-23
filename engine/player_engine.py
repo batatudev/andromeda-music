@@ -48,14 +48,16 @@ class PlayerEngine(QObject):
     def __init__(self, client):
         super().__init__()
         self.client = client
-        self.player = QMediaPlayer(self)
-        self.audio_output = QAudioOutput(self)
-        self.player.setAudioOutput(self.audio_output)
+        from engine.audio_controller import AudioController
+        from engine.video_controller_online import VideoControllerOnline
 
-        self.video_player = QMediaPlayer(self)
-        self.video_audio = QAudioOutput(self)
-        self.video_audio.setMuted(True)
-        self.video_player.setAudioOutput(self.video_audio)
+        self.audio_ctrl = AudioController(self)
+        self.player = self.audio_ctrl.player
+        self.audio_output = self.audio_ctrl.audio_output
+
+        self.video_ctrl = VideoControllerOnline(self)
+        self.video_player = self.video_ctrl.player
+        self.video_audio = self.video_ctrl._audio_output
 
         self.queue =[]
         self.idx = -1

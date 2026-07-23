@@ -30,6 +30,13 @@ class WatchdogService(QObject):
         if getattr(player_bar, '_slider_is_pressed', False):
             return
 
+        # SZYBKIE WYJŚCIE: Jeśli wideo jest wyłączone, nie musimy próbkować głębokich stanów synchronizacji
+        if not player_bar.btn_video_toggle.isChecked() or not engine.current_yt_link:
+            if getattr(win, '_current_mask_state', False):
+                win._current_mask_state = False
+                now_playing.set_buffering_state(False)
+            return
+
         state_str = engine.current_engine_state
         needs_mask = False
         playing = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
