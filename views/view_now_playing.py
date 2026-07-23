@@ -80,9 +80,11 @@ class NowPlayingWidget(QFrame):
         self.crossfade_anim = QPropertyAnimation(self.overlay_opacity, b"opacity")
         self.crossfade_anim.setDuration(500)
         self.crossfade_anim.setEasingCurve(QEasingCurve.InOutCubic)
+        self.crossfade_anim.finished.connect(self._on_crossfade_finished)
 
         self._dim_base = 0.3
         self._crossfade_callback = None
+        self._crossfade_target_mode = None
 
         self.ui_container = QWidget(self)
         self.ui_container.setStyleSheet("background: transparent;")
@@ -365,11 +367,7 @@ class NowPlayingWidget(QFrame):
         self.crossfade_anim.setStartValue(curr)
         self.crossfade_anim.setEndValue(target)
         self._crossfade_callback = on_done
-        try:
-            self.crossfade_anim.finished.disconnect()
-        except RuntimeError:
-            pass
-        self.crossfade_anim.finished.connect(self._on_crossfade_to_audio)
+        self._crossfade_target_mode = "audio"
         self.crossfade_anim.start()
 
     def transition_to_video(self):
@@ -382,12 +380,14 @@ class NowPlayingWidget(QFrame):
         self.crossfade_anim.setStartValue(curr)
         self.crossfade_anim.setEndValue(target)
         self._crossfade_callback = None
-        try:
-            self.crossfade_anim.finished.disconnect()
-        except RuntimeError:
-            pass
-        self.crossfade_anim.finished.connect(self._on_crossfade_to_video)
+        self._crossfade_target_mode = "video"
         self.crossfade_anim.start()
+
+    def _on_crossfade_finished(self):
+        if self._crossfade_target_mode == "audio":
+            self._on_crossfade_to_audio()
+        elif self._crossfade_target_mode == "video":
+            self._on_crossfade_to_video()
 
     def _on_crossfade_to_audio(self):
         self.bg_layout.setCurrentWidget(self.bg_label)

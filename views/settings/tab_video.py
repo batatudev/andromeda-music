@@ -1,6 +1,8 @@
 import os
 import sys
 
+os.environ["QT_API"] = "pyside6"
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QComboBox, QPushButton, QSlider
@@ -14,10 +16,10 @@ class TabVideo(QWidget):
         super().__init__()
         self.settings_view = settings_view
         self.main_window = settings_view.main_window
-        
+
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        
+
         video_group = QFrame()
         video_group.setObjectName("SettingsCard")
         video_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
@@ -142,6 +144,13 @@ class TabVideo(QWidget):
         self.layout.addWidget(video_group)
         self.layout.addStretch()
 
+    def _clear_status_text(self):
+        try:
+            if hasattr(self, 'lbl_v_status') and self.lbl_v_status:
+                self.lbl_v_status.setText("")
+        except RuntimeError:
+            pass
+
     def _save_v_conf(self):
         APP_CONFIG["video_resolution"] = self.combo_res.currentText()
         APP_CONFIG["video_min_res"] = self.combo_min_res.currentText()
@@ -161,4 +170,4 @@ class TabVideo(QWidget):
         self.settings_view._initial_settings["video_static_blur"] = APP_CONFIG["video_static_blur"]
 
         self.lbl_v_status.setText("Zapisano pomyślnie")
-        QTimer.singleShot(3000, lambda: self.lbl_v_status.setText(""))
+        QTimer.singleShot(3000, self, self._clear_status_text)

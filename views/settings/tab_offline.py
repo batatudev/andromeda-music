@@ -51,7 +51,7 @@ class TabOffline(QWidget):
         self.btn_auto_pl.setCursor(Qt.PointingHandCursor)
         self.btn_auto_pl.setFixedWidth(350)
         self.btn_auto_pl.clicked.connect(lambda: self._show_playlists_sync_dialog("video"))
-        
+
         self.combo_audio_auto_favs = QComboBox()
         self.combo_audio_auto_favs.addItems(["Wyłączone", "Włączone (pobieraj przy polubieniu)"])
         self.combo_audio_auto_favs.setCurrentIndex(1 if APP_CONFIG.get("audio_auto_dl_favs", False) else 0)
@@ -148,6 +148,13 @@ class TabOffline(QWidget):
             sync_mgr.start_sync()
             self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
 
+    def _clear_status_text(self):
+        try:
+            if hasattr(self, 'lbl_o_status') and self.lbl_o_status:
+                self.lbl_o_status.setText("")
+        except RuntimeError:
+            pass
+
     def _save_o_conf(self):
         APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
         APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
@@ -163,7 +170,7 @@ class TabOffline(QWidget):
         self.settings_view._initial_settings["hide_undownloaded_offline"] = APP_CONFIG["hide_undownloaded_offline"]
 
         self.lbl_o_status.setText("Zapisano pomyślnie (Wymagany restart dla niektórych opcji)")
-        QTimer.singleShot(3000, lambda: self.lbl_o_status.setText(""))
+        QTimer.singleShot(3000, self, self._clear_status_text)
 
     def _show_playlists_sync_dialog(self, media_type):
         def fetch():
@@ -219,7 +226,7 @@ class TabOffline(QWidget):
                 from config import save_config
                 save_config()
                 self.settings_view._initial_settings[conf_key] = selected
-                
+
                 if media_type == "video":
                     self.btn_auto_pl.setText(f"Wybierz playlisty... ({len(selected)} wybrano)")
                 else:
