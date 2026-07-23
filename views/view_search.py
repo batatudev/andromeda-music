@@ -1,20 +1,18 @@
-
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/view_search.py
 import os
 os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
-import random
-import qtawesome as qta
 
 from config import THEME
-from utils import MediaItem
 from core.enums import MediaType
-from ui.widgets import FlowLayout, DragDropContainer
-from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from ui.widgets import FlowLayout
+from ui.components import SongItem, MediaCard
 
 from views.library_base import LibraryScrollArea
 
@@ -26,7 +24,7 @@ class SearchView(LibraryScrollArea):
         self.search_timer.setInterval(500)
         self.search_timer.timeout.connect(self._perform_search)
         self.last_query = ""
-        
+
         self.input_lay = QVBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Czego chcesz posłuchać? (Artyści, Utwory, Albumy)")
@@ -45,14 +43,14 @@ class SearchView(LibraryScrollArea):
         """)
         self.search_input.setFixedHeight(44)
         self.search_input.textChanged.connect(self._on_text_changed)
-        
+
         self.input_lay.addWidget(self.search_input)
-        
+
         self.results_widget = QWidget()
         self.results_widget.setStyleSheet("background: transparent;")
         self.results_layout = QVBoxLayout(self.results_widget)
         self.results_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self.content_layout.addLayout(self.input_lay)
         self.content_layout.addSpacing(20)
         self.content_layout.addWidget(self.results_widget)
@@ -66,7 +64,7 @@ class SearchView(LibraryScrollArea):
             lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
             lbl.setAlignment(Qt.AlignCenter)
             self.results_layout.addWidget(lbl)
-            
+
     def _on_text_changed(self, text):
         self.last_query = text.strip()
         if not self.last_query:
@@ -78,12 +76,12 @@ class SearchView(LibraryScrollArea):
             self.results_layout.addWidget(lbl)
             return
         self.search_timer.start()
-        
+
     def _perform_search(self):
         query = self.last_query
         if not query:
             return
-        
+
         self._clear_layout(self.results_layout)
         lbl = QLabel("Szukam w bibliotece...")
         lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
@@ -91,15 +89,15 @@ class SearchView(LibraryScrollArea):
         self.results_layout.addWidget(lbl)
 
         def fetch():
-            return self.main_window.client.search(query, limit=12)
+            return self.main_window.repo.search(query, limit=12)
 
         def on_ready(data):
             if query != self.last_query:
                 return
-            
+
             self.results_widget.setUpdatesEnabled(False)
             self._clear_layout(self.results_layout)
-            
+
             if not data or (not data.get('artist') and not data.get('album') and not data.get('song')):
                 err_lbl = QLabel(f"Brak wyników dla hasła '{query}'")
                 err_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
@@ -107,18 +105,18 @@ class SearchView(LibraryScrollArea):
                 self.results_layout.addWidget(err_lbl)
                 self.results_widget.setUpdatesEnabled(True)
                 return
-                
+
             artists = data.get('artist',[])
             albums = data.get('album',[])
             songs = data.get('song',[])
-            
+
             if artists:
                 self.results_layout.addWidget(QLabel("Artyści", font=QFont("Sans", 20, QFont.Bold)))
                 flow_arts = FlowLayout(spacing=25)
                 for a in artists:
                     card = MediaCard(a, MediaType.ARTIST)
                     card.clicked.connect(self.main_window._show_details)
-                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_top_songs_for_artist(d.title), 0))
+                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_top_songs_for_artist(d.title), 0))
                     card.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     card.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     card.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
@@ -136,7 +134,7 @@ class SearchView(LibraryScrollArea):
                 for a in albums:
                     card = MediaCard(a, MediaType.ALBUM)
                     card.clicked.connect(self.main_window._show_details)
-                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_album(d.item_id).get('song',[]), 0))
+                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
                     card.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     card.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     card.artist_clicked.connect(self.main_window._show_details)
@@ -148,7 +146,7 @@ class SearchView(LibraryScrollArea):
                         self.main_window.loader.load(self.main_window.client.get_cover_art_url(a.cover_id), card)
                 self.results_layout.addLayout(flow_albs)
                 self.results_layout.addSpacing(20)
-                
+
             if songs:
                 self.results_layout.addWidget(QLabel("Utwory", font=QFont("Sans", 20, QFont.Bold)))
                 sc = QWidget()
@@ -174,5 +172,3 @@ class SearchView(LibraryScrollArea):
             self.results_widget.setUpdatesEnabled(True)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
-
-

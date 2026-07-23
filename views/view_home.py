@@ -1,4 +1,5 @@
-
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/view_home.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -14,14 +15,14 @@ from config import THEME
 from utils import MediaItem
 from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer
-from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from ui.components import SongItem, MediaCard, HeroSection
 
 from views.library_base import LibraryScrollArea
 
 class HomeView(LibraryScrollArea):
     def __init__(self, main_window):
         super().__init__(main_window)
-        
+
     def load(self):
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
@@ -33,38 +34,23 @@ class HomeView(LibraryScrollArea):
         self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
-            # Check offline status via repo
-            is_offline = self.main_window.repo._is_offline()
-            online = not is_offline
-            
-            # Use repo instead of client to benefit from caching and offline DB
+            # Zmieniono client na repo
             stars = self.main_window.repo.get_starred(40)
             albs = self.main_window.repo.get_random_albums(6)
             songs = self.main_window.repo.get_random_songs(10)
 
             if not self.main_window.all_artists_data:
-                if online:
-                    self.main_window.all_artists_data = self.main_window.client.get_artists()
-                else:
-                    self.main_window.all_artists_data = self.main_window.repo.library_sync.get_all_artists()
+                self.main_window.all_artists_data = self.main_window.repo.get_artists()
 
             r_arts = random.sample(self.main_window.all_artists_data, min(6, len(self.main_window.all_artists_data))) if self.main_window.all_artists_data else []
-            return (True, stars, albs, songs, r_arts)
+            return (stars, albs, songs, r_arts)
 
         def on_ready(data):
             if not data:
                 return
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
-            online, stars, albs, songs, r_arts = data
-            if not online:
-                err_lbl = QLabel("Brak połączenia. Skonfiguruj serwer w Ustawieniach.")
-                err_lbl.setStyleSheet(f"color: {THEME['text_main']}; font-size: 18px;")
-                err_lbl.setAlignment(Qt.AlignCenter)
-                self.content_layout.addWidget(err_lbl)
-                self.content_layout.addStretch()
-                self.content_widget.setUpdatesEnabled(True)
-                return
+            stars, albs, songs, r_arts = data
 
             h = HeroSection()
             h.play_clicked.connect(lambda s: self.main_window.engine.play_list([s], 0))
@@ -81,7 +67,7 @@ class HomeView(LibraryScrollArea):
             for i, a in enumerate(albs):
                 card = MediaCard(a, MediaType.ALBUM)
                 card.clicked.connect(self.main_window._show_details)
-                card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_album(d.item_id).get('song',[]), 0))
+                card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
                 card.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                 card.download_videos_clicked.connect(self.main_window._handle_download_videos)
                 card.artist_clicked.connect(self.main_window._show_details)
@@ -125,7 +111,7 @@ class HomeView(LibraryScrollArea):
                 for i, a in enumerate(r_arts):
                     card = MediaCard(a, MediaType.ARTIST)
                     card.clicked.connect(self.main_window._show_details)
-                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_top_songs_for_artist(d.title), 0))
+                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_top_songs_for_artist(d.title), 0))
                     card.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     card.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     card.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
@@ -140,5 +126,3 @@ class HomeView(LibraryScrollArea):
             self.content_widget.setUpdatesEnabled(True)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
-
-

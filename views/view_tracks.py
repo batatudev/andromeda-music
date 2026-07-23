@@ -1,20 +1,14 @@
-
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/view_tracks.py
 import os
 os.environ["QT_API"] = "pyside6"
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
-)
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-import random
-import qtawesome as qta
 
-from config import THEME
-from utils import MediaItem
 from core.enums import MediaType
-from ui.widgets import FlowLayout, DragDropContainer
-from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from ui.components import SongItem
 
 from views.library_base import LibraryScrollArea
 
@@ -46,7 +40,7 @@ class TracksView(LibraryScrollArea):
             return
         self.is_loading = True
         def fetch():
-            return self.main_window.client.get_random_songs(50)
+            return self.main_window.repo.get_random_songs(50)
         def on_ready(songs):
             if songs:
                 self.content_widget.setUpdatesEnabled(False)
@@ -67,5 +61,3 @@ class TracksView(LibraryScrollArea):
                 self.content_widget.setUpdatesEnabled(True)
             self.is_loading = False
         self.main_window.run_async(fetch, on_ready, page_bound=True)
-
-

@@ -1,27 +1,27 @@
-
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/view_details.py
 import os
 os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 import random
-import qtawesome as qta
 
 from config import THEME
 from utils import MediaItem
 from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer
-from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from ui.components import SongItem, MediaCard, MediaHeader
 
 from views.library_base import LibraryScrollArea
 
 class DetailsView(LibraryScrollArea):
     def __init__(self, main_window):
         super().__init__(main_window)
-        
+
         self.content_widget.deleteLater()
         self.content_widget = DragDropContainer()
         self.content_widget.setStyleSheet("background: transparent;")
@@ -33,7 +33,7 @@ class DetailsView(LibraryScrollArea):
 
         self.current_playlist_id = None
         self.current_playlist_name = ""
-        self.current_playlist_songs =[]
+        self.current_playlist_songs = []
 
     def load(self, d, t):
         self.content_widget.setUpdatesEnabled(False)
@@ -46,7 +46,7 @@ class DetailsView(LibraryScrollArea):
 
         def fetch():
             if t == MediaType.ALBUM:
-                return (MediaType.ALBUM, self.main_window.client.get_album(d.get('id')))
+                return (MediaType.ALBUM, self.main_window.repo.get_album(d.get('id')))
             elif t == MediaType.PLAYLIST:
                 try:
                     params = self.main_window.client._get_auth_params()
@@ -56,27 +56,30 @@ class DetailsView(LibraryScrollArea):
                 except Exception:
                     return (MediaType.PLAYLIST, {})
             else:
-                art = self.main_window.client.get_artist(d.get('id'))
-                songs = self.main_window.client.get_top_songs_for_artist(art.title)
+                art = self.main_window.repo.get_artist(d.get('id'))
+                if not art: return None
+                songs = self.main_window.repo.get_top_songs_for_artist(art.title)
                 if len(songs) < 20:
                     ids = {s.item_id for s in songs}
                     for a in art.get('album',[]):
                         if len(songs) >= 100:
                             break
-                        for ns in self.main_window.client.get_album(a.item_id).get('song',[]):
-                            if ns.item_id not in ids:
-                                songs.append(ns)
-                                ids.add(ns.item_id)
+                        alb_data = self.main_window.repo.get_album(a.item_id)
+                        if alb_data:
+                            for ns in alb_data.get('song',[]):
+                                if ns.item_id not in ids:
+                                    songs.append(ns)
+                                    ids.add(ns.item_id)
                 random.shuffle(songs)
                 return (MediaType.ARTIST, art, art.get('album',[]), songs)
 
         def on_ready(data):
             if not data:
                 return
-            
+
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
-            
+
             if data[0] == MediaType.PLAYLIST:
                 pl = data[1]
                 self.current_playlist_id = pl.get('id')
@@ -85,7 +88,6 @@ class DetailsView(LibraryScrollArea):
                 songs = pl.get('entry',[])
                 if not songs:
                     songs = pl.get('song',[])
-                # KRYTYCZNE ZABEZPIECZENIE: Zwracanie MediaItem z pętli manualnej playlisty
                 songs = [MediaItem(s) for s in songs]
                 self.current_playlist_songs = list(songs)
                 stats_text = f"{len(songs)} utworów"
@@ -184,7 +186,7 @@ class DetailsView(LibraryScrollArea):
                         for i, a in enumerate(albs[:limit]):
                             c = MediaCard(a, MediaType.ALBUM)
                             c.clicked.connect(self.main_window._show_details)
-                            c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_album(d.item_id).get('song',[]), 0))
+                            c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
                             c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                             c.download_videos_clicked.connect(self.main_window._handle_download_videos)
                             c.artist_clicked.connect(self.main_window._show_details)
@@ -241,7 +243,7 @@ class DetailsView(LibraryScrollArea):
                     self.content_layout.addWidget(sc)
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
-            
+
         self.main_window.run_async(fetch, on_ready, page_bound=True)
 
     def _remove_from_playlist(self, song, idx):

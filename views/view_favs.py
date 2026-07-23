@@ -1,27 +1,22 @@
-
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/view_favs.py
 import os
 os.environ["QT_API"] = "pyside6"
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
-)
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-import random
 import qtawesome as qta
 
 from config import THEME
-from utils import MediaItem
-from core.enums import MediaType
-from ui.widgets import FlowLayout, DragDropContainer
-from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from ui.components import SongItem
 
 from views.library_base import LibraryScrollArea
 
 class FavsView(LibraryScrollArea):
     def __init__(self, main_window):
         super().__init__(main_window)
-        
+
     def load(self):
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
@@ -66,7 +61,5 @@ class FavsView(LibraryScrollArea):
                     self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), item)
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
-            
-        self.main_window.run_async(lambda: self.main_window.client.get_starred(100), on_ready, page_bound=True)
 
-
+        self.main_window.run_async(lambda: self.main_window.repo.get_starred(100), on_ready, page_bound=True)

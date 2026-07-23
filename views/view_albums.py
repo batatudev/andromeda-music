@@ -1,20 +1,15 @@
-
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/view_albums.py
 import os
 os.environ["QT_API"] = "pyside6"
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
-)
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-import random
-import qtawesome as qta
 
-from config import THEME
-from utils import MediaItem
 from core.enums import MediaType
-from ui.widgets import FlowLayout, DragDropContainer
-from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from ui.widgets import FlowLayout
+from ui.components import MediaCard
 
 from views.library_base import LibraryScrollArea
 
@@ -46,14 +41,14 @@ class AlbumsView(LibraryScrollArea):
             return
         self.is_loading = True
         def fetch():
-            return self.main_window.client.get_albums(self.offset, 30)
+            return self.main_window.repo.get_albums(self.offset, 30)
         def on_ready(albs):
             if albs:
                 self.content_widget.setUpdatesEnabled(False)
                 for a in albs:
                     c = MediaCard(a, MediaType.ALBUM)
                     c.clicked.connect(self.main_window._show_details)
-                    c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.client.get_album(d.item_id).get('song',[]), 0))
+                    c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
                     c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     c.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     c.artist_clicked.connect(self.main_window._show_details)
@@ -67,5 +62,3 @@ class AlbumsView(LibraryScrollArea):
                 self.content_widget.setUpdatesEnabled(True)
             self.is_loading = False
         self.main_window.run_async(fetch, on_ready, page_bound=True)
-
-
