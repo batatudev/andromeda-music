@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: engine/audio_download_manager.py
-# OPIS ZMIAN: Dodano "przepustnicę" (Throttle) na pasek progresu eliminującą zacinanie interfejsu.
+# OPIS ZMIAN: Dodano wysoce wydajną metodę masową add_to_queue_bulk dla pobierania list/ulubionych audio.
 import os
 import time
 import sqlite3
@@ -192,6 +192,59 @@ class AudioDownloadManager(QObject):
         self.download_status_changed.emit(item_id, AudioDownloadStatus.QUEUED)
         self.queue_updated.emit()
 
+    def add_to_queue_bulk(self, items_list, high_priority=False):
+        if not items_list: return
+        unique_items = []
+        seen_ids = set()
+        for it in items_list:
+            if it[0] not in seen_ids:
+                unique_items.append(it)
+                seen_ids.add(it[0])
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT item_id, status, is_hidden FROM downloads")
+        existing_status = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+
+        inserts = []
+        updates = []
+        added_count = 0
+        added_at = int(time.time())
+
+        for item in unique_items:
+            item_id, title = item
+            status_info = existing_status.get(item_id)
+            if status_info:
+                status, is_hidden = status_info
+                if status in [AudioDownloadStatus.COMPLETED, AudioDownloadStatus.DOWNLOADING, AudioDownloadStatus.QUEUED]:
+                    if is_hidden:
+                        updates.append((status, 0, item_id))
+                        added_count += 1
+                else:
+                    updates.append((AudioDownloadStatus.QUEUED, 0, item_id))
+                    added_count += 1
+            else:
+                inserts.append((item_id, title, AudioDownloadStatus.QUEUED, added_at, 0))
+                added_count += 1
+
+        if inserts:
+            cursor.executemany("INSERT OR IGNORE INTO downloads (item_id, title, status, added_at, is_hidden) VALUES (?, ?, ?, ?, ?)", inserts)
+        if updates:
+            cursor.executemany("UPDATE downloads SET status = ?, is_hidden = ? WHERE item_id = ?", updates)
+
+        conn.commit()
+        conn.close()
+
+        if added_count > 0:
+            priority = 1 if high_priority else 10
+            for item in unique_items:
+                item_id, title = item
+                status_info = existing_status.get(item_id)
+                if not status_info or status_info[0] not in [AudioDownloadStatus.COMPLETED, AudioDownloadStatus.DOWNLOADING, AudioDownloadStatus.QUEUED]:
+                    self.download_queue.put((priority, time.time(), item_id, title))
+                    self.download_status_changed.emit(item_id, AudioDownloadStatus.QUEUED)
+            self.queue_updated.emit()
+
     def _update_status(self, item_id, status, file_path=None, size=None):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -251,7 +304,6 @@ class AudioDownloadManager(QObject):
         total_size = int(response.headers.get('content-length', 0))
         downloaded = 0
         
-        # PRZEPUSTNICA: Ograniczenie wysyłania sygnału do max. 4 razy na sekundę (Co 0.25s)
         last_emit_time = 0
 
         with open(temp_file, 'wb') as f:
@@ -276,7 +328,12 @@ class AudioDownloadManager(QObject):
         from core.library_sync import LibrarySyncManager
         sync = LibrarySyncManager(self.api_client)
         songs = sync.get_all_songs()
+        
+        items_to_add = []
         for s in songs:
             sid = s.get('id')
             if not self.is_downloaded(sid):
-                self.add_to_queue(sid, s.get('title', ''), high_priority=False)
+                items_to_add.append((sid, s.get('title', '')))
+        
+        if items_to_add:
+            self.add_to_queue_bulk(items_to_add, high_priority=False)

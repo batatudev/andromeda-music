@@ -50,11 +50,10 @@ try:
 except ImportError:
     HAS_MPRIS_MODULE = False
 
-
 class MainWindow(QMainWindow):
     async_signal = Signal(object, object, object)
     fav_updated = Signal(str, bool)
-    offline_status_changed = Signal(str, str)  # item_id, status - broadcast do SongItem
+    offline_status_changed = Signal(str, str)
 
     def __init__(self, client):
         super().__init__()
@@ -71,7 +70,10 @@ class MainWindow(QMainWindow):
         self.network_monitor.start()
 
         if HAS_MPRIS_MODULE:
-            self.mpris = MprisService(self.engine)
+            try:
+                self.mpris = MprisService(self.engine)
+            except Exception as e:
+                logger.log(f"Nie udało się załadować MPRIS: {e}")
 
         self.threadpool = QThreadPool()
         self.async_signal.connect(self._handle_async)
@@ -91,8 +93,10 @@ class MainWindow(QMainWindow):
         self.engine.video_ready_to_show.connect(self._show_video_layer)
         self.engine.loading_changed.connect(self._on_loading_changed)
 
-        # Broadcast statusu pobierania do wszystkich aktywnych SongItem
         self.engine.video_download_manager.download_status_changed.connect(
+            lambda item_id, status: self.offline_status_changed.emit(item_id, status)
+        )
+        self.engine.audio_download_manager.download_status_changed.connect(
             lambda item_id, status: self.offline_status_changed.emit(item_id, status)
         )
 
@@ -102,8 +106,8 @@ class MainWindow(QMainWindow):
         self._is_fetching = False
         self.current_page_task_id = 0
 
-        # Odpalenie w tle synchronizacji pobrań po starcie (z opóźnieniem)
         QTimer.singleShot(5000, self._sync_auto_downloads)
+        
         self.sidebar_collapsed = False
         self.manual_sidebar_override = False
         self._seek_grace_until = 0
@@ -112,7 +116,6 @@ class MainWindow(QMainWindow):
         self._current_mask_state = False
 
         self.force_telemetry_event = None
-
         self.all_artists_data = []
         self.history = []
         self.current_route = None
@@ -124,7 +127,6 @@ class MainWindow(QMainWindow):
         self._init_ui()
 
         self.engine.has_video_signal.connect(self._on_has_video)
-
         self.now_playing_view.btn_q_shuffle.clicked.connect(self._shuffle_queue)
         self.now_playing_view.btn_q_clear.clicked.connect(self.engine.clear_queue)
         self.now_playing_view.artist_lbl.clicked.connect(self._now_playing_artist_clicked)
@@ -155,39 +157,57 @@ class MainWindow(QMainWindow):
         self.router.navigate(Pages.HOME)
 
     def _sync_auto_downloads(self):
-        """Uruchamia się w tle, pobiera z Navidrome ulubione/playlisty i dodaje brakujące do kolejki."""
         def fetch():
-            songs_to_dl = []
+            video_songs = []
+            audio_songs = []
+
             if APP_CONFIG.get("video_auto_dl_favs", False):
-                songs_to_dl.extend(self.client.get_starred(1000))
-                
-            pl_ids = APP_CONFIG.get("video_auto_dl_playlists", [])
-            for pid in pl_ids:
+                video_songs.extend(self.client.get_starred(1000))
+            if APP_CONFIG.get("audio_auto_dl_favs", False):
+                audio_songs.extend(self.client.get_starred(1000))
+
+            v_pl_ids = APP_CONFIG.get("video_auto_dl_playlists", [])
+            for pid in v_pl_ids:
                 try:
                     params = self.client._get_auth_params()
                     params["id"] = pid
                     res = self.client._make_request("getPlaylist", params)
-                    pl_data = res.get("playlist", {})
-                    entry = pl_data.get("entry", [])
-                    from utils import MediaItem
-                    songs_to_dl.extend([MediaItem(s) for s in entry])
+                    entry = res.get("playlist", {}).get("entry", [])
+                    from core.models import MediaItem
+                    video_songs.extend([MediaItem(s) for s in entry])
                 except Exception as e:
-                    logger.error(f"Auto-sync playlist {pid} failed: {e}")
-                    
-            return songs_to_dl
-            
-        def on_ready(songs):
-            if not songs: return
-            valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
-            items_to_add = []
-            for s in valid_songs:
+                    logger.log(f"Auto-sync wideo playlist {pid} failed: {e}")
+
+            a_pl_ids = APP_CONFIG.get("audio_auto_dl_playlists", [])
+            for pid in a_pl_ids:
+                try:
+                    params = self.client._get_auth_params()
+                    params["id"] = pid
+                    res = self.client._make_request("getPlaylist", params)
+                    entry = res.get("playlist", {}).get("entry", [])
+                    from core.models import MediaItem
+                    audio_songs.extend([MediaItem(s) for s in entry])
+                except Exception as e:
+                    logger.log(f"Auto-sync audio playlist {pid} failed: {e}")
+
+            return video_songs, audio_songs
+
+        def on_ready(result):
+            if not result: return
+            video_songs, audio_songs = result
+
+            v_items_to_add = []
+            for s in video_songs:
                 link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
                 if link:
-                    items_to_add.append((s.item_id, link, s.title, s.cover_id))
-            
-            if items_to_add:
-                self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
-                    
+                    v_items_to_add.append((s.item_id, link, s.title, s.cover_id))
+            if v_items_to_add:
+                self.engine.video_download_manager.add_to_queue_bulk(v_items_to_add, high_priority=False)
+
+            a_items_to_add = [(s.item_id, s.title) for s in audio_songs]
+            if a_items_to_add:
+                self.engine.audio_download_manager.add_to_queue_bulk(a_items_to_add, high_priority=False)
+
         self.run_async(fetch, on_ready, page_bound=False)
 
     def _handle_song_fav(self, song, new_state):
@@ -197,10 +217,13 @@ class MainWindow(QMainWindow):
         self.run_async(lambda: self.client.star_track(song_id, new_state))
         self.fav_updated.emit(song_id, new_state)
 
-        if new_state and APP_CONFIG.get("video_auto_dl_favs", False):
-            link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
-            if link:
-                self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+        if new_state:
+            if APP_CONFIG.get("video_auto_dl_favs", False):
+                link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+                if link:
+                    self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+            if APP_CONFIG.get("audio_auto_dl_favs", False):
+                self.engine.audio_download_manager.add_to_queue(song.item_id, song.title, high_priority=False)
 
     def _on_fav_updated(self, song_id, is_fav):
         for q_song in self.engine.queue:
@@ -269,8 +292,6 @@ class MainWindow(QMainWindow):
                 self.async_signal.emit(callback_func, None, task_id)
         self.threadpool.start(Worker(worker_logic))
 
-    # --- Shimmy kompatybilnościowe dla widoków (przekierowania do routera) ---
-
     def _show_details(self, data, type_str):
         self.router.show_details(data, type_str)
 
@@ -282,8 +303,6 @@ class MainWindow(QMainWindow):
 
     def _navigate(self, page_idx, data=None, type_str=None, is_back=False):
         self.router.navigate(page_idx, data, type_str, is_back)
-
-    # --- Koniec shimów ---
 
     def _manual_toggle_sidebar(self):
         self.sidebar_ctrl.toggle_sidebar(manual=True)
@@ -424,8 +443,6 @@ class MainWindow(QMainWindow):
             self._current_mask_state = True
             self.now_playing_view.set_seek_blur(True)
 
-
-
     def _toggle_queue(self):
         self.now_playing_view.toggle_queue_visibility()
 
@@ -467,70 +484,86 @@ class MainWindow(QMainWindow):
 
     def _handle_download_videos(self, data, type_str):
         if type_str == MediaType.ALBUM:
-            self.start_bulk_download("album", data.item_id, data.title)
+            self.start_bulk_download("album", data.item_id, data.title, media_type="video")
         elif type_str == MediaType.ARTIST:
-            self.start_bulk_download("artist", data.title, data.title)
+            self.start_bulk_download("artist", data.title, data.title, media_type="video")
 
-    def start_bulk_download(self, bulk_type, target_id=None, target_name=None):
+    def start_bulk_download(self, bulk_type, target_id=None, target_name=None, media_type="video"):
         if self._is_fetching:
             return
 
         def fetch():
             songs = []
             if bulk_type == "favorites":
-                songs = self.client.get_starred(1000) # Pobierz max 1000 ulubionych
+                songs = self.client.get_starred(1000)
             elif bulk_type == "playlist":
                 params = self.client._get_auth_params()
                 params["id"] = target_id
                 res = self.client._make_request("getPlaylist", params)
                 entry = res.get("playlist", {}).get("entry", [])
-                from utils import MediaItem
+                from core.models import MediaItem
                 songs = [MediaItem(s) for s in entry]
             elif bulk_type == "album":
                 songs = self.client.get_album(target_id).get('song', [])
             elif bulk_type == "artist":
                 songs = self.client.get_top_songs_for_artist(target_id, limit=500)
             elif bulk_type == "all":
-                # Dla całej bazy - losowe 1000 utworów (lub search).
-                # UWAGA: Prawdziwe "wszystko" może zabić serwer. Pobieramy 1000 ostatnich/najczęstszych.
-                songs = self.client.get_random_songs(1000)
+                if hasattr(self, 'repo'):
+                    return self.repo.library_sync.get_all_songs()
+                else:
+                    songs = self.client.get_random_songs(1000)
             return songs
 
         def on_ready(songs):
             if not songs:
                 QMessageBox.information(self, "Brak utworów", "Nie znaleziono utworów do pobrania.")
                 return
-            
-            # Filtrowanie utworów z yt_link
-            valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
-            
-            if not valid_songs:
-                QMessageBox.information(self, "Brak linków", "Znalezione utwory nie posiadają linków do wideo.")
-                return
 
-            quality = APP_CONFIG.get("video_offline_quality", "1080p")
-            # Szacowanie wg jakości
-            avg_mb = 25 # 1080p
-            if quality == "720p": avg_mb = 15
-            elif quality == "480p": avg_mb = 10
-            
-            count = len(valid_songs)
-            est_mb = count * avg_mb
-            est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
-            
-            msg = f"Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar do pobrania: ~{est_str} (Jakość: {quality}).\n\nCzy chcesz rozpocząć pobieranie?"
-            ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
-            
-            if ans == QMessageBox.Yes:
-                items_to_add = []
-                for s in valid_songs:
-                    link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
-                    if link:
-                        items_to_add.append((s.item_id, link, s.title, s.cover_id))
-                
-                if items_to_add:
-                    self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
-                QMessageBox.information(self, "Rozpoczęto", f"Zadania ({len(items_to_add)}) zostały dodane do kolejki pobierania.")
+            if media_type == "video":
+                valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
+                if not valid_songs:
+                    QMessageBox.information(self, "Brak linków", "Znalezione utwory nie posiadają linków do wideo.")
+                    return
+
+                quality = APP_CONFIG.get("video_offline_quality", "1080p")
+                avg_mb = 25
+                if quality == "720p": avg_mb = 15
+                elif quality == "480p": avg_mb = 10
+
+                count = len(valid_songs)
+                est_mb = count * avg_mb
+                est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
+
+                msg = f"Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar do pobrania: ~{est_str} (Jakość: {quality}).\n\nCzy chcesz rozpocząć pobieranie wideo?"
+                ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
+
+                if ans == QMessageBox.Yes:
+                    items_to_add = []
+                    for s in valid_songs:
+                        link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
+                        if link:
+                            items_to_add.append((s.item_id, link, s.title, s.cover_id))
+                    if items_to_add:
+                        self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
+                    QMessageBox.information(self, "Rozpoczęto", f"Zadania ({len(items_to_add)}) zostały dodane do kolejki pobierania wideo.")
+
+            elif media_type == "audio":
+                from core.models import MediaItem
+                valid_songs = [s if isinstance(s, MediaItem) else MediaItem(s) for s in songs]
+
+                avg_mb = 6 
+                count = len(valid_songs)
+                est_mb = count * avg_mb
+                est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
+
+                msg = f"Znaleziono {count} utworów audio.\nSzacowany rozmiar do pobrania: ~{est_str}.\n\nCzy chcesz rozpocząć pobieranie muzyki?"
+                ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
+
+                if ans == QMessageBox.Yes:
+                    items_to_add = [(s.item_id, s.title) for s in valid_songs]
+                    if items_to_add:
+                        self.engine.audio_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
+                    QMessageBox.information(self, "Rozpoczęto", f"Zadania ({len(items_to_add)}) zostały dodane do kolejki pobierania audio.")
 
         self.run_async(fetch, on_ready, page_bound=False)
 
@@ -568,8 +601,6 @@ class MainWindow(QMainWindow):
                 self.router.show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
 
     def _show_video_layer(self):
-        # Pokaż wideo jeśli: (1) tryb teledysku aktywny przez użytkownika,
-        # LUB (2) auto-play włączony i istnieje plik offline dla aktualnego utworu
         should_show = self.player_bar.btn_video_toggle.isChecked()
         if not should_show and APP_CONFIG.get("video_smart_auto_play", False):
             if self.engine.queue and self.engine.idx >= 0:
@@ -584,32 +615,23 @@ class MainWindow(QMainWindow):
 
     def _on_has_video(self, has_video):
         self.player_bar.set_video_available(has_video)
-
-        # Sprawdz czy jest plik offline (nawet gdy has_video=False bo brak yt_link)
         if self.engine.queue and self.engine.idx >= 0:
             song = self.engine.queue[self.engine.idx]
             offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
 
             if offline_path:
                 if not has_video:
-                    # Informuj pasek że wideo jest lokalnie dostępne
                     self.player_bar.set_video_available(True)
-
                 if APP_CONFIG.get("video_smart_auto_play", False):
-                    # Auto-play WŁĄCZONE: graj wideo NIEZALEŻNIE od stanu przycisku.
-                    # Nie zmieniamy stanu przycisku - to narzędzie użytkownika.
                     self.engine.load_and_play_video()
                     return
                 else:
-                    # Auto-play WYŁĄCZONE: graj tylko gdy przycisk użytkownika jest aktywny
                     if self.player_bar.btn_video_toggle.isChecked():
                         self.player_bar.set_video_active(True)
                         self.engine.load_and_play_video()
                         return
-                    # Przycisk nieaktywny - nic nie robimy, czekamy na akcję użytkownika
                     return
 
-        # Standardowa ścieżka streamingu (brak pliku offline)
         is_video = self.player_bar.btn_video_toggle.isChecked()
         if is_video:
             if has_video:
@@ -626,19 +648,16 @@ class MainWindow(QMainWindow):
             self.now_playing_view.set_media_mode("audio")
             self.engine.video_player.stop()
 
-
     def _toggle_video_mode(self):
         is_video = self.player_bar.btn_video_toggle.isChecked()
         self.player_bar.set_video_active(is_video)
         if is_video:
-            # Najpierw sprawdz czy jest plik offline
             if self.engine.queue and self.engine.idx >= 0:
                 song = self.engine.queue[self.engine.idx]
                 offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
                 if offline_path:
                     self.engine.load_and_play_video(force_mid_track=True)
                     return
-            # Brak pliku offline - użyj streamingu na żywo
             if self.engine.current_yt_link:
                 self.engine.load_and_play_video(force_mid_track=True)
             else:
@@ -860,12 +879,12 @@ class MainWindow(QMainWindow):
                         p['name'] = name
                         p['songId'] = [song.item_id]
                         self.client._make_request("createPlaylist", p)
-                        
+
                         if APP_CONFIG.get("video_auto_dl_playlists", False):
                             link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
                             if link:
                                 self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
-                                
+
                     self.run_async(task, lambda r: self._load_playlists())
 
             btn_new_pl.clicked.connect(create_pl)
@@ -911,8 +930,6 @@ class MainWindow(QMainWindow):
             dlg.exec()
         self.run_async(fetch, on_ready)
 
-
-
     def _clear(self, lay):
         while lay.count():
             i = lay.takeAt(0)
@@ -920,7 +937,6 @@ class MainWindow(QMainWindow):
                 i.widget().deleteLater()
             elif i.layout():
                 self._clear(i.layout())
-
 
     def _handle_now_playing_queue_drop(self, old_idx, drop_y):
         if not self.engine.queue:
@@ -1003,7 +1019,7 @@ class MainWindow(QMainWindow):
             self.now_playing_view.queue_layout.addWidget(item)
             if s.cover_id:
                 self.loader.load(self.client.get_cover_art_url(s.cover_id), item)
-        
+
         QTimer.singleShot(0, lambda: self.now_playing_view.queue_scroll.verticalScrollBar().setValue(old_val))
 
     def _scroll_now_playing_to_active(self):
@@ -1025,5 +1041,3 @@ class MainWindow(QMainWindow):
 
     def _on_shuffle_mode_changed(self, is_shuffled):
         self.player_bar.set_shuffle_state(is_shuffled)
-
-

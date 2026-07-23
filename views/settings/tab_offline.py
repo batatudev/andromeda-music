@@ -1,6 +1,3 @@
-# WERSJA PROJEKTU: 14.19
-# MODYFIKOWANY PLIK: views/settings/tab_offline.py
-# OPIS ZMIAN: Przeniesienie podłączania sygnałów z metody przycisku na start (czysta konsola).
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -53,10 +50,25 @@ class TabOffline(QWidget):
         self.btn_auto_pl.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px; border-radius: 5px;")
         self.btn_auto_pl.setCursor(Qt.PointingHandCursor)
         self.btn_auto_pl.setFixedWidth(350)
-        self.btn_auto_pl.clicked.connect(self._show_playlists_sync_dialog)
+        self.btn_auto_pl.clicked.connect(lambda: self._show_playlists_sync_dialog("video"))
+        
+        self.combo_audio_auto_favs = QComboBox()
+        self.combo_audio_auto_favs.addItems(["Wyłączone", "Włączone (pobieraj przy polubieniu)"])
+        self.combo_audio_auto_favs.setCurrentIndex(1 if APP_CONFIG.get("audio_auto_dl_favs", False) else 0)
+        self.combo_audio_auto_favs.setStyleSheet(input_style)
+        self.combo_audio_auto_favs.setFixedWidth(350)
 
-        pl_cnt = len(APP_CONFIG.get("video_auto_dl_playlists", []))
-        self.btn_auto_pl.setText(f"Wybierz playlisty... ({pl_cnt} wybrano)")
+        self.btn_audio_auto_pl = QPushButton("Wybierz playlisty...")
+        self.btn_audio_auto_pl.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px; border-radius: 5px;")
+        self.btn_audio_auto_pl.setCursor(Qt.PointingHandCursor)
+        self.btn_audio_auto_pl.setFixedWidth(350)
+        self.btn_audio_auto_pl.clicked.connect(lambda: self._show_playlists_sync_dialog("audio"))
+
+        v_pl_cnt = len(APP_CONFIG.get("video_auto_dl_playlists", []))
+        self.btn_auto_pl.setText(f"Wybierz playlisty... ({v_pl_cnt} wybrano)")
+
+        a_pl_cnt = len(APP_CONFIG.get("audio_auto_dl_playlists", []))
+        self.btn_audio_auto_pl.setText(f"Wybierz playlisty... ({a_pl_cnt} wybrano)")
 
         self.combo_hide_offline = QComboBox()
         self.combo_hide_offline.addItems(["Pokaż wyszarzone (Domyślne)", "Ukryj całkowicie"])
@@ -80,6 +92,8 @@ class TabOffline(QWidget):
         add_row(offline_layout, "Wideo Jakość:", self.combo_off_quality)
         add_row(offline_layout, "Wideo Auto-pobieranie (Ulubione):", self.combo_auto_favs)
         add_row(offline_layout, "Wideo Auto-pobieranie (Playlisty):", self.btn_auto_pl)
+        add_row(offline_layout, "Audio Auto-pobieranie (Ulubione):", self.combo_audio_auto_favs)
+        add_row(offline_layout, "Audio Auto-pobieranie (Playlisty):", self.btn_audio_auto_pl)
         add_row(offline_layout, "Muzyka - Niepobrane utwory:", self.combo_hide_offline)
 
         audio_actions_layout = QHBoxLayout()
@@ -90,13 +104,7 @@ class TabOffline(QWidget):
         btn_sync.setCursor(Qt.PointingHandCursor)
         btn_sync.clicked.connect(self._sync_library)
 
-        btn_dl_all = QPushButton("Pobierz Całą Muzykę (Zalecane)")
-        btn_dl_all.setStyleSheet(f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
-        btn_dl_all.setCursor(Qt.PointingHandCursor)
-        btn_dl_all.clicked.connect(self._download_all_audio)
-
         audio_actions_layout.addWidget(btn_sync)
-        audio_actions_layout.addWidget(btn_dl_all)
         offline_layout.addLayout(audio_actions_layout)
 
         btn_save_offline = QPushButton("Zapisz Ustawienia Offline")
@@ -116,7 +124,6 @@ class TabOffline(QWidget):
         self.layout.addWidget(offline_group)
         self.layout.addStretch()
 
-        # Podpinamy sygnały z repozytorium tylko raz, przy inicjalizacji karty ustawień
         if hasattr(self.main_window, 'repo'):
             sync_mgr = self.main_window.repo.library_sync
             sync_mgr.sync_progress.connect(self._on_sync_progress)
@@ -141,29 +148,24 @@ class TabOffline(QWidget):
             sync_mgr.start_sync()
             self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
 
-    def _download_all_audio(self):
-        win = self.main_window
-        if hasattr(win, 'engine') and hasattr(win.engine, 'audio_download_manager'):
-            win.engine.audio_download_manager.download_all_from_library()
-            self.lbl_o_status.setText("Dodano całą bibliotekę do kolejki pobierania")
-            QTimer.singleShot(4000, lambda: self.lbl_o_status.setText(""))
-
     def _save_o_conf(self):
         APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
         APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
         APP_CONFIG["video_auto_dl_favs"] = (self.combo_auto_favs.currentIndex() == 1)
+        APP_CONFIG["audio_auto_dl_favs"] = (self.combo_audio_auto_favs.currentIndex() == 1)
         APP_CONFIG["hide_undownloaded_offline"] = (self.combo_hide_offline.currentIndex() == 1)
 
         save_config()
         self.settings_view._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
         self.settings_view._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
         self.settings_view._initial_settings["video_auto_dl_favs"] = APP_CONFIG["video_auto_dl_favs"]
+        self.settings_view._initial_settings["audio_auto_dl_favs"] = APP_CONFIG["audio_auto_dl_favs"]
         self.settings_view._initial_settings["hide_undownloaded_offline"] = APP_CONFIG["hide_undownloaded_offline"]
 
         self.lbl_o_status.setText("Zapisano pomyślnie (Wymagany restart dla niektórych opcji)")
         QTimer.singleShot(3000, lambda: self.lbl_o_status.setText(""))
 
-    def _show_playlists_sync_dialog(self):
+    def _show_playlists_sync_dialog(self, media_type):
         def fetch():
             params = self.main_window.client._get_auth_params()
             res = self.main_window.client._make_request("getPlaylists", params)
@@ -171,13 +173,14 @@ class TabOffline(QWidget):
 
         def on_ready(playlists):
             dlg = QDialog(self)
-            dlg.setWindowTitle("Wybierz playlisty do auto-pobierania")
+            typ_txt = "WIDEO" if media_type == "video" else "AUDIO"
+            dlg.setWindowTitle(f"Wybierz playlisty do auto-pobierania ({typ_txt})")
             dlg.setFixedSize(400, 500)
             from config import get_app_style
             dlg.setStyleSheet(get_app_style())
             layout = QVBoxLayout(dlg)
 
-            lbl = QLabel("Zaznacz playlisty, które mają być automatycznie synchronizowane:")
+            lbl = QLabel(f"Zaznacz playlisty, z których będziemy automatycznie pobierać nowe pliki <b>{typ_txt}</b>:")
             lbl.setStyleSheet(f"color: {THEME['text_main']}; margin-bottom: 10px;")
             lbl.setWordWrap(True)
             layout.addWidget(lbl)
@@ -190,7 +193,8 @@ class TabOffline(QWidget):
             v.setSpacing(5)
 
             checkboxes = {}
-            current_selected = APP_CONFIG.get("video_auto_dl_playlists", [])
+            conf_key = "video_auto_dl_playlists" if media_type == "video" else "audio_auto_dl_playlists"
+            current_selected = APP_CONFIG.get(conf_key, [])
 
             for pl in playlists:
                 pl_id = pl.get('id')
@@ -211,16 +215,19 @@ class TabOffline(QWidget):
 
             def save_selection():
                 selected = [pid for pid, cb in checkboxes.items() if cb.isChecked()]
-                APP_CONFIG["video_auto_dl_playlists"] = selected
+                APP_CONFIG[conf_key] = selected
                 from config import save_config
                 save_config()
-                self.settings_view._initial_settings["video_auto_dl_playlists"] = selected
-                self.btn_auto_pl.setText(f"Wybierz playlisty... ({len(selected)} wybrano)")
+                self.settings_view._initial_settings[conf_key] = selected
+                
+                if media_type == "video":
+                    self.btn_auto_pl.setText(f"Wybierz playlisty... ({len(selected)} wybrano)")
+                else:
+                    self.btn_audio_auto_pl.setText(f"Wybierz playlisty... ({len(selected)} wybrano)")
                 dlg.accept()
 
             btn_save.clicked.connect(save_selection)
             layout.addWidget(btn_save)
-
             dlg.exec()
 
         self.main_window.run_async(fetch, on_ready)
