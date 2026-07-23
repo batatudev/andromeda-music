@@ -33,18 +33,23 @@ class HomeView(LibraryScrollArea):
         self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
-            online = self.main_window.client.ping()
-            if not online:
-                return (False,[], [], [],[])
-            stars = self.main_window.client.get_starred(40)
-            albs = self.main_window.client.get_random_albums(6)
-            songs = self.main_window.client.get_random_songs(10)
+            # Check offline status via repo
+            is_offline = self.main_window.repo._is_offline()
+            online = not is_offline
+            
+            # Use repo instead of client to benefit from caching and offline DB
+            stars = self.main_window.repo.get_starred(40)
+            albs = self.main_window.repo.get_random_albums(6)
+            songs = self.main_window.repo.get_random_songs(10)
 
             if not self.main_window.all_artists_data:
-                self.main_window.all_artists_data = self.main_window.client.get_artists()
+                if online:
+                    self.main_window.all_artists_data = self.main_window.client.get_artists()
+                else:
+                    self.main_window.all_artists_data = self.main_window.repo.library_sync.get_all_artists()
 
-            r_arts = random.sample(self.main_window.all_artists_data, min(6, len(self.main_window.all_artists_data))) if self.main_window.all_artists_data else[]
-            return (online, stars, albs, songs, r_arts)
+            r_arts = random.sample(self.main_window.all_artists_data, min(6, len(self.main_window.all_artists_data))) if self.main_window.all_artists_data else []
+            return (True, stars, albs, songs, r_arts)
 
         def on_ready(data):
             if not data:
