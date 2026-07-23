@@ -1,3 +1,6 @@
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: engine/audio_download_manager.py
+# OPIS ZMIAN: Dodano metody zarządzania bazą (remove_download, cancel_all, clear_history), by zrównać możliwości z menadżerem wideo.
 import os
 import time
 import sqlite3
@@ -16,8 +19,8 @@ class AudioDownloadStatus:
     ERROR = "ERROR"
 
 class AudioDownloadManager(QObject):
-    download_progress = Signal(str, float)  # item_id, progress
-    download_status_changed = Signal(str, str) # item_id, new_status
+    download_progress = Signal(str, float)
+    download_status_changed = Signal(str, str)
     queue_updated = Signal()
 
     def __init__(self, api_client: NavidromeClient):
@@ -25,19 +28,18 @@ class AudioDownloadManager(QObject):
         self.api_client = api_client
         self.db_path = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-v3", "offline_audio.db")
         self.music_dir = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-v3", "offline_music")
-        
+
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         os.makedirs(self.music_dir, exist_ok=True)
-        
+
         self._init_db()
-        
+
         self.download_queue = queue.PriorityQueue()
         self.current_download_task = None
         self.cancel_current_event = threading.Event()
-        
-        # Load QUEUED from DB
+
         self._reload_queued_to_memory()
-        
+
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
 
@@ -54,6 +56,11 @@ class AudioDownloadManager(QObject):
                 file_size INTEGER
             )
         ''')
+        try:
+            cursor.execute("ALTER TABLE downloads ADD COLUMN is_hidden INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
         cursor.execute("UPDATE downloads SET status = ? WHERE status = ?", (AudioDownloadStatus.QUEUED, AudioDownloadStatus.DOWNLOADING))
         conn.commit()
         conn.close()
@@ -65,6 +72,81 @@ class AudioDownloadManager(QObject):
         for row in cursor.fetchall():
             self.download_queue.put((10, time.time(), row[0], row[1]))
         conn.close()
+
+    def get_all_downloads(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT item_id, title, status, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_total_download_stats(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*), SUM(file_size) FROM downloads WHERE status = ?", (AudioDownloadStatus.COMPLETED,))
+        row = cursor.fetchone()
+        conn.close()
+        count = row[0] if row and row[0] else 0
+        total_size = row[1] if row and row[1] else 0
+        return count, total_size
+
+    def remove_download(self, item_id):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT file_path, status FROM downloads WHERE item_id = ?", (item_id,))
+        row = cursor.fetchone()
+        if row:
+            if row[1] == AudioDownloadStatus.DOWNLOADING and self.current_download_task == item_id:
+                self.cancel_current_event.set()
+            file_path = row[0]
+            if file_path and os.path.exists(file_path):
+                try: os.remove(file_path)
+                except OSError: pass
+            cursor.execute("DELETE FROM downloads WHERE item_id = ?", (item_id,))
+            conn.commit()
+        conn.close()
+        self.download_status_changed.emit(item_id, "")
+        self.queue_updated.emit()
+
+    def clear_history(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE downloads SET is_hidden = 1 WHERE status IN (?, ?)", (AudioDownloadStatus.COMPLETED, AudioDownloadStatus.ERROR))
+        conn.commit()
+        conn.close()
+        self.queue_updated.emit()
+
+    def cancel_all(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM downloads WHERE status = ?", (AudioDownloadStatus.QUEUED,))
+        if self.current_download_task:
+            self.cancel_current_event.set()
+        conn.commit()
+        conn.close()
+        while not self.download_queue.empty():
+            try:
+                self.download_queue.get_nowait()
+                self.download_queue.task_done()
+            except queue.Empty:
+                break
+        self.queue_updated.emit()
+
+    def delete_all_files(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT file_path FROM downloads WHERE status = ?", (AudioDownloadStatus.COMPLETED,))
+        rows = cursor.fetchall()
+        for row in rows:
+            fp = row[0]
+            if fp and os.path.exists(fp):
+                try: os.remove(fp)
+                except OSError: pass
+        cursor.execute("DELETE FROM downloads WHERE status IN (?, ?)", (AudioDownloadStatus.COMPLETED, AudioDownloadStatus.ERROR))
+        conn.commit()
+        conn.close()
+        self.queue_updated.emit()
 
     def is_downloaded(self, item_id):
         conn = sqlite3.connect(self.db_path)
@@ -92,11 +174,11 @@ class AudioDownloadManager(QObject):
         cursor = conn.cursor()
         cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
-        
+
         if row:
             if row[0] in [AudioDownloadStatus.COMPLETED, AudioDownloadStatus.QUEUED, AudioDownloadStatus.DOWNLOADING]:
                 conn.close()
-                return # Już jest
+                return
 
         priority = 1 if high_priority else 10
         cursor.execute(
@@ -105,7 +187,7 @@ class AudioDownloadManager(QObject):
         )
         conn.commit()
         conn.close()
-        
+
         self.download_queue.put((priority, time.time(), item_id, title))
         self.download_status_changed.emit(item_id, AudioDownloadStatus.QUEUED)
         self.queue_updated.emit()
@@ -128,17 +210,28 @@ class AudioDownloadManager(QObject):
         while True:
             try:
                 priority, added_ts, item_id, title = self.download_queue.get()
+                
+                # Upewnijmy się, że wpis nadal istnieje i ma odpowiedni status
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
+                row = cursor.fetchone()
+                conn.close()
+                if not row or row[0] != AudioDownloadStatus.QUEUED:
+                    self.download_queue.task_done()
+                    continue
+
                 self.current_download_task = item_id
                 self.cancel_current_event.clear()
-                
                 self._update_status(item_id, AudioDownloadStatus.DOWNLOADING)
-                
+
                 try:
                     self._download_audio(item_id)
                 except Exception as e:
                     logger.log(f"Błąd pobierania audio {item_id}: {e}")
-                    self._update_status(item_id, AudioDownloadStatus.ERROR)
-                    
+                    if not self.cancel_current_event.is_set():
+                        self._update_status(item_id, AudioDownloadStatus.ERROR)
+
                 self.current_download_task = None
                 self.download_queue.task_done()
             except Exception as e:
@@ -149,16 +242,16 @@ class AudioDownloadManager(QObject):
         stream_url = self.api_client.get_stream_url(item_id)
         if not stream_url:
             raise Exception("Nie można uzyskać URL strumienia.")
-            
+
         temp_file = os.path.join(self.music_dir, f"{item_id}.tmp")
         final_file = os.path.join(self.music_dir, f"{item_id}.mp3")
-        
+
         response = requests.get(stream_url, stream=True, timeout=10)
         response.raise_for_status()
-        
+
         total_size = int(response.headers.get('content-length', 0))
         downloaded = 0
-        
+
         with open(temp_file, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if self.cancel_current_event.is_set():
@@ -169,13 +262,12 @@ class AudioDownloadManager(QObject):
                     if total_size > 0:
                         progress = (downloaded / total_size) * 100
                         self.download_progress.emit(item_id, progress)
-                        
+
         os.rename(temp_file, final_file)
         self._update_status(item_id, AudioDownloadStatus.COMPLETED, final_file, downloaded)
         logger.log(f"Pobrano audio: {item_id}")
 
     def download_all_from_library(self):
-        # Pomocnicza metoda dla "Pobierz całą bibliotekę"
         from core.library_sync import LibrarySyncManager
         sync = LibrarySyncManager(self.api_client)
         songs = sync.get_all_songs()
