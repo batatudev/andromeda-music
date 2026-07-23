@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: engine/audio_download_manager.py
-# OPIS ZMIAN: Dodano metody zarządzania bazą (remove_download, cancel_all, clear_history), by zrównać możliwości z menadżerem wideo.
+# OPIS ZMIAN: Dodano "przepustnicę" (Throttle) na pasek progresu eliminującą zacinanie interfejsu.
 import os
 import time
 import sqlite3
@@ -211,7 +211,6 @@ class AudioDownloadManager(QObject):
             try:
                 priority, added_ts, item_id, title = self.download_queue.get()
                 
-                # Upewnijmy się, że wpis nadal istnieje i ma odpowiedni status
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
                 cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
@@ -251,6 +250,9 @@ class AudioDownloadManager(QObject):
 
         total_size = int(response.headers.get('content-length', 0))
         downloaded = 0
+        
+        # PRZEPUSTNICA: Ograniczenie wysyłania sygnału do max. 4 razy na sekundę (Co 0.25s)
+        last_emit_time = 0
 
         with open(temp_file, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -260,8 +262,11 @@ class AudioDownloadManager(QObject):
                     f.write(chunk)
                     downloaded += len(chunk)
                     if total_size > 0:
-                        progress = (downloaded / total_size) * 100
-                        self.download_progress.emit(item_id, progress)
+                        current_time = time.time()
+                        if current_time - last_emit_time > 0.25:
+                            progress = (downloaded / total_size) * 100
+                            self.download_progress.emit(item_id, progress)
+                            last_emit_time = current_time
 
         os.rename(temp_file, final_file)
         self._update_status(item_id, AudioDownloadStatus.COMPLETED, final_file, downloaded)

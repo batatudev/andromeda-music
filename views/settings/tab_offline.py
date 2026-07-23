@@ -1,11 +1,14 @@
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: views/settings/tab_offline.py
+# OPIS ZMIAN: Prawidłowe podłączenie istniejącej instancji library_sync.
 import os
+os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QComboBox, QPushButton, QDialog, QScrollArea, QCheckBox
 )
 from PySide6.QtCore import Qt, QTimer
-
 from config import APP_CONFIG, save_config, THEME
 
 class TabOffline(QWidget):
@@ -13,10 +16,10 @@ class TabOffline(QWidget):
         super().__init__()
         self.settings_view = settings_view
         self.main_window = settings_view.main_window
-        
+
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        
+
         offline_group = QFrame()
         offline_group.setObjectName("SettingsCard")
         offline_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
@@ -78,21 +81,20 @@ class TabOffline(QWidget):
         add_row(offline_layout, "Wideo Auto-pobieranie (Ulubione):", self.combo_auto_favs)
         add_row(offline_layout, "Wideo Auto-pobieranie (Playlisty):", self.btn_auto_pl)
         add_row(offline_layout, "Muzyka - Niepobrane utwory:", self.combo_hide_offline)
-        
-        # Audio actions
+
         audio_actions_layout = QHBoxLayout()
         audio_actions_layout.addStretch()
-        
+
         btn_sync = QPushButton("Synchronizuj Metadane")
         btn_sync.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
         btn_sync.setCursor(Qt.PointingHandCursor)
         btn_sync.clicked.connect(self._sync_library)
-        
+
         btn_dl_all = QPushButton("Pobierz Całą Muzykę (Zalecane)")
         btn_dl_all.setStyleSheet(f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
         btn_dl_all.setCursor(Qt.PointingHandCursor)
         btn_dl_all.clicked.connect(self._download_all_audio)
-        
+
         audio_actions_layout.addWidget(btn_sync)
         audio_actions_layout.addWidget(btn_dl_all)
         offline_layout.addLayout(audio_actions_layout)
@@ -116,14 +118,19 @@ class TabOffline(QWidget):
 
     def _sync_library(self):
         win = self.main_window
-        if hasattr(win, 'engine'):
-            from core.library_sync import LibrarySyncManager
-            sync_mgr = LibrarySyncManager(win.client)
+        if hasattr(win, 'repo'):
+            sync_mgr = win.repo.library_sync
+            try:
+                sync_mgr.sync_progress.disconnect()
+                sync_mgr.sync_completed.disconnect()
+            except RuntimeError:
+                pass
+            
             sync_mgr.sync_progress.connect(lambda current, total: self.lbl_o_status.setText(f"Synchronizacja... ({current} pobrano)"))
             sync_mgr.sync_completed.connect(lambda: self.lbl_o_status.setText("Zakończono synchronizację!"))
             sync_mgr.start_sync()
             self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
-            
+
     def _download_all_audio(self):
         win = self.main_window
         if hasattr(win, 'engine') and hasattr(win.engine, 'audio_download_manager'):

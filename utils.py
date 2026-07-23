@@ -1,3 +1,6 @@
+# WERSJA PROJEKTU: 14.19
+# MODYFIKOWANY PLIK: utils.py
+# OPIS ZMIAN: Zmiana startu NetworkMonitora na pesymistyczny (is_online = False)
 import os
 os.environ["QT_API"] = "pyside6"
 import threading
@@ -13,26 +16,22 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QNetworkDiskCache
 from core.paths import PathsManager
 
-
 from core.models import MediaItem, Song, Album, Artist
 
-# Globalny cache recznie ustawionych linkow YouTube (item_id -> url)
-# Ladowany przy starcie z bazy przez VideoDownloadManager
 _YT_LINK_OVERRIDES: dict = {}
 
 def _set_yt_link_override(item_id: str, url):
-    """Ustawia lub usuwa override linku YT w module-level cache."""
     if url:
         _YT_LINK_OVERRIDES[item_id] = url
     else:
         _YT_LINK_OVERRIDES.pop(item_id, None)
 
-
 class NetworkMonitor(threading.Thread):
     def __init__(self, local_url):
         super().__init__(daemon=True)
         self.local_host, self.local_port = self._extract_host_and_port(local_url)
-        self.is_online = True
+        # PESYMISTYCZNY START - Aplikacja domyślnie rusza bez netu i wczytuje cache
+        self.is_online = False 
         self.net_ping = 0
         self.loc_lat = 0
         self._running = True
@@ -65,12 +64,11 @@ class NetworkMonitor(threading.Thread):
                     self.loc_lat = int((time.time() - start) * 1000)
                 except Exception:
                     self.loc_lat = -1
-            
+
             time.sleep(2)
 
     def stop(self):
         self._running = False
-
 
 class TelemetryRecorder:
     _instance = None
@@ -92,8 +90,8 @@ class TelemetryRecorder:
                 with open(self.log_file, "w", encoding="utf-8", newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow([
-                        "Time", "Event", "State", "A_Pos", "V_Pos", "AV_Delta", 
-                        "Buf_Sec", "FPS", "Motion", "Vis_State", "ARF_Res", 
+                        "Time", "Event", "State", "A_Pos", "V_Pos", "AV_Delta",
+                        "Buf_Sec", "FPS", "Motion", "Vis_State", "ARF_Res",
                         "Z_FPS_Cyc", "Rate", "H_Sync_Count", "Grace", "Net_Link", "Loc_Lat", "Sync_Locked"
                     ])
             except Exception:
@@ -108,20 +106,17 @@ class TelemetryRecorder:
     def _write_row(self, event, state, a_pos, v_pos, av_delta, buf_sec, fps, motion, vis_state, arf_res, z_fps, rate, h_sync, grace, net_link, loc_lat, sync_locked):
         with self.lock:
             now = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            
             a_pos_str = f"{a_pos:.1f}" if isinstance(a_pos, (int, float)) else str(a_pos)
             v_pos_str = f"{v_pos:.1f}" if isinstance(v_pos, (int, float)) else str(v_pos)
             buf_sec_str = f"{buf_sec:.1f}" if isinstance(buf_sec, (int, float)) else str(buf_sec)
             motion_str = f"{motion:.2f}" if isinstance(motion, (int, float)) else str(motion)
             rate_str = f"{rate:.2f}" if isinstance(rate, (int, float)) else str(rate)
-            
             row =[
                 now, event, state, a_pos_str, v_pos_str, av_delta,
-                buf_sec_str, fps, motion_str, vis_state, arf_res, 
+                buf_sec_str, fps, motion_str, vis_state, arf_res,
                 z_fps, rate_str, h_sync, str(grace),
                 "ONLINE" if net_link else "OFFLINE", loc_lat, str(sync_locked)
             ]
-            
             self.buffer.append(row)
             if len(self.buffer) >= 5 or event != "HRT":
                 self._flush_unlocked()
@@ -148,7 +143,6 @@ class TelemetryRecorder:
             desktop = os.path.join(os.path.expanduser("~"), "Pulpit")
         if not os.path.exists(desktop):
             return "Błąd: Nie znaleziono folderu Pulpit / Desktop."
-            
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         dest = os.path.join(desktop, f"navidrome_telemetry_v13.0_{timestamp}.csv")
         try:
@@ -159,10 +153,8 @@ class TelemetryRecorder:
 
 telemetry_recorder = TelemetryRecorder()
 
-
 class AppLogger:
     _instance = None
-
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(AppLogger, cls).__new__(cls)
@@ -231,7 +223,6 @@ class AppLogger:
 
 logger = AppLogger()
 
-
 class Worker(QRunnable):
     def __init__(self, fn):
         super().__init__()
@@ -240,7 +231,6 @@ class Worker(QRunnable):
 
     def run(self):
         self.fn()
-
 
 class AsyncImageLoader(QObject):
     def __init__(self, parent=None):
@@ -251,22 +241,21 @@ class AsyncImageLoader(QObject):
         cp.mkdir(parents=True, exist_ok=True)
         self.disk_cache.setCacheDirectory(str(cp))
         self.manager.setCache(self.disk_cache)
-        
+
         self.custom_artists_dir = PathsManager.get_data_dir() / "custom_artists"
         self.custom_artists_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.custom_covers_dir = PathsManager.get_data_dir() / "custom_covers"
         self.custom_covers_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.queue =[]
         self.active_reqs = 0
         self.MAX_ACTIVE = 10
-        self._in_flight = {}  # {url: [targets]} – deduplikacja in-flight requests
+        self._in_flight = {}
 
     def load(self, url, target):
         if not url:
             return
-
         try:
             parsed = urlparse(url)
             qs = parse_qs(parsed.query)
@@ -289,7 +278,6 @@ class AsyncImageLoader(QObject):
         except Exception:
             pass
 
-        # Deduplikacja: jeśli to samo URL jest już in-flight, tylko dopisz target
         if url in self._in_flight:
             if target not in self._in_flight[url]:
                 self._in_flight[url].append(target)
@@ -306,7 +294,6 @@ class AsyncImageLoader(QObject):
                     continue
             except RuntimeError:
                 continue
-            # Rejestrujemy nowy in-flight request z pierwszym targetem
             self._in_flight[url] = [target]
             self.active_reqs += 1
             req = QNetworkRequest(QUrl(url))
@@ -322,8 +309,6 @@ class AsyncImageLoader(QObject):
         start_time = reply.property("start_time")
         duration = time.time() - start_time
         is_fast_cache = (duration < 0.05)
-
-        # Pobierz wszystkich oczekujących i wyczyść in-flight
         targets = self._in_flight.pop(url, [])
 
         if reply.error() == QNetworkReply.NoError:
@@ -338,7 +323,6 @@ class AsyncImageLoader(QObject):
         reply.deleteLater()
         self._process()
 
-
 def get_blurred_pixmap(pixmap, radius):
     if not pixmap or pixmap.isNull():
         return pixmap
@@ -347,7 +331,6 @@ def get_blurred_pixmap(pixmap, radius):
     from PySide6.QtCore import Qt
 
     scaled = pixmap.scaledToWidth(800, Qt.SmoothTransformation)
-
     scene = QGraphicsScene()
     item = QGraphicsPixmapItem(scaled)
     blur = QGraphicsBlurEffect()

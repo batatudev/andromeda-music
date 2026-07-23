@@ -217,12 +217,6 @@ MediaCard PPM → download_videos_clicked(data, type_str)
 2. **Jedna instrukcja = jedna linia:** Zakaz średników (`;`).
 3. **Signal(object) dla MediaItem:** Nigdy `Signal(dict)` ani `Signal(str)` dla obiektów domenowych — powoduje utratę atrybutów Python (C++ slicing).
 4. **run_async() dla API:** Żadne zapytanie HTTP nie może blokować wątku głównego Qt. Zawsze przez `main_window.run_async()`.
-5. **GPV header:** Każdy modyfikowany/nowy plik musi mieć nagłówek na górze:
-   ```python
-   # WERSJA PROJEKTU: 14.19
-   # MODYFIKOWANY PLIK: nazwa_pliku.py
-   # OPIS ZMIAN: Krótki opis
-   ```
 6. **Dependency Injection:** Serwisy (`WatchdogService`, `TelemetryService`) inicjalizowane w `MainWindow.__init__`, nie jako globale.
 7. **MediaItem, nie dict:** `api_client.py` zwraca obiekty `MediaItem`. Nie rzutuj ich na dict w warstwie widoku.
 
