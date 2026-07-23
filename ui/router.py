@@ -80,11 +80,20 @@ class AppRouter(QObject):
 
         self.win._update_sidebar_active_state()
 
-        if page_idx == Pages.DETAILS:
-            self.pages[Pages.DETAILS].load(data, type_str)
-        elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
-            if not is_back:
-                self.pages[page_idx].load()
+        page_widget = self.pages[page_idx]
+        target_widget = None
+
+        if hasattr(page_widget, 'load'):
+            target_widget = page_widget
+        elif isinstance(page_widget, QScrollArea) and hasattr(page_widget.widget(), 'load'):
+            target_widget = page_widget.widget()
+
+        if target_widget:
+            if page_idx == Pages.DETAILS:
+                target_widget.load(data, type_str)
+            elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
+                if not is_back:
+                    target_widget.load()
 
     def go_back(self):
         if getattr(self.win, '_is_fetching', False):
