@@ -68,6 +68,9 @@ class SongContextMenu:
         act_artist = menu.addAction(qta.icon('fa5s.user', color=THEME['text_main']), "Przejdź do wykonawcy")
         act_artist.triggered.connect(song_item._on_artist_click)
 
+        act_dl_audio = menu.addAction(qta.icon('fa5s.music', color=THEME['text_main']), "Pobierz utwór offline")
+        act_dl_audio.triggered.connect(lambda: SongContextMenu._download_audio(song_item))
+
         act_dl = menu.addAction(qta.icon('fa5s.download', color=THEME['text_main']), "Pobierz teledysk offline")
         act_dl.triggered.connect(lambda: SongContextMenu._download_video(song_item))
 
@@ -254,3 +257,22 @@ class SongContextMenu:
             QMessageBox.information(song_item, "Pobieranie", "Dodano do kolejki pobierania (lub wznowiono zadanie).")
         else:
             logger.log("Nie można połączyć z Download Managerem")
+
+    @staticmethod
+    def _download_audio(song_item):
+        win = song_item._find_main_window()
+        if win and hasattr(win, 'engine') and hasattr(win.engine, 'audio_download_manager'):
+            mgr = win.engine.audio_download_manager
+            
+            if mgr.is_downloaded(song_item.song.item_id):
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(song_item, "Pobieranie Audio", "Ten utwór jest już pobrany na dysk.")
+                return
+                
+            mgr.add_to_queue(song_item.song.item_id, song_item.song.title, high_priority=True)
+            song_item._update_dl_status_icon()
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(song_item, "Pobieranie Audio", "Utwór został dodany do kolejki pobierania offline.")
+        else:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(song_item, "Błąd", "Audio Download Manager nie jest dostępny.")

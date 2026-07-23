@@ -55,10 +55,16 @@ class TabOffline(QWidget):
         pl_cnt = len(APP_CONFIG.get("video_auto_dl_playlists", []))
         self.btn_auto_pl.setText(f"Wybierz playlisty... ({pl_cnt} wybrano)")
 
+        self.combo_hide_offline = QComboBox()
+        self.combo_hide_offline.addItems(["Pokaż wyszarzone (Domyślne)", "Ukryj całkowicie"])
+        self.combo_hide_offline.setCurrentIndex(1 if str(APP_CONFIG.get("hide_undownloaded_offline", "False")).lower() == 'true' else 0)
+        self.combo_hide_offline.setStyleSheet(input_style)
+        self.combo_hide_offline.setFixedWidth(350)
+
         def add_row(parent_layout, text, widget):
             r = QHBoxLayout()
             lbl = QLabel(text)
-            lbl.setFixedWidth(190)
+            lbl.setFixedWidth(240)
             lbl.setFixedHeight(34)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; margin-right: 10px; background: transparent;")
@@ -67,18 +73,37 @@ class TabOffline(QWidget):
             r.addStretch()
             parent_layout.addLayout(r)
 
-        add_row(offline_layout, "Autoodtwarzanie:", self.combo_smart_auto)
-        add_row(offline_layout, "Jakość wideo:", self.combo_off_quality)
-        add_row(offline_layout, "Auto-pobieranie (Ulubione):", self.combo_auto_favs)
-        add_row(offline_layout, "Auto-pobieranie (Playlisty):", self.btn_auto_pl)
+        add_row(offline_layout, "Wideo Autoodtwarzanie:", self.combo_smart_auto)
+        add_row(offline_layout, "Wideo Jakość:", self.combo_off_quality)
+        add_row(offline_layout, "Wideo Auto-pobieranie (Ulubione):", self.combo_auto_favs)
+        add_row(offline_layout, "Wideo Auto-pobieranie (Playlisty):", self.btn_auto_pl)
+        add_row(offline_layout, "Muzyka - Niepobrane utwory:", self.combo_hide_offline)
+        
+        # Audio actions
+        audio_actions_layout = QHBoxLayout()
+        audio_actions_layout.addStretch()
+        
+        btn_sync = QPushButton("Synchronizuj Metadane")
+        btn_sync.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_sync.setCursor(Qt.PointingHandCursor)
+        btn_sync.clicked.connect(self._sync_library)
+        
+        btn_dl_all = QPushButton("Pobierz Całą Muzykę (Zalecane)")
+        btn_dl_all.setStyleSheet(f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_dl_all.setCursor(Qt.PointingHandCursor)
+        btn_dl_all.clicked.connect(self._download_all_audio)
+        
+        audio_actions_layout.addWidget(btn_sync)
+        audio_actions_layout.addWidget(btn_dl_all)
+        offline_layout.addLayout(audio_actions_layout)
 
         btn_save_offline = QPushButton("Zapisz Ustawienia Offline")
-        btn_save_offline.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_save_offline.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px; margin-top: 20px;")
         btn_save_offline.setCursor(Qt.PointingHandCursor)
         btn_save_offline.clicked.connect(self._save_o_conf)
 
         self.lbl_o_status = QLabel("")
-        self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent;")
+        self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent; margin-top: 20px;")
 
         save_o_lay = QHBoxLayout()
         save_o_lay.addStretch()
@@ -89,17 +114,36 @@ class TabOffline(QWidget):
         self.layout.addWidget(offline_group)
         self.layout.addStretch()
 
+    def _sync_library(self):
+        win = self.main_window
+        if hasattr(win, 'engine'):
+            from core.library_sync import LibrarySyncManager
+            sync_mgr = LibrarySyncManager(win.client)
+            sync_mgr.sync_progress.connect(lambda current, total: self.lbl_o_status.setText(f"Synchronizacja... ({current} pobrano)"))
+            sync_mgr.sync_completed.connect(lambda: self.lbl_o_status.setText("Zakończono synchronizację!"))
+            sync_mgr.start_sync()
+            self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
+            
+    def _download_all_audio(self):
+        win = self.main_window
+        if hasattr(win, 'engine') and hasattr(win.engine, 'audio_download_manager'):
+            win.engine.audio_download_manager.download_all_from_library()
+            self.lbl_o_status.setText("Dodano całą bibliotekę do kolejki pobierania")
+            QTimer.singleShot(4000, lambda: self.lbl_o_status.setText(""))
+
     def _save_o_conf(self):
         APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
         APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
         APP_CONFIG["video_auto_dl_favs"] = (self.combo_auto_favs.currentIndex() == 1)
+        APP_CONFIG["hide_undownloaded_offline"] = (self.combo_hide_offline.currentIndex() == 1)
 
         save_config()
         self.settings_view._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
         self.settings_view._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
         self.settings_view._initial_settings["video_auto_dl_favs"] = APP_CONFIG["video_auto_dl_favs"]
+        self.settings_view._initial_settings["hide_undownloaded_offline"] = APP_CONFIG["hide_undownloaded_offline"]
 
-        self.lbl_o_status.setText("Zapisano pomyślnie")
+        self.lbl_o_status.setText("Zapisano pomyślnie (Wymagany restart dla niektórych opcji)")
         QTimer.singleShot(3000, lambda: self.lbl_o_status.setText(""))
 
     def _show_playlists_sync_dialog(self):

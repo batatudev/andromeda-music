@@ -231,26 +231,66 @@ class SongItem(QFrame):
 
     def _update_dl_status_icon(self):
         win = self._find_main_window()
-        if hasattr(win, 'engine') and hasattr(win.engine, 'video_download_manager'):
-            mgr = win.engine.video_download_manager
-            import sqlite3
-            conn = sqlite3.connect(mgr.db_path)
-            c = conn.cursor()
-            c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
-            row = c.fetchone()
-            conn.close()
+        if not win or not hasattr(win, 'engine'): return
 
-            if row:
-                st = row[0]
-                if st == "COMPLETED":
-                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-circle', color=THEME['accent']).pixmap(14, 14))
-                elif st in ["QUEUED", "DOWNLOADING"]:
-                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
-                else:
-                    self.dl_status_lbl.setPixmap(qta.icon('fa5s.exclamation-circle', color='#e74c3c').pixmap(14, 14))
-                    self.dl_status_lbl.setToolTip("Błąd pobierania")
+        from utils import network_monitor
+        from config import APP_CONFIG
+        
+        is_offline = not getattr(network_monitor, 'is_connected', True)
+        hide_undownloaded = str(APP_CONFIG.get('hide_undownloaded_offline', 'False')).lower() == 'true'
+        
+        has_audio = False
+        has_video = False
+        vid_status = None
+        
+        if hasattr(win.engine, 'audio_download_manager'):
+            has_audio = win.engine.audio_download_manager.is_downloaded(self.song.item_id)
+            
+        if hasattr(win.engine, 'video_download_manager'):
+            import sqlite3
+            try:
+                conn = sqlite3.connect(win.engine.video_download_manager.db_path)
+                c = conn.cursor()
+                c.execute("SELECT status FROM downloads WHERE item_id = ?", (self.song.item_id,))
+                row = c.fetchone()
+                conn.close()
+                if row:
+                    vid_status = row[0]
+                    if vid_status == "COMPLETED":
+                        has_video = True
+            except:
+                pass
+                
+        # Ustalanie ikony
+        if has_audio and has_video:
+            self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-double', color=THEME['accent']).pixmap(14, 14))
+            self.dl_status_lbl.setToolTip("Pobrane Audio i Wideo")
+        elif has_audio:
+            self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-circle', color=THEME['accent']).pixmap(14, 14))
+            self.dl_status_lbl.setToolTip("Pobrane Audio")
+        elif has_video:
+            self.dl_status_lbl.setPixmap(qta.icon('fa5s.film', color=THEME['accent']).pixmap(14, 14))
+            self.dl_status_lbl.setToolTip("Pobrane Wideo")
+        elif vid_status in ["QUEUED", "DOWNLOADING"]:
+            self.dl_status_lbl.setPixmap(qta.icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
+            self.dl_status_lbl.setToolTip("Pobieranie...")
+        elif vid_status == "ERROR":
+            self.dl_status_lbl.setPixmap(qta.icon('fa5s.exclamation-circle', color='#e74c3c').pixmap(14, 14))
+            self.dl_status_lbl.setToolTip("Błąd pobierania")
+        else:
+            self.dl_status_lbl.setPixmap(qta.icon('fa5s.cloud', color=THEME['border']).pixmap(14, 14))
+            self.dl_status_lbl.setToolTip("Dostępne w chmurze (Online)")
+            
+        # Logika Offline UX
+        if is_offline and not has_audio:
+            if hide_undownloaded:
+                self.setVisible(False)
             else:
-                self.dl_status_lbl.setPixmap(qta.icon('fa5s.film', color=THEME['border']).pixmap(14, 14))
+                self.setVisible(True)
+                self.setEnabled(False) # Powoduje "wyszarzenie" i zablokowanie kliknięć
+        else:
+            self.setVisible(True)
+            self.setEnabled(True)
 
     def set_active(self, is_active):
         bg = THEME['accent_rgba'] if is_active else "transparent"

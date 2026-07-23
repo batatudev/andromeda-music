@@ -67,6 +67,9 @@ class PlayerEngine(QObject):
         self.arf_manager = ARFManager(self)
         self.yt_resolver = YTResolver(self)
         self.video_download_manager = VideoDownloadManager()
+        
+        from engine.audio_download_manager import AudioDownloadManager
+        self.audio_download_manager = AudioDownloadManager(self.client)
 
         self.is_looping = False
         self.is_shuffled = False
@@ -645,7 +648,14 @@ class PlayerEngine(QObject):
             self.audio_status_str = "Pobieranie do cache..."
             self._evaluate_buffering()
             self.track_changed.emit(song)
-            self.cache_manager.start_audio_download(song, is_prefetch=False)
+            
+            # Najpierw sprawdzamy, czy plik jest zapisany przez AudioDownloadManager (Offline)
+            audio_offline_path = self.audio_download_manager.get_file_path(song.item_id)
+            if audio_offline_path:
+                self.audio_status_str = "Lokalny plik (Offline)"
+                self.audio_track_cached.emit(song.item_id, audio_offline_path)
+            else:
+                self.cache_manager.start_audio_download(song, is_prefetch=False)
             
             # Smart Video Mode obsługiwany jest teraz w głównym widoku (UI), co eliminuje podwójne zlecenia odtwarzania.
 
