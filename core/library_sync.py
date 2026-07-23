@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: core/library_sync.py
-# OPIS ZMIAN: Dodano metody wyciągające artystów i albumy artystów z bazy offline.
+# OPIS ZMIAN: Naprawa krytycznego błędu (AttributeError) przy zapisie artystów. Zmiana paczek (limit) na bezpieczne 500.
 import os
 import json
 import time
@@ -60,14 +60,16 @@ class LibrarySyncManager(QObject):
             # 1. Pobieranie Artystów
             artists = self.client.get_artists()
             for art in artists:
+                # POPRAWKA: Rzutujemy obiekt na słownik za pomocą dict()
                 c.execute(
                     "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
-                    ("artist", art.item_id, "", art.name, json.dumps(art._data))
+                    ("artist", art.item_id, "", art.title, json.dumps(dict(art)))
                 )
+            conn.commit()
 
-            # 2. Pobieranie pełnej bazy (Utwory + Albumy) przez search3 (z pustym zapytaniem)
+            # 2. Pobieranie pełnej bazy (Utwory + Albumy)
             offset = 0
-            limit = 5000
+            limit = 500 # POPRAWKA: Bezpieczna paczka, zapobiega timeoutom serwera
             total_songs = 0
 
             while True:
@@ -86,19 +88,21 @@ class LibrarySyncManager(QObject):
                 for a in albums_data:
                     c.execute(
                         "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
-                        ("album", a.get('id'), a.get('artistId', ''), a.get('name', ''), json.dumps(a))
+                        ("album", a.get('id', ''), a.get('artistId', ''), a.get('name', a.get('title','')), json.dumps(a))
                     )
 
                 for s in songs_data:
                     c.execute(
                         "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
-                        ("song", s.get('id'), s.get('albumId', ''), s.get('title', ''), json.dumps(s))
+                        ("song", s.get('id', ''), s.get('albumId', ''), s.get('title', ''), json.dumps(s))
                     )
 
                 conn.commit()
 
                 count = len(songs_data)
                 total_songs += count
+                
+                # Aktualizacja interfejsu (Wysyłamy po każdej paczce)
                 self.sync_progress.emit(total_songs, 0)
 
                 if count < limit:
@@ -116,7 +120,7 @@ class LibrarySyncManager(QObject):
         except Exception as e:
             self._is_syncing = False
             logger.log(f"Błąd synchronizacji: {e}")
-            self.sync_error.emit(str(e))
+            self.sync_error.emit(str(e)) # Wysłanie błędu do interfejsu!
 
     def get_all_songs(self):
         conn = sqlite3.connect(self.db_path)

@@ -1,6 +1,6 @@
 # WERSJA PROJEKTU: 14.19
 # MODYFIKOWANY PLIK: views/settings/tab_offline.py
-# OPIS ZMIAN: Eliminacja ostrzeżenia RuntimeWarning przez zastosowanie Qt.UniqueConnection.
+# OPIS ZMIAN: Podłączenie sygnału sync_error, aby UI nie zawieszało się przy błędach bazy/API.
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -117,21 +117,33 @@ class TabOffline(QWidget):
         self.layout.addStretch()
 
     def _on_sync_progress(self, current, total):
-        self.lbl_o_status.setText(f"Synchronizacja... ({current} pobrano)")
+        self.lbl_o_status.setText(f"Synchronizacja... ({current} przetworzono)")
 
     def _on_sync_completed(self):
-        self.lbl_o_status.setText("Zakończono synchronizację!")
+        self.lbl_o_status.setText("Zakończono synchronizację! Baza gotowa do trybu Offline.")
+
+    def _on_sync_error(self, error_msg):
+        self.lbl_o_status.setText(f"Błąd synchronizacji: {error_msg}")
+        self.lbl_o_status.setStyleSheet(f"color: #e74c3c; font-weight: bold; background: transparent; margin-top: 20px;")
 
     def _sync_library(self):
         win = self.main_window
         if hasattr(win, 'repo'):
             sync_mgr = win.repo.library_sync
+            
+            # Reset koloru labela w razie wcześniejszego błędu
+            self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent; margin-top: 20px;")
+            
             try:
-                # Używamy unikalnego podłączenia - eliminuje błędy duplikacji i ostrzeżenia w konsoli
-                sync_mgr.sync_progress.connect(self._on_sync_progress, Qt.UniqueConnection)
-                sync_mgr.sync_completed.connect(self._on_sync_completed, Qt.UniqueConnection)
+                sync_mgr.sync_progress.disconnect()
+                sync_mgr.sync_completed.disconnect()
+                sync_mgr.sync_error.disconnect()
             except RuntimeError:
                 pass
+            
+            sync_mgr.sync_progress.connect(self._on_sync_progress, Qt.UniqueConnection)
+            sync_mgr.sync_completed.connect(self._on_sync_completed, Qt.UniqueConnection)
+            sync_mgr.sync_error.connect(self._on_sync_error, Qt.UniqueConnection)
             
             sync_mgr.start_sync()
             self.lbl_o_status.setText("Rozpoczynanie synchronizacji...")
