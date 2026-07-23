@@ -135,11 +135,8 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(200, self._start_app)
 
     def resizeEvent(self, event):
-        if not getattr(self, 'manual_sidebar_override', False):
-            if self.width() < 1050 and not self.sidebar_collapsed:
-                self._toggle_sidebar(manual=False)
-            elif self.width() >= 1050 and self.sidebar_collapsed:
-                self._toggle_sidebar(manual=False)
+        if hasattr(self, 'sidebar_ctrl'):
+            self.sidebar_ctrl.handle_resize(self.width())
         super().resizeEvent(event)
 
     def closeEvent(self, event):
@@ -154,10 +151,8 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def _start_app(self):
-        self.history = []
-        self.current_route = None
-        self._load_playlists()
-        self._navigate(Pages.HOME)
+        self.sidebar_ctrl.load_playlists()
+        self.router.navigate(Pages.HOME)
 
     def _sync_auto_downloads(self):
         """Uruchamia się w tle, pobiera z Navidrome ulubione/playlisty i dodaje brakujące do kolejki."""
@@ -275,29 +270,11 @@ class MainWindow(QMainWindow):
         self.threadpool.start(Worker(worker_logic))
 
     def _manual_toggle_sidebar(self):
-        self._toggle_sidebar(manual=True)
-
-    def _toggle_sidebar(self, manual=False):
-        if manual:
-            self.manual_sidebar_override = True
-        self.sidebar_collapsed = not self.sidebar_collapsed
-        self.sidebar.set_collapsed(self.sidebar_collapsed)
+        self.sidebar_ctrl.toggle_sidebar(manual=True)
 
     def _update_sidebar_active_state(self):
-        active_idx = None
-        active_type = None
-        active_data = None
-        if self.current_route:
-            active_idx = self.current_route.get("page")
-            active_type = self.current_route.get("type")
-            active_data = self.current_route.get("data")
-
-        active_playlist_id = None
-        if active_idx == Pages.DETAILS and active_type == MediaType.PLAYLIST and active_data:
-            active_playlist_id = active_data.get('id')
-
-        self.sidebar.update_active_state(active_idx, active_playlist_id)
-
+        self.sidebar_ctrl.update_active_state(self.router)
+        active_idx = self.router.current_route.get("page") if self.router.current_route else None
         if active_idx == Pages.QUEUE:
             self.player_bar.btn_q.set_default_color(THEME["accent"])
         else:
@@ -313,14 +290,18 @@ class MainWindow(QMainWindow):
         content = QHBoxLayout()
         content.setSpacing(0)
 
+        from ui.router import AppRouter
+        self.router = AppRouter(self)
+
         self.sidebar = SidebarWidget(dev_mode=APP_CONFIG.get("dev_mode", False))
-        self.sidebar.page_requested.connect(self._switch_page)
-        self.sidebar.back_requested.connect(self._go_back)
+        self.sidebar.page_requested.connect(self.router.switch_page)
+        self.sidebar.back_requested.connect(self.router.go_back)
         self.sidebar.refresh_requested.connect(self._refresh_current)
-        self.sidebar.toggle_sidebar_requested.connect(self._manual_toggle_sidebar)
-        self.sidebar.playlist_requested.connect(lambda pid, pname: self._show_details({"id": pid, "name": pname}, MediaType.PLAYLIST))
+        from ui.components.sidebar_controller import SidebarController
+        self.sidebar_ctrl = SidebarController(self)
+        self.sidebar.playlist_requested.connect(lambda pid, pname: self.router.show_details({"id": pid, "name": pname}, MediaType.PLAYLIST))
         self.sidebar.settings_requested.connect(self._toggle_settings)
-        self.sidebar.dev_requested.connect(lambda: self._switch_page(Pages.DEV_MODE))
+        self.sidebar.dev_requested.connect(lambda: self.router.switch_page(Pages.DEV_MODE))
 
         self.stack = QStackedWidget()
         self.pages = [None] * len(Pages)
@@ -384,6 +365,8 @@ class MainWindow(QMainWindow):
                 self.pages[page_id] = dummy
                 self.stack.addWidget(dummy)
 
+        self.router.setup(self.stack, self.pages)
+
         self.engine.video_player.setVideoOutput(self.now_playing_view.video_widget.video_item)
         content.addWidget(self.sidebar)
         content.addWidget(self.stack)
@@ -425,104 +408,29 @@ class MainWindow(QMainWindow):
             self._current_mask_state = True
             self.now_playing_view.set_seek_blur(True)
 
-    def _navigate(self, page_idx, data=None, type_str=None, is_back=False):
-        if self._is_fetching:
-            return
 
-        if self.stack.currentIndex() == Pages.SETTINGS and page_idx != Pages.SETTINGS:
-            self.settings_view.revert_changes()
-
-        if page_idx == Pages.SETTINGS and self.stack.currentIndex() != Pages.SETTINGS:
-            self.settings_view.build_ui()
-
-        if not is_back and self.current_route:
-            if self.current_route.get("page") != page_idx or self.current_route.get("data") != data:
-                self.history.append(self.current_route)
-                if len(self.history) > 50:
-                    self.history.pop(0)
-
-        self.current_page_task_id += 1
-        self.current_route = {"page": page_idx, "data": data, "type": type_str}
-
-        if hasattr(self, 'anim_group') and self.anim_group.state() == QParallelAnimationGroup.State.Running:
-            self.anim_group.stop()
-            if hasattr(self, 'current_anim_page') and self.current_anim_page:
-                self.current_anim_page.setGraphicsEffect(None)
-                self.current_anim_page.move(0, 0)
-
-        self.stack.setCurrentIndex(page_idx)
-        self.current_anim_page = self.stack.currentWidget()
-
-        self.page_effect = QGraphicsOpacityEffect(self.current_anim_page)
-        self.current_anim_page.setGraphicsEffect(self.page_effect)
-
-        self.fade_anim = QPropertyAnimation(self.page_effect, b"opacity")
-        self.fade_anim.setDuration(400)
-        self.fade_anim.setStartValue(0.0)
-        self.fade_anim.setEndValue(1.0)
-        self.fade_anim.setEasingCurve(QEasingCurve.OutCubic)
-
-        self.pos_anim = QPropertyAnimation(self.current_anim_page, b"pos")
-        self.pos_anim.setDuration(400)
-        self.pos_anim.setStartValue(QPoint(0, 30))
-        self.pos_anim.setEndValue(QPoint(0, 0))
-        self.pos_anim.setEasingCurve(QEasingCurve.OutCubic)
-
-        self.anim_group = QParallelAnimationGroup(self)
-        self.anim_group.addAnimation(self.fade_anim)
-        self.anim_group.addAnimation(self.pos_anim)
-
-        def on_fade_finished():
-            if hasattr(self, 'current_anim_page') and self.current_anim_page:
-                self.current_anim_page.setGraphicsEffect(None)
-
-        self.anim_group.finished.connect(on_fade_finished)
-        self.page_effect.setOpacity(0.0)
-        self.anim_group.start()
-
-        self._update_sidebar_active_state()
-
-        if page_idx == Pages.DETAILS:
-            self.pages[Pages.DETAILS].load(data, type_str)
-        elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
-            if not is_back:
-                self.pages[page_idx].load()
-
-    def _go_back(self):
-        if self._is_fetching:
-            return
-        if not getattr(self, 'history', []):
-            return
-        prev = self.history.pop()
-        self._navigate(prev["page"], prev.get("data"), prev.get("type"), is_back=True)
-
-    def _switch_page(self, idx):
-        self._navigate(idx)
-
-    def _show_details(self, d, t):
-        self._navigate(Pages.DETAILS, data=d, type_str=t)
 
     def _toggle_queue(self):
         self.now_playing_view.toggle_queue_visibility()
 
     def _toggle_settings(self):
         if self.stack.currentIndex() == Pages.SETTINGS:
-            self._go_back()
+            self.router.go_back()
         else:
-            self._navigate(Pages.SETTINGS)
+            self.router.navigate(Pages.SETTINGS)
 
     def _toggle_now_playing(self):
         if self.stack.currentIndex() == Pages.NOW_PLAYING:
-            self._go_back()
+            self.router.go_back()
         else:
-            self._navigate(Pages.NOW_PLAYING)
+            self.router.navigate(Pages.NOW_PLAYING)
 
     def _refresh_current(self):
-        if not self._is_fetching and getattr(self, 'current_route', None):
+        if not self._is_fetching and getattr(self.router, 'current_route', None):
             self.current_page_task_id += 1
-            idx = self.current_route["page"]
+            idx = self.router.current_route["page"]
             if idx == Pages.DETAILS:
-                self.pages[idx].load(self.current_route["data"], self.current_route["type"])
+                self.pages[idx].load(self.router.current_route["data"], self.router.current_route["type"])
             elif idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
                 self.pages[idx].load()
 
@@ -614,19 +522,19 @@ class MainWindow(QMainWindow):
         if 0 <= self.engine.idx < len(self.engine.queue):
             song = self.engine.queue[self.engine.idx]
             if song.get('albumId'):
-                self._show_details({"id": song.get('albumId'), "name": song.album}, MediaType.ALBUM)
+                self.router.show_details({"id": song.get('albumId'), "name": song.album}, MediaType.ALBUM)
 
     def _pb_artist_clicked(self):
         if 0 <= self.engine.idx < len(self.engine.queue):
             song = self.engine.queue[self.engine.idx]
             if song.get('artistId'):
-                self._show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
+                self.router.show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
 
     def _pb_album_clicked(self):
         if 0 <= self.engine.idx < len(self.engine.queue):
             song = self.engine.queue[self.engine.idx]
             if song.get('albumId'):
-                self._show_details({"id": song.get('albumId'), "name": song.album}, MediaType.ALBUM)
+                self.router.show_details({"id": song.get('albumId'), "name": song.album}, MediaType.ALBUM)
 
     def _toggle_pb_fav(self):
         if 0 <= self.engine.idx < len(self.engine.queue):
@@ -640,8 +548,8 @@ class MainWindow(QMainWindow):
         if 0 <= self.engine.idx < len(self.engine.queue):
             song = self.engine.queue[self.engine.idx]
             if song.get('artistId'):
-                self._go_back()
-                self._show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
+                self.router.go_back()
+                self.router.show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
 
     def _show_video_layer(self):
         # Pokaż wideo jeśli: (1) tryb teledysku aktywny przez użytkownika,
@@ -987,40 +895,7 @@ class MainWindow(QMainWindow):
             dlg.exec()
         self.run_async(fetch, on_ready)
 
-    def _show_playlist_context_menu(self, widget, pos):
-        pl_id = widget.property("pl_id")
-        if not pl_id:
-            return
-        menu = QMenu(self)
-        menu.setStyleSheet(f"QMenu {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; border: 1px solid {THEME['border']}; border-radius: 6px; padding: 4px; }} QMenu::item {{ padding: 8px 25px 8px 10px; border-radius: 4px; background: transparent; }} QMenu::item:selected {{ background-color: {THEME['btn_remove_hover']}; }}")
-        act_del = QAction("Usuń playlistę", self)
-        act_del.triggered.connect(lambda: self._delete_playlist(pl_id))
-        menu.addAction(act_del)
-        menu.exec(widget.mapToGlobal(pos))
 
-    def _delete_playlist(self, pl_id):
-        def on_ready(res):
-            if self.current_route and self.current_route.get("data", {}).get("id") == pl_id:
-                self._go_back()
-            self._load_playlists()
-        self.run_async(lambda: self.client.delete_playlist(pl_id), on_ready, page_bound=False)
-
-    def _load_playlists(self):
-        def fetch():
-            try:
-                params = self.client._get_auth_params()
-                res = self.client._make_request("getPlaylists", params)
-                return res.get('playlists', {}).get('playlist', [])
-            except Exception:
-                return []
-        def on_ready(data):
-            self.sidebar.set_playlists(data)
-            for i in range(self.sidebar.playlist_layout.count()):
-                w = self.sidebar.playlist_layout.itemAt(i).widget()
-                if w:
-                    w.setContextMenuPolicy(Qt.CustomContextMenu)
-                    w.customContextMenuRequested.connect(lambda pos, widget=w: self._show_playlist_context_menu(widget, pos))
-        self.run_async(fetch, on_ready, page_bound=False)
 
     def _clear(self, lay):
         while lay.count():
@@ -1104,8 +979,8 @@ class MainWindow(QMainWindow):
             item.play_next_clicked.connect(lambda s_d, idx=i: self.engine.queue_play_next(idx))
             item.add_to_playlist_clicked.connect(self._show_playlist_dialog)
             item.remove_clicked.connect(lambda s_d, idx=i: self.engine.queue_remove(idx))
-            item.artist_clicked.connect(self._show_details)
-            item.album_clicked.connect(self._show_details)
+            item.artist_clicked.connect(self.router.show_details)
+            item.album_clicked.connect(self.router.show_details)
             item.set_custom_cover_clicked.connect(self._set_custom_album_cover)
             item.reset_custom_cover_clicked.connect(self._reset_custom_album_cover)
             item.save_image_clicked.connect(self._save_image_to_file)
