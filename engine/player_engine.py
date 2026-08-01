@@ -622,6 +622,9 @@ class PlayerEngine(QObject):
                 self.prefetched_yt_info_dict = None
 
             yt_link = song.yt_link
+            if not yt_link and hasattr(self, 'client') and self.client:
+                from engine.header_tag_extractor import check_and_cache_remote_header
+                yt_link = check_and_cache_remote_header(self.client, song, getattr(self, 'video_download_manager', None))
             if yt_link:
                 self.current_yt_link = yt_link
                 self.has_video_signal.emit(True)

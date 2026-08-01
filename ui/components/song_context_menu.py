@@ -207,6 +207,12 @@ class SongContextMenu:
         song = song_item.song
         yt_link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
         if not yt_link:
+            win = song_item._find_main_window()
+            if win and hasattr(win, 'engine') and getattr(win.engine, 'client', None):
+                from engine.header_tag_extractor import check_and_cache_remote_header
+                yt_link = check_and_cache_remote_header(win.engine.client, song, getattr(win.engine, 'video_download_manager', None))
+
+        if not yt_link:
             comment = (song.get('comment', '') or '') + ' ' + (song.get('purl', '') or '') + ' ' + (song.get('PURL', '') or '')
             has_youtube_comment = 'youtube.com' in comment.lower() or 'youtu.be' in comment.lower()
 
