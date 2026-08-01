@@ -278,6 +278,7 @@ class DownloadsView(QWidget):
         layout.addStretch()
 
         self.item_widgets = {}
+        self._pending_reload = False
 
         self.v_mgr.queue_updated.connect(self.load)
         self.v_mgr.download_status_changed.connect(self._on_video_status_changed)
@@ -287,7 +288,12 @@ class DownloadsView(QWidget):
         self.a_mgr.download_status_changed.connect(self._on_audio_status_changed)
         self.a_mgr.download_progress.connect(self._on_audio_progress)
 
-        self.load()
+        self.load(force=True)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if getattr(self, '_pending_reload', False):
+            self.load(force=True)
 
     def _toggle_snooze_audio(self):
         if self.a_mgr.is_snoozed:
@@ -349,7 +355,11 @@ class DownloadsView(QWidget):
         dlg.accept()
         self.main_window.start_bulk_download('playlist', pid, pname, media_type)
 
-    def load(self, *args, **kwargs):
+    def load(self, *args, force=False, **kwargs):
+        if not force and not self.isVisible():
+            self._pending_reload = True
+            return
+        self._pending_reload = False
         if self.a_mgr.is_snoozed:
             self.btn_snooze_audio.setText("Wznów Audio")
             self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['accent']}; color: white; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}")

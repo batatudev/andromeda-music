@@ -38,6 +38,7 @@ class ToastNotification(QFrame):
         text_main = THEME.get("text_main", "#ffffff")
         text_muted = THEME.get("text_muted", "#888888")
 
+        from PySide6.QtWidgets import QGraphicsOpacityEffect
         self.setStyleSheet(f"""
             #ToastNotification {{
                 background-color: {bg};
@@ -47,12 +48,10 @@ class ToastNotification(QFrame):
             }}
         """)
 
-        # Cień
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(30)
-        shadow.setOffset(0, 8)
-        shadow.setColor(QColor(0, 0, 0, 160))
-        self.setGraphicsEffect(shadow)
+        # Efekt przezroczystości do animacji
+        self._opacity_effect = QGraphicsOpacityEffect(self)
+        self._opacity_effect.setOpacity(0.0)
+        self.setGraphicsEffect(self._opacity_effect)
 
         # Układ główny
         main_lay = QHBoxLayout(self)
@@ -96,8 +95,6 @@ class ToastNotification(QFrame):
         close_lbl.setAlignment(Qt.AlignTop | Qt.AlignRight)
         main_lay.addWidget(close_lbl)
 
-        # Animacja opacity
-        self._opacity_effect = None
         self._fade_in_anim = None
         self._fade_out_anim = None
 
@@ -109,18 +106,12 @@ class ToastNotification(QFrame):
 
     def show_toast(self):
         """Wyświetla toast z animacją Fade-In i uruchamia timer znikania."""
-        from PySide6.QtWidgets import QGraphicsOpacityEffect
-
-        self._opacity_effect = QGraphicsOpacityEffect(self)
-        self._opacity_effect.setOpacity(0.0)
-        self.setGraphicsEffect(self._opacity_effect)
-
         self._reposition()
         self.show()
         self.raise_()
 
         self._fade_in_anim = QPropertyAnimation(self._opacity_effect, b"opacity", self)
-        self._fade_in_anim.setDuration(300)
+        self._fade_in_anim.setDuration(250)
         self._fade_in_anim.setStartValue(0.0)
         self._fade_in_anim.setEndValue(1.0)
         self._fade_in_anim.setEasingCurve(QEasingCurve.OutCubic)
