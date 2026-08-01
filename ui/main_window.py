@@ -136,9 +136,25 @@ class MainWindow(QMainWindow):
 
         QTimer.singleShot(200, self._start_app)
 
+    def show_toast(self, message: str, title: str = "Powiadomienie", icon_str: str = "fa5s.info-circle", icon_color: str = None, duration: int = 5000):
+        if getattr(self, '_active_toast', None):
+            try:
+                self._active_toast.hide()
+                self._active_toast.deleteLater()
+            except Exception:
+                pass
+            self._active_toast = None
+
+        from ui.widgets import ToastNotification
+        toast = ToastNotification(self, message, title=title, icon_str=icon_str, icon_color=icon_color, duration=duration)
+        self._active_toast = toast
+        toast.show_toast()
+
     def resizeEvent(self, event):
         if hasattr(self, 'sidebar_ctrl'):
             self.sidebar_ctrl.handle_resize(self.width())
+        if getattr(self, '_active_toast', None) and self._active_toast.isVisible():
+            self._active_toast._reposition()
         super().resizeEvent(event)
 
     def closeEvent(self, event):
@@ -524,7 +540,7 @@ class MainWindow(QMainWindow):
                             items_to_add.append((s.item_id, link, s.title, s.cover_id))
                     if items_to_add:
                         self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
-                    QMessageBox.information(self, "Rozpoczęto", f"Zadania ({len(items_to_add)}) zostały dodane do kolejki pobierania wideo.")
+                    self.show_toast(f"Dodano zadania ({len(items_to_add)}) do kolejki pobierania wideo.", title="Pobieranie Wideo", icon_str="fa5s.film", icon_color="#e74c3c")
 
             elif media_type == "audio":
                 from core.models import MediaItem
@@ -542,7 +558,7 @@ class MainWindow(QMainWindow):
                     items_to_add = [(s.item_id, s.title) for s in valid_songs]
                     if items_to_add:
                         self.engine.audio_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
-                    QMessageBox.information(self, "Rozpoczęto", f"Zadania ({len(items_to_add)}) zostały dodane do kolejki pobierania audio.")
+                    self.show_toast(f"Dodano zadania ({len(items_to_add)}) do kolejki pobierania audio.", title="Pobieranie Audio", icon_str="fa5s.music", icon_color=THEME["accent"])
 
         self.run_async(fetch, on_ready, page_bound=False)
 

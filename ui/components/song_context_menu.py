@@ -263,7 +263,7 @@ class SongContextMenu:
                 cover_id=song.cover_id
             )
             song_item._update_dl_status_icon()
-            QMessageBox.information(song_item, "Pobieranie", "Dodano do kolejki pobierania (lub wznowiono zadanie).")
+            win.show_toast(f"Dodano \"{song.title}\" do kolejki pobierania wideo.", title="Pobieranie Wideo", icon_str="fa5s.film", icon_color="#e74c3c")
 
         win.run_async(fetch_link, on_link_ready, page_bound=False)
 
@@ -274,14 +274,12 @@ class SongContextMenu:
             mgr = win.engine.audio_download_manager
             
             if mgr.is_downloaded(song_item.song.item_id):
-                from PySide6.QtWidgets import QMessageBox
-                QMessageBox.information(song_item, "Pobieranie Audio", "Ten utwór jest już pobrany na dysk.")
+                win.show_toast("Ten utwór jest już pobrany na dysk.", title="Pobieranie Audio", icon_str="fa5s.check-circle", icon_color=THEME["accent"])
                 return
                 
             mgr.add_to_queue(song_item.song.item_id, song_item.song.title, high_priority=True)
             song_item._update_dl_status_icon()
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(song_item, "Pobieranie Audio", "Utwór został dodany do kolejki pobierania offline.")
+            win.show_toast(f"Utwór \"{song_item.song.title}\" został dodany do kolejki pobierania offline.", title="Pobieranie Audio", icon_str="fa5s.music", icon_color=THEME["accent"])
         else:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(song_item, "Błąd", "Audio Download Manager nie jest dostępny.")
