@@ -44,6 +44,21 @@ class AppRouter(QObject):
         self.win.current_page_task_id += 1
         self.current_route = {"page": page_idx, "data": data, "type": type_str}
 
+        page_widget = self.pages[page_idx]
+        target_widget = None
+
+        if hasattr(page_widget, 'load'):
+            target_widget = page_widget
+        elif isinstance(page_widget, QScrollArea) and hasattr(page_widget.widget(), 'load'):
+            target_widget = page_widget.widget()
+
+        if target_widget:
+            if page_idx == Pages.DETAILS:
+                target_widget.load(data, type_str)
+            elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
+                if not is_back:
+                    target_widget.load()
+
         if hasattr(self.win, 'anim_group') and self.win.anim_group.state() == QParallelAnimationGroup.State.Running:
             self.win.anim_group.stop()
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
@@ -75,21 +90,6 @@ class AppRouter(QObject):
         def on_fade_finished():
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
                 self.win.current_anim_page.setGraphicsEffect(None)
-
-            page_widget = self.pages[page_idx]
-            target_widget = None
-
-            if hasattr(page_widget, 'load'):
-                target_widget = page_widget
-            elif isinstance(page_widget, QScrollArea) and hasattr(page_widget.widget(), 'load'):
-                target_widget = page_widget.widget()
-
-            if target_widget:
-                if page_idx == Pages.DETAILS:
-                    target_widget.load(data, type_str)
-                elif page_idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
-                    if not is_back:
-                        target_widget.load()
 
         self.win.anim_group.finished.connect(on_fade_finished)
         self.win.page_effect.setOpacity(0.0)

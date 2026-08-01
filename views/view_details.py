@@ -32,8 +32,20 @@ class DetailsView(LibraryScrollArea):
         self.current_playlist_id = None
         self.current_playlist_name = ""
         self.current_playlist_songs = []
+        self.current_id = None
+        self.current_type = None
 
-    def load(self, d, t):
+    def load(self, d, t, force=False):
+        if not d:
+            return
+
+        target_id = d.get('id') if isinstance(d, dict) else getattr(d, 'item_id', None)
+        if not force and target_id and target_id == self.current_id and t == self.current_type:
+            return
+
+        self.current_id = target_id
+        self.current_type = t
+
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         loading = QLabel("Wczytywanie...")
