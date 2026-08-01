@@ -730,6 +730,8 @@ class MainWindow(QMainWindow):
                 if artist_id and artist_id != cover_id:
                     shutil.copy2(file_path, os.path.join(target_dir, f"{artist_id}{ext}"))
 
+                self.loader.refresh_file_indexes()
+                self.loader._ram_cache.clear()
                 self._refresh_current()
                 logger.log(f"Ustawiono własne zdjęcie dla artysty {artist_id or cover_id}")
             except Exception as e:
@@ -758,6 +760,8 @@ class MainWindow(QMainWindow):
                         pass
 
         if deleted:
+            self.loader.refresh_file_indexes()
+            self.loader._ram_cache.clear()
             self._refresh_current()
             logger.log(f"Przywrócono domyślne zdjęcie dla artysty {artist_id or cover_id}")
 
@@ -795,6 +799,8 @@ class MainWindow(QMainWindow):
                 if album_id and album_id != cover_id:
                     shutil.copy2(file_path, os.path.join(target_dir, f"{album_id}{ext}"))
 
+                self.loader.refresh_file_indexes()
+                self.loader._ram_cache.clear()
                 self._refresh_current()
                 self._refresh_player_bar_if_needed(album_id, cover_id)
                 logger.log(f"Ustawiono własną okładkę dla {album_id or cover_id}")
@@ -823,6 +829,8 @@ class MainWindow(QMainWindow):
                         pass
 
         if deleted:
+            self.loader.refresh_file_indexes()
+            self.loader._ram_cache.clear()
             self._refresh_current()
             self._refresh_player_bar_if_needed(album_id, cover_id)
             logger.log(f"Przywrócono domyślną okładkę dla {album_id or cover_id}")

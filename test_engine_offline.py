@@ -4,7 +4,7 @@ import sys
 import time
 from PySide6.QtWidgets import QApplication
 from engine.player_engine import PlayerEngine
-from core.media_item import MediaItem
+from core.models import MediaItem
 from config import APP_CONFIG
 
 APP_CONFIG["video_smart_auto_play"] = True
@@ -17,8 +17,7 @@ engine = PlayerEngine(DummyClient())
 
 # create a fake song that has an offline video
 # item_id: '5ckcAuNLAmNYGLi4KTfgEL'
-song = MediaItem("5ckcAuNLAmNYGLi4KTfgEL", "Test title", "Test Artist")
-song.yt_link = "https://youtube.com/watch?v=dummy"
+song = MediaItem({"id": "5ckcAuNLAmNYGLi4KTfgEL", "title": "Test title", "artist": "Test Artist", "yt_link": "https://youtube.com/watch?v=dummy"})
 
 def on_video_ready(url):
     print("Video ready:", url)

@@ -263,40 +263,78 @@ class AsyncImageLoader(QObject):
         self.MAX_ACTIVE = 10
         self._in_flight = {}
 
+        self._ram_cache = {}
+        self.MAX_RAM_CACHE_SIZE = 300
+        self._custom_artists_files = set()
+        self._custom_covers_files = set()
+        self._covers_cache_files = set()
+        self.refresh_file_indexes()
+
+    def refresh_file_indexes(self):
+        try:
+            self._custom_artists_files = set(os.listdir(self.custom_artists_dir))
+        except Exception:
+            self._custom_artists_files = set()
+        try:
+            self._custom_covers_files = set(os.listdir(self.custom_covers_dir))
+        except Exception:
+            self._custom_covers_files = set()
+        try:
+            self._covers_cache_files = set(os.listdir(self.covers_cache_dir))
+        except Exception:
+            self._covers_cache_files = set()
+
+    def _add_to_ram_cache(self, url, pix):
+        if not pix or pix.isNull():
+            return
+        if url in self._ram_cache:
+            return
+        if len(self._ram_cache) >= self.MAX_RAM_CACHE_SIZE:
+            first_key = next(iter(self._ram_cache))
+            del self._ram_cache[first_key]
+        self._ram_cache[url] = pix
+
     def load(self, url, target):
         if not url or target is None:
             return
 
         target_ref = weakref.ref(target)
+
+        if url in self._ram_cache:
+            pix = self._ram_cache[url]
+            t = target_ref()
+            if t:
+                t.set_image(pix, animate=False)
+            return
+
         try:
             parsed = urlparse(url)
             qs = parse_qs(parsed.query)
             if 'id' in qs:
                 cover_id = qs['id'][0]
+                found_path = None
                 for ext in ['.jpg', '.jpeg', '.png']:
-                    artist_path = os.path.join(self.custom_artists_dir, f"{cover_id}{ext}")
-                    if os.path.exists(artist_path):
-                        pix = QPixmap(artist_path)
+                    fname = f"{cover_id}{ext}"
+                    if fname in self._custom_artists_files:
+                        found_path = os.path.join(self.custom_artists_dir, fname)
+                        break
+                    if fname in self._custom_covers_files:
+                        found_path = os.path.join(self.custom_covers_dir, fname)
+                        break
+
+                if not found_path:
+                    fname = f"{cover_id}.jpg"
+                    if fname in self._covers_cache_files:
+                        found_path = os.path.join(self.covers_cache_dir, fname)
+
+                if found_path and os.path.exists(found_path):
+                    pix = QPixmap(found_path)
+                    if not pix.isNull():
+                        self._add_to_ram_cache(url, pix)
                         t = target_ref()
                         if t:
                             t.set_image(pix, animate=False)
                         return
-
-                    cover_path = os.path.join(self.custom_covers_dir, f"{cover_id}{ext}")
-                    if os.path.exists(cover_path):
-                        pix = QPixmap(cover_path)
-                        t = target_ref()
-                        if t:
-                            t.set_image(pix, animate=False)
-                        return
-
-                cached_path = os.path.join(self.covers_cache_dir, f"{cover_id}.jpg")
-                if os.path.exists(cached_path):
-                    pix = QPixmap(cached_path)
-                    t = target_ref()
-                    if t:
-                        t.set_image(pix, animate=False)
-                    return
         except Exception:
             pass
 
@@ -337,17 +375,22 @@ class AsyncImageLoader(QObject):
             pix = QPixmap()
             pix.loadFromData(data)
 
+            if not pix.isNull():
+                self._add_to_ram_cache(url, pix)
+
             try:
                 parsed = urlparse(url)
                 qs = parse_qs(parsed.query)
                 if 'id' in qs:
                     cid = qs['id'][0]
-                    cached_path = os.path.join(self.covers_cache_dir, f"{cid}.jpg")
+                    fname = f"{cid}.jpg"
+                    cached_path = os.path.join(self.covers_cache_dir, fname)
 
                     def save_cover():
                         try:
                             with open(cached_path, "wb") as f:
                                 f.write(raw_bytes)
+                            self._covers_cache_files.add(fname)
                         except Exception:
                             pass
 
