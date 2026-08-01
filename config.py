@@ -177,11 +177,15 @@ def get_app_style():
     #Card:hover {{ background-color: {THEME.get('hover_card', '#181818')}; }}
     #CardTitle {{ font-weight: bold; font-size: 15px; margin-top: 8px; background: transparent; color: {THEME.get('text_main', '#ffffff')}; }}
     #CardArtist {{ font-size: 13px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
+    #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; }}
 
     #SongItem {{ background-color: transparent; border-radius: 8px; padding: 8px 12px; }}
     #SongItem:hover {{ background-color: {THEME.get('bg_card', '#111111')}; }}
     #SongItem QLabel {{ background: transparent; border: none; }}
     #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(29, 185, 84, 0.1)')}; }}
+    #SongTitle {{ font-weight: 600; font-size: 14px; color: {THEME.get('text_main', '#ffffff')}; background: transparent; margin: 0px; padding: 0px; }}
+    #SongSubText {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
+    #SongTrackNum {{ color: {THEME.get('text_muted', '#888888')}; font-size: 13px; font-weight: bold; background: transparent; }}
 
     QSlider::groove:horizontal {{ height: 4px; background: {THEME.get('nav_bg', '#222222')}; border-radius: 2px; }}
     QSlider::sub-page:horizontal {{ background: {THEME.get('accent', '#1db954')}; border-radius: 2px; }}

@@ -7,6 +7,20 @@ from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Property
 
 from config import THEME
 
+_ICON_CACHE = {}
+
+def get_cached_icon(icon_name, color=None):
+    key = (icon_name, color)
+    if key not in _ICON_CACHE:
+        try:
+            if color:
+                _ICON_CACHE[key] = qta.icon(icon_name, color=color)
+            else:
+                _ICON_CACHE[key] = qta.icon(icon_name)
+        except Exception:
+            _ICON_CACHE[key] = qta.icon(icon_name)
+    return _ICON_CACHE[key]
+
 class HoverIconButton(QPushButton):
     def __init__(self, icon_name, default_color=THEME["text_muted"], hover_color="white", icon_size=16, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -17,7 +31,7 @@ class HoverIconButton(QPushButton):
         self._scale = 1.0
         self.anim = None
 
-        self.setIcon(qta.icon(self.icon_name, color=self.default_color))
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
         self.setIconSize(QSize(self.base_icon_size, self.base_icon_size))
         self.setCursor(Qt.PointingHandCursor)
 
@@ -39,14 +53,14 @@ class HoverIconButton(QPushButton):
 
     def set_default_color(self, color):
         self.default_color = color
-        self.setIcon(qta.icon(self.icon_name, color=self.default_color))
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
 
     def update_icon(self, icon_name):
         self.icon_name = icon_name
-        self.setIcon(qta.icon(self.icon_name, color=self.default_color))
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
 
     def enterEvent(self, e):
-        self.setIcon(qta.icon(self.icon_name, color=self.hover_color))
+        self.setIcon(get_cached_icon(self.icon_name, color=self.hover_color))
         self._ensure_anim()
         self.anim.stop()
         self.anim.setEndValue(1.15)
@@ -54,7 +68,7 @@ class HoverIconButton(QPushButton):
         super().enterEvent(e)
 
     def leaveEvent(self, e):
-        self.setIcon(qta.icon(self.icon_name, color=self.default_color))
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
         if self.anim:
             self.anim.stop()
             self.anim.setEndValue(1.0)

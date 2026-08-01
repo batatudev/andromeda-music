@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QAction
 
 from config import THEME
-from ui.widgets import RoundedImage, ClickableElidedLabel, ElidedLabel
+from ui.widgets import RoundedImage, ClickableElidedLabel, ElidedLabel, get_cached_icon
 from core.enums import MediaType
 
 class MediaCard(QFrame):
@@ -50,17 +50,15 @@ class MediaCard(QFrame):
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.overlay.hide()
 
-        self.play_btn = QPushButton(qta.icon('fa5s.play', color=THEME["play_color"]), "", self.img_container)
+        self.play_btn = QPushButton(get_cached_icon('fa5s.play', color=THEME["play_color"]), "", self.img_container)
         self.play_btn.setObjectName("CardPlayBtn")
         self.play_btn.setFixedSize(46, 46)
         self.play_btn.setIconSize(QSize(20, 20))
-        self.play_btn.setStyleSheet(f"QPushButton {{ background-color: {THEME['play_bg']}; border-radius: 23px; border: none; }} QPushButton:hover {{ background-color: {THEME['accent']}; }}")
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
 
         self.title_lbl = ElidedLabel(data.title)
         self.title_lbl.setObjectName("CardTitle")
-        self.title_lbl.setStyleSheet(f"font-weight: bold; font-size: 15px; background: transparent; color: {THEME['text_main']}; margin: 0px; padding: 0px;")
 
         self.artist_lbl = ClickableElidedLabel(data.artist, default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="13px")
 
@@ -82,12 +80,11 @@ class MediaCard(QFrame):
             return
         self.img_container.setFixedSize(w, w)
         self.img.setFixedSize(w, w)
-        
+
         rad = (w // 2) if self.type_str == MediaType.ARTIST else 12
         self.img.radius = rad
-        self.overlay.setStyleSheet(f"border-radius: {rad}px; background-color: rgba(0,0,0,0.55); border: none;")
         self.overlay.setFixedSize(w, w)
-        
+
         btn_s = 46
         self.play_btn.move((w - btn_s) // 2, (w - btn_s) // 2)
 

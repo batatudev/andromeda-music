@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QPoint
 from PySide6.QtGui import QAction
 
 from config import THEME
-from ui.widgets import RoundedImage, ElidedLabel, ClickableElidedLabel, DragHandle, HoverIconButton
+from ui.widgets import RoundedImage, ElidedLabel, ClickableElidedLabel, DragHandle, HoverIconButton, get_cached_icon
 from core.enums import MediaType
 
 class SongItem(QFrame):
@@ -58,7 +58,7 @@ class SongItem(QFrame):
         self.cover_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.cover_overlay.hide()
 
-        self.play_btn = QPushButton(qta.icon('fa5s.play', color=THEME["play_color"]), "", self.img_container)
+        self.play_btn = QPushButton(get_cached_icon('fa5s.play', color=THEME["play_color"]), "", self.img_container)
         self.play_btn.setFixedSize(28, 28)
         self.play_btn.setIconSize(QSize(12, 12))
         self.play_btn.setStyleSheet(f"QPushButton {{ background-color: {THEME['play_bg']}; border-radius: 14px; border: none; }} QPushButton:hover {{ background-color: {THEME['accent']}; }}")
@@ -260,22 +260,22 @@ class SongItem(QFrame):
                 has_video = True
 
         if has_audio and has_video:
-            self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-double', color=THEME['accent']).pixmap(14, 14))
+            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.check-double', color=THEME['accent']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Pobrane Audio i Wideo")
         elif has_audio:
-            self.dl_status_lbl.setPixmap(qta.icon('fa5s.check-circle', color=THEME['accent']).pixmap(14, 14))
+            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.check-circle', color=THEME['accent']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Pobrane Audio")
         elif has_video:
-            self.dl_status_lbl.setPixmap(qta.icon('fa5s.film', color=THEME['accent']).pixmap(14, 14))
+            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.film', color=THEME['accent']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Pobrane Wideo")
         elif vid_status in ["QUEUED", "DOWNLOADING"]:
-            self.dl_status_lbl.setPixmap(qta.icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
+            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Pobieranie...")
         elif vid_status == "ERROR":
-            self.dl_status_lbl.setPixmap(qta.icon('fa5s.exclamation-circle', color='#e74c3c').pixmap(14, 14))
+            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.exclamation-circle', color='#e74c3c').pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Błąd pobierania")
         else:
-            self.dl_status_lbl.setPixmap(qta.icon('fa5s.cloud', color=THEME['border']).pixmap(14, 14))
+            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.cloud', color=THEME['border']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Dostępne w chmurze (Online)")
 
         if is_offline and not has_audio:
