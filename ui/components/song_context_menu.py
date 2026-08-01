@@ -205,33 +205,37 @@ class SongContextMenu:
     @staticmethod
     def _download_video(song_item):
         song = song_item.song
-        yt_link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
-        if not yt_link:
-            win = song_item._find_main_window()
-            if win and hasattr(win, 'engine') and getattr(win.engine, 'client', None):
-                from engine.header_tag_extractor import check_and_cache_remote_header
-                yt_link = check_and_cache_remote_header(win.engine.client, song, getattr(win.engine, 'video_download_manager', None))
-
-        if not yt_link:
-            comment = (song.get('comment', '') or '') + ' ' + (song.get('purl', '') or '') + ' ' + (song.get('PURL', '') or '')
-            has_youtube_comment = 'youtube.com' in comment.lower() or 'youtu.be' in comment.lower()
-
-            if has_youtube_comment:
-                msg = (f"\"{ song.title }\" posiada opis z YouTube, ale bezpośredni link do klipu "
-                       f"nie jest poprawnie odczytany z taga purl ani komentarza.\n\n"
-                       f"Aby można było pobrać teledysk offline, dodaj link YouTube (np. "
-                       f"https://youtu.be/VIDEO_ID) do pola PURL lub komentarza.")
-            else:
-                msg = (f"\"{ song.title }\" nie posiada linku YouTube w tagach PURL ani komentarzu.\n\n"
-                       f"Aby pobrać teledysk offline, dodaj link YouTube (np. "
-                       f"https://youtu.be/VIDEO_ID) w tagu PURL lub komentarzu do tego utworu.")
-
-            QMessageBox.warning(song_item, "Brak linku YouTube", msg)
-            logger.log(f"Brak linku YT dla utworu {song.title}")
+        win = song_item._find_main_window()
+        if not win:
+            logger.log("Nie można połączyć z Download Managerem")
             return
 
-        win = song_item._find_main_window()
-        if win:
+        def fetch_link():
+            yt_link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+            if not yt_link and hasattr(win, 'engine') and getattr(win.engine, 'client', None):
+                from engine.header_tag_extractor import check_and_cache_remote_header
+                yt_link = check_and_cache_remote_header(win.engine.client, song, getattr(win.engine, 'video_download_manager', None))
+            return yt_link
+
+        def on_link_ready(yt_link):
+            if not yt_link:
+                comment = (song.get('comment', '') or '') + ' ' + (song.get('purl', '') or '') + ' ' + (song.get('PURL', '') or '')
+                has_youtube_comment = 'youtube.com' in comment.lower() or 'youtu.be' in comment.lower()
+
+                if has_youtube_comment:
+                    msg = (f"\"{ song.title }\" posiada opis z YouTube, ale bezpośredni link do klipu "
+                           f"nie jest poprawnie odczytany z taga purl ani komentarza.\n\n"
+                           f"Aby można było pobrać teledysk offline, dodaj link YouTube (np. "
+                           f"https://youtu.be/VIDEO_ID) do pola PURL lub komentarza.")
+                else:
+                    msg = (f"\"{ song.title }\" nie posiada linku YouTube w tagach PURL ani komentarzu.\n\n"
+                           f"Aby pobrać teledysk offline, dodaj link YouTube (np. "
+                           f"https://youtu.be/VIDEO_ID) w tagu PURL lub komentarzu do tego utworu.")
+
+                QMessageBox.warning(song_item, "Brak linku YouTube", msg)
+                logger.log(f"Brak linku YT dla utworu {song.title}")
+                return
+
             mgr = win.engine.video_download_manager
             import sqlite3
             conn = sqlite3.connect(mgr.db_path)
@@ -260,8 +264,8 @@ class SongContextMenu:
             )
             song_item._update_dl_status_icon()
             QMessageBox.information(song_item, "Pobieranie", "Dodano do kolejki pobierania (lub wznowiono zadanie).")
-        else:
-            logger.log("Nie można połączyć z Download Managerem")
+
+        win.run_async(fetch_link, on_link_ready, page_bound=False)
 
     @staticmethod
     def _download_audio(song_item):

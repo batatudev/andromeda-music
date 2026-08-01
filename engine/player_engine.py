@@ -432,7 +432,8 @@ class PlayerEngine(QObject):
                 self.next_song()
 
     def set_volume(self, v):
-        self.audio_output.setVolume(v / 100)
+        vol_float = (v / 100.0) ** 2
+        self.audio_output.setVolume(vol_float)
         APP_CONFIG["volume"] = v
 
     def play_list(self, songs, start_idx):

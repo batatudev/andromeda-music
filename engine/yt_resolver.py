@@ -41,14 +41,6 @@ class YTResolver:
 
     def prefetch_video_url(self, song):
         if not HAS_YTDLP: return
-        self.engine.prefetched_song_id = None
-        self.engine.prefetched_yt_url = None
-        self.engine.prefetched_yt_info_dict = None
-        yt_link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
-        if not yt_link and hasattr(self.engine, 'client') and self.engine.client:
-            from engine.header_tag_extractor import check_and_cache_remote_header
-            yt_link = check_and_cache_remote_header(self.engine.client, song, getattr(self.engine, 'video_download_manager', None))
-        if not yt_link: return
         self.engine.prefetched_song_id = song.item_id
         if getattr(self.engine, 'prefetch_cancel_event', None):
             self.engine.prefetch_cancel_event.set()
@@ -56,6 +48,12 @@ class YTResolver:
         current_event = self.engine.prefetch_cancel_event
 
         def fetch():
+            yt_link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+            if not yt_link and hasattr(self.engine, 'client') and self.engine.client:
+                from engine.header_tag_extractor import check_and_cache_remote_header
+                yt_link = check_and_cache_remote_header(self.engine.client, song, getattr(self.engine, 'video_download_manager', None))
+            if not yt_link or current_event.is_set(): return
+
             rl = APP_CONFIG.get("video_resolution", VideoResolution.RES_AUTO)
             if rl == VideoResolution.RES_AUTO:
                 max_blur = max(APP_CONFIG.get("video_dynamic_blur", 0), APP_CONFIG.get("video_static_blur", 60))
@@ -97,15 +95,6 @@ class YTResolver:
         threading.Thread(target=fetch, daemon=True).start()
 
     def load_and_play_video(self, force_mid_track=False):
-        if not self.engine.current_yt_link:
-            if hasattr(self.engine, 'client') and self.engine.client and self.engine.queue and self.engine.idx < len(self.engine.queue):
-                song = self.engine.queue[self.engine.idx]
-                from engine.header_tag_extractor import check_and_cache_remote_header
-                found_url = check_and_cache_remote_header(self.engine.client, song, getattr(self.engine, 'video_download_manager', None))
-                if found_url:
-                    self.engine.current_yt_link = found_url
-                    self.engine.has_video_signal.emit(True)
-        if not self.engine.current_yt_link: return
         if getattr(self.engine, 'yt_cancel_event', None):
             self.engine.yt_cancel_event.set()
         self.engine.yt_cancel_event = threading.Event()
@@ -135,6 +124,16 @@ class YTResolver:
         self.engine.current_engine_state = EngineState.RESOLVING_YTDLP
 
         def fetch():
+            if not self.engine.current_yt_link:
+                if hasattr(self.engine, 'client') and self.engine.client and self.engine.queue and self.engine.idx < len(self.engine.queue):
+                    song = self.engine.queue[self.engine.idx]
+                    from engine.header_tag_extractor import check_and_cache_remote_header
+                    found_url = check_and_cache_remote_header(self.engine.client, song, getattr(self.engine, 'video_download_manager', None))
+                    if found_url:
+                        self.engine.current_yt_link = found_url
+                        self.engine.has_video_signal.emit(True)
+            if not self.engine.current_yt_link or current_event.is_set(): return
+
             start_time = time.time()
             max_blur = max(APP_CONFIG.get("video_dynamic_blur", 0), APP_CONFIG.get("video_static_blur", 60))
             if max_blur > 50:

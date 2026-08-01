@@ -36,6 +36,8 @@ class AudioDownloadManager(QObject):
         self._reload_path_cache()
 
         self.download_queue = queue.PriorityQueue()
+        self.is_snoozed = False
+        self.snooze_until = 0
         self.current_download_task = None
         self.cancel_current_event = threading.Event()
 
@@ -43,6 +45,40 @@ class AudioDownloadManager(QObject):
 
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
+
+        self.snooze_timer = QTimer(self)
+        self.snooze_timer.timeout.connect(self._check_snooze)
+        self.snooze_timer.start(10000)
+
+    def set_snooze(self, hours):
+        if hours == 0:
+            self.is_snoozed = False
+            self.snooze_until = 0
+            logger.log("Menadżer pobierania audio: Wznowiono")
+        else:
+            self.is_snoozed = True
+            if hours == -1:
+                self.snooze_until = -1
+                logger.log("Menadżer pobierania audio: Wstrzymano na stałe")
+            elif hours == -2:
+                self.snooze_until = -2
+                logger.log("Menadżer pobierania audio: Wstrzymano do ponownego uruchomienia")
+            else:
+                self.snooze_until = time.time() + (hours * 3600)
+                logger.log(f"Menadżer pobierania audio: Wstrzymano na {hours}h")
+
+            if self.current_download_task:
+                logger.log("Menadżer pobierania audio: Wstrzymywanie obecnego zadania...")
+                self.cancel_current_event.set()
+        self.queue_updated.emit()
+
+    def _check_snooze(self):
+        if self.is_snoozed:
+            if self.snooze_until > 0 and time.time() > self.snooze_until:
+                self.is_snoozed = False
+                self.snooze_until = 0
+                logger.log("Menadżer pobierania audio: Wybudzono z uśpienia (czas minął)")
+                self.queue_updated.emit()
 
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
@@ -282,34 +318,41 @@ class AudioDownloadManager(QObject):
 
     def _worker_loop(self):
         while True:
-            try:
-                priority, added_ts, item_id, title = self.download_queue.get()
-
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
-                cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
-                row = cursor.fetchone()
-                conn.close()
-                if not row or row[0] != AudioDownloadStatus.QUEUED:
-                    self.download_queue.task_done()
-                    continue
-
-                self.current_download_task = item_id
-                self.cancel_current_event.clear()
-                self._update_status(item_id, AudioDownloadStatus.DOWNLOADING)
-
-                try:
-                    self._download_audio(item_id)
-                except Exception as e:
-                    logger.log(f"Błąd pobierania audio {item_id}: {e}")
-                    if not self.cancel_current_event.is_set():
-                        self._update_status(item_id, AudioDownloadStatus.ERROR)
-
-                self.current_download_task = None
-                self.download_queue.task_done()
-            except Exception as e:
-                logger.log(f"AudioDownloadWorker Error: {e}")
+            if self.is_snoozed:
                 time.sleep(2)
+                continue
+
+            try:
+                priority, added_ts, item_id, title = self.download_queue.get(timeout=2)
+            except queue.Empty:
+                continue
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if not row or row[0] != AudioDownloadStatus.QUEUED:
+                self.download_queue.task_done()
+                continue
+
+            self.current_download_task = item_id
+            self.cancel_current_event.clear()
+            self._update_status(item_id, AudioDownloadStatus.DOWNLOADING)
+
+            try:
+                self._download_audio(item_id)
+            except Exception as e:
+                logger.log(f"Błąd pobierania audio {item_id}: {e}")
+                if not self.cancel_current_event.is_set():
+                    self._update_status(item_id, AudioDownloadStatus.ERROR)
+                else:
+                    self._update_status(item_id, AudioDownloadStatus.QUEUED)
+                    self.download_queue.put((10, time.time(), item_id, title))
+
+            self.current_download_task = None
+            self.download_queue.task_done()
+            self.queue_updated.emit()
 
     def _download_audio(self, item_id):
         stream_url = self.api_client.get_stream_url(item_id)

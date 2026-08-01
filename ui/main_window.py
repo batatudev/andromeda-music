@@ -219,9 +219,19 @@ class MainWindow(QMainWindow):
 
         if new_state:
             if APP_CONFIG.get("video_auto_dl_favs", False):
-                link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
-                if link:
-                    self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+                def resolve_video_fav():
+                    link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
+                    if not link:
+                        from engine.header_tag_extractor import check_and_cache_remote_header
+                        link = check_and_cache_remote_header(self.client, song, self.engine.video_download_manager)
+                    return link
+
+                def on_video_resolved(link):
+                    if link and APP_CONFIG.get("video_auto_dl_favs", False):
+                        self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+
+                self.run_async(resolve_video_fav, on_video_resolved, page_bound=False)
+
             if APP_CONFIG.get("audio_auto_dl_favs", False):
                 self.engine.audio_download_manager.add_to_queue(song.item_id, song.title, high_priority=False)
 
@@ -388,7 +398,7 @@ class MainWindow(QMainWindow):
         self.player_bar.video_toggle_requested.connect(self._toggle_video_mode)
         self.player_bar.mute_requested.connect(self._toggle_mute)
         self.player_bar.queue_requested.connect(self._toggle_queue)
-        self.player_bar.volume_changed.connect(self.engine.set_volume)
+        self.player_bar.volume_changed.connect(self._on_volume_changed)
         self.player_bar.seek_requested.connect(self._handle_seek)
         self.player_bar.seek_started.connect(self._on_seek_started)
         self.player_bar.fav_toggled.connect(self._toggle_pb_fav)
@@ -637,10 +647,26 @@ class MainWindow(QMainWindow):
             self.now_playing_view.set_media_mode("audio")
             self.engine.video_player.stop()
 
-    def _toggle_mute(self):
+    def _on_volume_changed(self, value):
+        self.engine.set_volume(value)
         is_muted = self.engine.audio_output.isMuted()
-        self.engine.audio_output.setMuted(not is_muted)
-        self.player_bar.set_mute_state(not is_muted)
+        if value == 0:
+            if not is_muted:
+                self._toggle_mute(force_state=True)
+        else:
+            if is_muted:
+                self._toggle_mute(force_state=False)
+
+    def _toggle_mute(self, force_state=None):
+        if force_state is not None:
+            new_state = force_state
+        else:
+            new_state = not self.engine.audio_output.isMuted()
+            if not new_state and self.player_bar.v_s.value() == 0:
+                self.player_bar.v_s.setValue(30)
+                return
+        self.engine.audio_output.setMuted(new_state)
+        self.player_bar.set_mute_state(new_state)
 
     def _refresh_player_bar_if_needed(self, target_album_id, target_cover_id):
         if 0 <= self.engine.idx < len(self.engine.queue):

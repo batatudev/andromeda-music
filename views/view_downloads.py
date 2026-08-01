@@ -248,6 +248,13 @@ class DownloadsView(QWidget):
         self.btn_manage.setMenu(manage_menu)
         header_lay.addWidget(self.btn_manage)
 
+        # WSTRZYMANIE AUDIO
+        self.btn_snooze_audio = QPushButton("Wstrzymaj Audio")
+        self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
+        self.btn_snooze_audio.setCursor(Qt.PointingHandCursor)
+        self.btn_snooze_audio.clicked.connect(self._toggle_snooze_audio)
+        header_lay.addWidget(self.btn_snooze_audio)
+
         # WSTRZYMANIE WIDEO
         self.btn_snooze = QPushButton("Wstrzymaj Wideo")
         self.btn_snooze.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
@@ -281,6 +288,12 @@ class DownloadsView(QWidget):
         self.a_mgr.download_progress.connect(self._on_audio_progress)
 
         self.load()
+
+    def _toggle_snooze_audio(self):
+        if self.a_mgr.is_snoozed:
+            self.a_mgr.set_snooze(0)
+        else:
+            self.a_mgr.set_snooze(-1)
 
     def _toggle_snooze(self):
         if self.v_mgr.is_snoozed:
@@ -337,6 +350,13 @@ class DownloadsView(QWidget):
         self.main_window.start_bulk_download('playlist', pid, pname, media_type)
 
     def load(self, *args, **kwargs):
+        if self.a_mgr.is_snoozed:
+            self.btn_snooze_audio.setText("Wznów Audio")
+            self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['accent']}; color: white; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}")
+        else:
+            self.btn_snooze_audio.setText("Wstrzymaj Audio")
+            self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
+
         if self.v_mgr.is_snoozed:
             self.btn_snooze.setText("Wznów Wideo")
             self.btn_snooze.setStyleSheet(f"QPushButton {{ background-color: {THEME['accent']}; color: white; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}")
