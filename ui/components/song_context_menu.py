@@ -143,7 +143,7 @@ class SongContextMenu:
             info_lbl.setText(f"<b>Aktualny override:</b> {current_override}")
             info_lbl.setStyleSheet(f"color: {THEME['accent']}; background: transparent;")
         elif current_from_comment:
-            info_lbl.setText(f"<b>Link z komentarza:</b> {current_from_comment}")
+            info_lbl.setText(f"<b>Link z tagów (purl/komentarz):</b> {current_from_comment}")
             info_lbl.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent;")
         else:
             info_lbl.setText("Ten utwór nie ma przypisanego linku YouTube.")
@@ -207,19 +207,18 @@ class SongContextMenu:
         song = song_item.song
         yt_link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
         if not yt_link:
-            comment = song.get('comment', '') or ''
+            comment = (song.get('comment', '') or '') + ' ' + (song.get('purl', '') or '') + ' ' + (song.get('PURL', '') or '')
             has_youtube_comment = 'youtube.com' in comment.lower() or 'youtu.be' in comment.lower()
 
             if has_youtube_comment:
                 msg = (f"\"{ song.title }\" posiada opis z YouTube, ale bezpośredni link do klipu "
-                       f"nie jest zapisany w komentarzu do pliku.\n\n"
+                       f"nie jest poprawnie odczytany z taga purl ani komentarza.\n\n"
                        f"Aby można było pobrać teledysk offline, dodaj link YouTube (np. "
-                       f"https://youtu.be/VIDEO_ID) jako pierwszą linijkę w komentarzu do "
-                       f"tego utwóru w ustawieniach Navidrome lub bezpośrednio w tagach pliku audio.")
+                       f"https://youtu.be/VIDEO_ID) do pola PURL lub komentarza.")
             else:
-                msg = (f"\"{ song.title }\" nie posiada linku YouTube w polu komentarza.\n\n"
+                msg = (f"\"{ song.title }\" nie posiada linku YouTube w tagach PURL ani komentarzu.\n\n"
                        f"Aby pobrać teledysk offline, dodaj link YouTube (np. "
-                       f"https://youtu.be/VIDEO_ID) w komentarzu do tego utwóru.")
+                       f"https://youtu.be/VIDEO_ID) w tagu PURL lub komentarzu do tego utworu.")
 
             QMessageBox.warning(song_item, "Brak linku YouTube", msg)
             logger.log(f"Brak linku YT dla utworu {song.title}")

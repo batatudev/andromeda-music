@@ -48,13 +48,16 @@ class MediaItem(dict):
         override = utils._YT_LINK_OVERRIDES.get(self.item_id)
         if override:
             return override
-        text = self.get('comment', '')
-        if not text:
-            return None
-        if 'youtube.com' in text or 'youtu.be' in text:
-            m = RE_YT_URL.search(text)
-            if m:
-                return m.group(0)
+        for field in ('purl', 'PURL', 'comment'):
+            text = self.get(field, '')
+            if not text:
+                continue
+            if 'youtube.com' in text or 'youtu.be' in text:
+                m = RE_YT_URL.search(text)
+                if m:
+                    return m.group(0)
+            elif field in ('purl', 'PURL') and (text.startswith('http://') or text.startswith('https://')):
+                return text.strip()
         return None
 
 class Song(MediaItem):
