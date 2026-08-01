@@ -53,46 +53,38 @@ class ToastNotification(QFrame):
         self._opacity_effect.setOpacity(0.0)
         self.setGraphicsEffect(self._opacity_effect)
 
+        self.setMinimumWidth(520)
+        self.setFixedHeight(46)
+
         # Układ główny
         main_lay = QHBoxLayout(self)
-        main_lay.setContentsMargins(14, 12, 14, 12)
+        main_lay.setContentsMargins(16, 8, 16, 8)
         main_lay.setSpacing(12)
 
         # Ikona
         icon_lbl = QLabel()
-        icon_lbl.setFixedSize(28, 28)
+        icon_lbl.setFixedSize(24, 24)
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setPixmap(qta.icon(icon_str, color=icon_color).pixmap(22, 22))
+        icon_lbl.setPixmap(qta.icon(icon_str, color=icon_color).pixmap(20, 20))
         icon_lbl.setStyleSheet("background: transparent; border: none;")
         main_lay.addWidget(icon_lbl)
 
-        # Tekst
-        text_lay = QVBoxLayout()
-        text_lay.setSpacing(2)
-        text_lay.setContentsMargins(0, 0, 0, 0)
-
+        # Tekst jednolinijkowy
         if title:
-            title_lbl = QLabel(title)
-            title_lbl.setStyleSheet(
-                f"font-size: 13px; font-weight: bold; color: {text_main};"
-                f"background: transparent; border: none;"
-            )
-            text_lay.addWidget(title_lbl)
+            combined_text = f"<span style='font-weight: bold; color: {text_main};'>{title}:</span> <span style='color: {text_muted};'>{message}</span>"
+        else:
+            combined_text = f"<span style='color: {text_main};'>{message}</span>"
 
-        msg_lbl = QLabel(message)
-        msg_lbl.setWordWrap(True)
-        msg_lbl.setStyleSheet(
-            f"font-size: 12px; color: {text_muted}; background: transparent; border: none;"
-        )
-        text_lay.addWidget(msg_lbl)
-        main_lay.addLayout(text_lay, 1)
+        msg_lbl = QLabel(combined_text)
+        msg_lbl.setStyleSheet("font-size: 13px; background: transparent; border: none;")
+        main_lay.addWidget(msg_lbl, 1)
 
         # Przycisk zamknięcia X
         close_lbl = QLabel("✕")
         close_lbl.setStyleSheet(
-            f"font-size: 11px; color: {text_muted}; background: transparent; border: none;"
+            f"font-size: 12px; font-weight: bold; color: {text_muted}; background: transparent; border: none;"
         )
-        close_lbl.setAlignment(Qt.AlignTop | Qt.AlignRight)
+        close_lbl.setAlignment(Qt.AlignCenter)
         main_lay.addWidget(close_lbl)
 
         self._fade_in_anim = None
@@ -120,13 +112,15 @@ class ToastNotification(QFrame):
         self._hide_timer.start()
 
     def _reposition(self):
-        """Centruje toast poziomo u góry okna nadrzędnego."""
+        """Centruje toast poziomo u góry okna nadrzędnego z gwarancją szerszego układu w 1 linii."""
         parent = self.parent()
         if parent is None:
             return
         self.adjustSize()
         pw = parent.width()
-        w = self.width()
+        w = max(540, self.sizeHint().width() + 30)
+        w = min(w, pw - 40)
+        self.resize(w, 46)
         x = (pw - w) // 2
         y = 20
         self.move(x, y)
