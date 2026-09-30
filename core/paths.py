@@ -1,12 +1,16 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+import shutil
 import sqlite3
 from pathlib import Path
 
 APP_ID = "andromeda-music"
+LEGACY_APP_ID = "navidrome-player-v3"
 
 class PathsManager:
+    _migration_checked = False
+
     @classmethod
     def get_config_dir(cls) -> Path:
         """Katalog na pliki konfiguracyjne: ~/.config/andromeda-music"""
@@ -29,7 +33,39 @@ class PathsManager:
         base = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
         p = Path(base) / APP_ID
         p.mkdir(parents=True, exist_ok=True)
+        cls._migrate_legacy_data_if_needed(p)
         return p
+
+    @classmethod
+    def _migrate_legacy_data_if_needed(cls, target_cache_dir: Path):
+        """Automatycznie przenosi bazy z navidrome-player-v3, jeśli istnieją."""
+        if cls._migration_checked:
+            return
+        cls._migration_checked = True
+
+        legacy_base = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
+        legacy_dir = Path(legacy_base) / LEGACY_APP_ID
+
+        if not legacy_dir.exists():
+            return
+
+        db_files = ["library_cache.db", "offline_videos.db", "offline_audio.db"]
+        for fname in db_files:
+            src = legacy_dir / fname
+            dst = target_cache_dir / fname
+            if src.exists() and (not dst.exists() or dst.stat().st_size == 0):
+                try:
+                    shutil.copy2(src, dst)
+                except Exception:
+                    pass
+
+        legacy_music = legacy_dir / "offline_music"
+        target_audio = cls.get_data_dir() / "audio-offline"
+        if legacy_music.exists() and not target_audio.exists():
+            try:
+                shutil.copytree(legacy_music, target_audio, dirs_exist_ok=True)
+            except Exception:
+                pass
 
     @classmethod
     def get_audio_cache_dir(cls) -> Path:
@@ -92,17 +128,25 @@ class PathsManager:
         return p
 
     @classmethod
+    def enable_wal_mode(cls, db_path: Path | str):
+        """Włącza trwały tryb WAL w nagłówku bazy (wywoływane jednorazowo w _init_db)."""
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=5.0)
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.close()
+        except Exception:
+            pass
+
+    @classmethod
     def get_db_connection(cls, db_path: Path | str, timeout: float = 10.0) -> sqlite3.Connection:
         """
-        Zwraca połączenie do bazy SQLite z optymalizacjami współbieżności i wydajności:
-        - WAL (Write-Ahead Logging): czytelnicy GUI nie blokują pisarzy z wątków roboczych.
-        - synchronous = NORMAL: bezpieczna redukcja operacji fsync na dysku.
-        - busy_timeout = 5000: automatyczny retry zamiast błędu 'database is locked'.
+        Zwraca szybkie połączenie do SQLite bez blokowania nagłówka bazy.
+        - synchronous = NORMAL: bezpieczna redukcja fsync.
+        - busy_timeout = 5000: automatyczny retry bez wyjątku 'database is locked'.
         """
         path_obj = Path(db_path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(path_obj), timeout=timeout)
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA synchronous = NORMAL")
         conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute("PRAGMA synchronous = NORMAL")
         return conn

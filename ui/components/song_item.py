@@ -250,7 +250,7 @@ class SongItem(QFrame):
         self.btn_more.clicked.connect(self._show_context_menu)
         layout.addWidget(self.btn_more)
 
-        self.set_active(active)
+        self.setProperty("active", "true" if active else "false")
         self._update_dl_status_icon()
         self._connect_signals()
 
@@ -321,9 +321,11 @@ class SongItem(QFrame):
             self.setEnabled(True)
 
     def set_active(self, is_active):
-        self.setProperty("active", "true" if is_active else "false")
-        self.style().unpolish(self)
-        self.style().polish(self)
+        new_val = "true" if is_active else "false"
+        if self.property("active") != new_val:
+            self.setProperty("active", new_val)
+            self.style().unpolish(self)
+            self.style().polish(self)
 
     def enterEvent(self, e):
         self.cover_overlay.show()
