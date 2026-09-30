@@ -15,6 +15,7 @@ from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer, SmoothScrollArea
 from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
 
+
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
         super().__init__()
@@ -34,17 +35,15 @@ class LibraryScrollArea(SmoothScrollArea):
         self._is_loaded = False
 
     def _clear(self):
-        while self.content_layout.count():
-            i = self.content_layout.takeAt(0)
-            if i.widget():
-                i.widget().deleteLater()
-            elif i.layout():
-                self._clear_layout(i.layout())
+        self._clear_layout(self.content_layout)
 
     def _clear_layout(self, lay):
         while lay.count():
-            i = lay.takeAt(0)
-            if i.widget():
-                i.widget().deleteLater()
-            elif i.layout():
-                self._clear_layout(i.layout())
+            item = lay.takeAt(0)
+            w = item.widget()
+            if w:
+                w.hide()
+                w.setParent(None)
+                w.deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())

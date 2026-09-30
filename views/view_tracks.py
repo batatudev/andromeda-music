@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_tracks.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku listy utworów
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -12,8 +8,8 @@ from PySide6.QtGui import QFont
 from core.enums import MediaType
 from ui.components import SongItem
 from core.i18n import tr
-
 from views.library_base import LibraryScrollArea
+
 
 class TracksView(LibraryScrollArea):
     def __init__(self, main_window):
@@ -22,14 +18,20 @@ class TracksView(LibraryScrollArea):
         self.track_list_layout = None
         self.offset = 0
         self.is_loading = False
+        self._current_songs = []
 
     def _on_scroll(self, val):
         if not self.is_loading and val > self.verticalScrollBar().maximum() - 200:
             self._load_more()
 
+    def _on_song_clicked(self, idx):
+        if 0 <= idx < len(self._current_songs):
+            self.main_window.engine.play_list(self._current_songs, idx)
+
     def load(self):
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
+        self._current_songs.clear()
         title_txt = tr("tracks.title", "Wszystkie Utwory")
         self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
         self.track_list_layout = QVBoxLayout()
@@ -50,20 +52,24 @@ class TracksView(LibraryScrollArea):
         def on_ready(songs):
             if songs:
                 self.content_widget.setUpdatesEnabled(False)
-                for s in songs:
-                    i = SongItem(s)
-                    i.clicked.connect(lambda song, idx=0, sl=[s]: self.main_window.engine.play_list(sl, idx))
-                    i.fav_clicked.connect(self.main_window._handle_song_fav)
-                    i.add_to_queue_clicked.connect(self.main_window.engine.add_to_queue)
-                    i.add_to_playlist_clicked.connect(self.main_window._show_playlist_dialog)
-                    i.artist_clicked.connect(self.main_window._show_details)
-                    i.album_clicked.connect(self.main_window._show_details)
-                    i.set_custom_cover_clicked.connect(self.main_window._set_custom_album_cover)
-                    i.reset_custom_cover_clicked.connect(self.main_window._reset_custom_album_cover)
-                    i.save_image_clicked.connect(self.main_window._save_image_to_file)
-                    self.track_list_layout.addWidget(i)
+                start_idx = len(self._current_songs)
+                self._current_songs.extend(songs)
+
+                for i, s in enumerate(songs):
+                    real_idx = start_idx + i
+                    item = SongItem(s, parent=self.content_widget)
+                    item.clicked.connect(lambda song, idx=real_idx: self._on_song_clicked(idx))
+                    item.fav_clicked.connect(self.main_window._handle_song_fav)
+                    item.add_to_queue_clicked.connect(self.main_window.engine.add_to_queue)
+                    item.add_to_playlist_clicked.connect(self.main_window._show_playlist_dialog)
+                    item.artist_clicked.connect(self.main_window._show_details)
+                    item.album_clicked.connect(self.main_window._show_details)
+                    item.set_custom_cover_clicked.connect(self.main_window._set_custom_album_cover)
+                    item.reset_custom_cover_clicked.connect(self.main_window._reset_custom_album_cover)
+                    item.save_image_clicked.connect(self.main_window._save_image_to_file)
+                    self.track_list_layout.addWidget(item)
                     if s.cover_id:
-                        self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), i)
+                        self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), item)
                 self.content_widget.setUpdatesEnabled(True)
             self.is_loading = False
 

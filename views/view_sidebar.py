@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_sidebar.py
-# OPIS ZMIAN: Wpięcie pełnego i18n przez tr() oraz usunięcie hardcoded tekstów ze zwijania i rozwijania paska
-
 import qtawesome as qta
 
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QLabel
@@ -13,6 +9,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QPropertyAnimation, QEasingCurve, 
 from config import THEME, Pages
 from ui.widgets import HoverIconButton, SmoothScrollArea
 from core.i18n import tr
+
 
 class SidebarWidget(QFrame):
     page_requested = Signal(int)
@@ -144,8 +141,11 @@ class SidebarWidget(QFrame):
     def set_playlists(self, data):
         while self.playlist_layout.count():
             i = self.playlist_layout.takeAt(0)
-            if i.widget():
-                i.widget().deleteLater()
+            w = i.widget()
+            if w:
+                w.hide()
+                w.setParent(None)
+                w.deleteLater()
 
         if not data:
             return

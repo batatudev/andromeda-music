@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_favs.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku ulubionych utworów
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -13,12 +9,17 @@ import qtawesome as qta
 from config import THEME
 from ui.components import SongItem
 from core.i18n import tr
-
 from views.library_base import LibraryScrollArea
+
 
 class FavsView(LibraryScrollArea):
     def __init__(self, main_window):
         super().__init__(main_window)
+        self._current_songs = []
+
+    def _on_song_clicked(self, idx):
+        if 0 <= idx < len(self._current_songs):
+            self.main_window.engine.play_list(self._current_songs, idx)
 
     def load(self):
         if self._is_loaded:
@@ -26,6 +27,7 @@ class FavsView(LibraryScrollArea):
 
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
+        self._current_songs.clear()
         lbl = QLabel(tr("common.loading", "Wczytywanie..."))
         lbl.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(lbl)
@@ -35,8 +37,10 @@ class FavsView(LibraryScrollArea):
         def on_ready(songs):
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
+            self._current_songs = list(songs) if songs else []
             title_txt = tr("favs.title", "Twoje ulubione utwory")
             self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
+
             if not songs:
                 self.content_layout.addStretch()
                 iv = QVBoxLayout()
@@ -55,8 +59,8 @@ class FavsView(LibraryScrollArea):
                 return
 
             for i, s in enumerate(songs):
-                item = SongItem(s)
-                item.clicked.connect(lambda song, idx=i, sl=songs: self.main_window.engine.play_list(sl, idx))
+                item = SongItem(s, parent=self.content_widget)
+                item.clicked.connect(lambda song, idx=i: self._on_song_clicked(idx))
                 item.fav_clicked.connect(self.main_window._handle_song_fav)
                 item.add_to_queue_clicked.connect(self.main_window.engine.add_to_queue)
                 item.add_to_playlist_clicked.connect(self.main_window._show_playlist_dialog)
@@ -68,6 +72,7 @@ class FavsView(LibraryScrollArea):
                 self.content_layout.addWidget(item)
                 if s.cover_id:
                     self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), item)
+
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True

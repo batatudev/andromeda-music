@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QStackedWidget, QScrollArea, QGraphicsOpacityEffec
 from config import Pages
 from core.enums import MediaType
 
+
 class AppRouter(QObject):
     """
     Zarządza nawigacją pomiędzy widokami aplikacji.
@@ -65,6 +66,13 @@ class AppRouter(QObject):
                 self.win.current_anim_page.setGraphicsEffect(None)
                 self.win.current_anim_page.move(0, 0)
 
+        if hasattr(self.win, 'page_effect') and self.win.page_effect:
+            try:
+                self.win.page_effect.deleteLater()
+            except Exception:
+                pass
+            self.win.page_effect = None
+
         self.stack.setCurrentIndex(page_idx)
         self.win.current_anim_page = self.stack.currentWidget()
 
@@ -90,6 +98,12 @@ class AppRouter(QObject):
         def on_fade_finished():
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
                 self.win.current_anim_page.setGraphicsEffect(None)
+            if hasattr(self.win, 'page_effect') and self.win.page_effect:
+                try:
+                    self.win.page_effect.deleteLater()
+                except Exception:
+                    pass
+                self.win.page_effect = None
 
         self.win.anim_group.finished.connect(on_fade_finished)
         self.win.page_effect.setOpacity(0.0)

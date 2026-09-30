@@ -1,16 +1,13 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/dialogs/playlist_dialog.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w oknie dodawania i tworzenia playlisty
-
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QWidget
 )
 from PySide6.QtCore import Qt
 from config import THEME, APP_CONFIG, get_app_style
 from core.i18n import tr
+
 
 class PlaylistDialog(QDialog):
     """
@@ -86,8 +83,11 @@ class PlaylistDialog(QDialog):
         def on_ready(playlists):
             while self.pl_list_layout.count():
                 item = self.pl_list_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
+                w = item.widget()
+                if w:
+                    w.hide()
+                    w.setParent(None)
+                    w.deleteLater()
 
             for pl in playlists:
                 btn = QPushButton(pl.get('name'))
