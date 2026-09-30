@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/components/media_card.py
-# OPIS ZMIAN: Bezpośrednie ostylowanie przycisku play_btn przywracające okrągłe tło oraz kursor rączki
-
 import qtawesome as qta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFrame, QMenu
@@ -16,6 +12,7 @@ from config import THEME
 from ui.widgets import RoundedImage, ClickableElidedLabel, ElidedLabel, get_cached_icon
 from core.enums import MediaType
 from core.i18n import tr
+
 
 class MediaCard(QFrame):
     clicked = Signal(object, str)
@@ -34,6 +31,7 @@ class MediaCard(QFrame):
         self.data = data
         self.type_str = type_str
         self.setObjectName("Card")
+        self.setProperty("mediaType", "artist" if type_str == MediaType.ARTIST else "album")
         self.setMinimumSize(160, 240)
         self.setMaximumSize(300, 400)
         self.setCursor(Qt.PointingHandCursor)
@@ -51,9 +49,6 @@ class MediaCard(QFrame):
 
         self.overlay = QFrame(self.img_container)
         self.overlay.setObjectName("CardOverlay")
-        self.overlay.setStyleSheet(
-            f"border-radius: {self.radius}px; background-color: rgba(0,0,0,0.55); border: none;"
-        )
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.overlay.hide()
 
@@ -64,28 +59,14 @@ class MediaCard(QFrame):
         self.play_btn.setFixedSize(46, 46)
         self.play_btn.setIconSize(QSize(20, 20))
         self.play_btn.setCursor(Qt.PointingHandCursor)
-        self.play_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {THEME['play_bg']};
-                border-radius: 23px;
-                border: none;
-            }}
-            QPushButton:hover {{
-                background-color: {THEME['accent']};
-            }}
-        """)
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
 
         self.title_lbl = ElidedLabel(data.title)
         self.title_lbl.setObjectName("CardTitle")
 
-        self.artist_lbl = ClickableElidedLabel(
-            data.artist,
-            default_color=THEME["text_muted"],
-            hover_color=THEME["text_main"],
-            font_size="13px"
-        )
+        self.artist_lbl = ClickableElidedLabel(data.artist, font_size="13px")
+        self.artist_lbl.setObjectName("CardArtist")
 
         if type_str == MediaType.ALBUM:
             self.artist_lbl.clicked.connect(self._on_artist_click)

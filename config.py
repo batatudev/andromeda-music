@@ -11,6 +11,7 @@ from core.paths import PathsManager
 APP_NAME = "Andromeda Music"
 APP_ICON_PATH = "assets/logo.png"
 
+
 class Pages(IntEnum):
     HOME = 0
     FAVS = 1
@@ -24,6 +25,7 @@ class Pages(IntEnum):
     DEV_MODE = 9
     SEARCH = 10
     DOWNLOADS = 11
+
 
 APP_CONFIG = {
     "url": "",
@@ -49,6 +51,7 @@ APP_CONFIG = {
     "audio_auto_dl_playlists": [],
     "hide_undownloaded_offline": False
 }
+
 
 def load_config():
     cfg = configparser.ConfigParser()
@@ -92,6 +95,7 @@ def load_config():
         APP_CONFIG["audio_auto_dl_playlists"] = [p.strip() for p in a_dl_pl.split(",") if p.strip()]
         APP_CONFIG["hide_undownloaded_offline"] = cfg["AudioOffline"].getboolean("hide_undownloaded_offline", fallback=False)
 
+
 def save_config():
     cfg = configparser.ConfigParser()
     cfg["Navidrome"] = {
@@ -132,8 +136,10 @@ def save_config():
     with open(config_path, "w") as f:
         cfg.write(f)
 
+
 THEME = {}
 load_config()
+
 
 def get_app_style():
     return f"""
@@ -177,15 +183,40 @@ def get_app_style():
     #Card:hover {{ background-color: {THEME.get('hover_card', '#181818')}; }}
     #CardTitle {{ font-weight: bold; font-size: 15px; margin-top: 8px; background: transparent; color: {THEME.get('text_main', '#ffffff')}; }}
     #CardArtist {{ font-size: 13px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
-    #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; }}
+    #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
+    #Card[mediaType="artist"] #CardOverlay {{ border-radius: 95px; }}
 
-    #SongItem {{ background-color: transparent; border-radius: 8px; padding: 8px 12px; }}
+    #SongItem {{ background-color: transparent; border-radius: 8px; padding: 0px 8px; }}
     #SongItem:hover {{ background-color: {THEME.get('bg_card', '#111111')}; }}
     #SongItem QLabel {{ background: transparent; border: none; }}
     #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(29, 185, 84, 0.1)')}; }}
     #SongTitle {{ font-weight: 600; font-size: 14px; color: {THEME.get('text_main', '#ffffff')}; background: transparent; margin: 0px; padding: 0px; }}
-    #SongSubText {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
+    #SongArtist, #SongAlbum {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
+    #SongArtist:hover, #SongAlbum:hover {{ color: {THEME.get('text_main', '#ffffff')}; text-decoration: underline; }}
+    #SongDot {{ color: {THEME.get('text_muted', '#888888')}; font-size: 12px; background: transparent; }}
+    #SongDuration {{ color: {THEME.get('text_muted', '#888888')}; font-size: 13px; background: transparent; margin-right: 15px; }}
     #SongTrackNum {{ color: {THEME.get('text_muted', '#888888')}; font-size: 13px; font-weight: bold; background: transparent; }}
+    #SongCoverOverlay {{ border-radius: 6px; background-color: rgba(0,0,0,0.55); border: none; }}
+
+    #SongItem QPushButton {{ background: transparent; border: none; border-radius: 16px; }}
+    #SongItem QPushButton:hover {{ background: {THEME.get('btn_hover_bg', 'rgba(255,255,255,0.1)')}; }}
+    #SongPlayBtn {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 14px; border: none; }}
+    #SongPlayBtn:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}
+
+    #SongPlayNextBtn:hover {{ background: {THEME.get('btn_play_next_hover', 'rgba(52,152,219,0.2)')}; }}
+    #SongAddPlBtn:hover {{ background: {THEME.get('btn_add_pl_hover', 'rgba(46,204,113,0.2)')}; }}
+    #SongAddBtn:hover {{ background: {THEME.get('btn_add_hover', 'rgba(230,126,34,0.2)')}; }}
+    #SongRemoveBtn:hover {{ background: {THEME.get('btn_remove_hover', 'rgba(231,76,60,0.2)')}; }}
+
+    ClickableLabel, ClickableElidedLabel {{
+        color: {THEME.get('text_muted', '#888888')};
+        background: transparent;
+        border: none;
+    }}
+    ClickableLabel:hover, ClickableElidedLabel:hover {{
+        color: {THEME.get('text_main', '#ffffff')};
+        text-decoration: underline;
+    }}
 
     QSlider::groove:horizontal {{ height: 4px; background: {THEME.get('nav_bg', '#222222')}; border-radius: 2px; }}
     QSlider::sub-page:horizontal {{ background: {THEME.get('accent', '#1db954')}; border-radius: 2px; }}

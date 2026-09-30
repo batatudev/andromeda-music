@@ -40,12 +40,14 @@ class ClickableLabel(QLabel):
 
     def __init__(self, text="", default_color=None, hover_color=None, font_weight="normal", font_size="12px"):
         super().__init__(text)
-        self.default_color = default_color if default_color is not None else THEME.get("text_muted", "#888888")
-        self.hover_color = hover_color if hover_color is not None else THEME.get("text_main", "#ffffff")
+        self.default_color = default_color
+        self.hover_color = hover_color
         self.font_weight = font_weight
         self.font_size = font_size
         self.setCursor(Qt.PointingHandCursor)
-        self.update_style(self.default_color, "none")
+
+        if self.default_color is not None or self.hover_color is not None:
+            self.update_style(self.default_color or THEME.get("text_muted", "#888888"), "none")
 
     def update_style(self, color, decoration):
         self.setStyleSheet(
@@ -54,11 +56,13 @@ class ClickableLabel(QLabel):
         )
 
     def enterEvent(self, e):
-        self.update_style(self.hover_color, "underline")
+        if self.hover_color is not None:
+            self.update_style(self.hover_color, "underline")
         super().enterEvent(e)
 
     def leaveEvent(self, e):
-        self.update_style(self.default_color, "none")
+        if self.default_color is not None:
+            self.update_style(self.default_color, "none")
         super().leaveEvent(e)
 
     def mousePressEvent(self, e):
