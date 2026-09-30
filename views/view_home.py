@@ -1,16 +1,14 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_home.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() dla nagłówków sekcji strony głównej
+import random
+from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QLineEdit
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
-import random
 import qtawesome as qta
 
 from config import THEME
@@ -19,8 +17,8 @@ from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer
 from ui.components import SongItem, MediaCard, HeroSection
 from core.i18n import tr
-
 from views.library_base import LibraryScrollArea
+
 
 class HomeView(LibraryScrollArea):
     def __init__(self, main_window):
@@ -40,16 +38,26 @@ class HomeView(LibraryScrollArea):
         self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
-            stars = self.main_window.repo.get_starred(40)
-            albs = self.main_window.repo.get_random_albums(6)
-            songs = self.main_window.repo.get_random_songs(10)
+            repo = self.main_window.repo
+            all_artists = self.main_window.all_artists_data
 
-            if not self.main_window.all_artists_data:
-                self.main_window.all_artists_data = self.main_window.repo.get_artists()
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                f_stars = executor.submit(repo.get_starred, 40)
+                f_albs = executor.submit(repo.get_random_albums, 6)
+                f_songs = executor.submit(repo.get_random_songs, 10)
+                f_arts = executor.submit(repo.get_artists) if not all_artists else None
+
+                stars = f_stars.result()
+                albs = f_albs.result()
+                songs = f_songs.result()
+
+                if f_arts:
+                    all_artists = f_arts.result()
+                    self.main_window.all_artists_data = all_artists
 
             r_arts = (
-                random.sample(self.main_window.all_artists_data, min(6, len(self.main_window.all_artists_data)))
-                if self.main_window.all_artists_data
+                random.sample(all_artists, min(6, len(all_artists)))
+                if all_artists
                 else []
             )
             return (stars, albs, songs, r_arts)

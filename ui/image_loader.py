@@ -5,16 +5,21 @@ import time
 import threading
 import weakref
 from urllib.parse import urlparse, parse_qs
-from PySide6.QtCore import QObject, QUrl
-from PySide6.QtGui import QPixmap
+
+from PySide6.QtCore import QObject, QUrl, Signal, Qt
+from PySide6.QtGui import QPixmap, QImage, QImageReader
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QNetworkDiskCache
+
 from core.paths import PathsManager
+
 
 class AsyncImageLoader(QObject):
     """
-    Asynchroniczny silnik pobierania i buforowania okładek oraz zdjęć artystów.
-    Obsługuje 3 poziomy pamięci: RAM cache, lokalny cache dyskowy oraz pobieranie HTTP (QNetworkDiskCache).
+    Wielowątkowy silnik asynchronicznego pobierania i buforowania okładek.
+    Dekodowanie i skalowanie grafik odbywa się w tle, odciążając wątek GUI.
     """
+    image_decoded = Signal(str, object, list, bool)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.manager = QNetworkAccessManager(self)
@@ -46,6 +51,8 @@ class AsyncImageLoader(QObject):
         self._covers_cache_files = set()
         self.refresh_file_indexes()
 
+        self.image_decoded.connect(self._on_image_decoded)
+
     def refresh_file_indexes(self):
         try:
             self._custom_artists_files = set(os.listdir(self.custom_artists_dir))
@@ -61,11 +68,6 @@ class AsyncImageLoader(QObject):
             self._covers_cache_files = set(os.listdir(self.covers_cache_dir))
         except Exception:
             self._covers_cache_files = set()
-
-        self._add_to_ram_cache_safe()
-
-    def _add_to_ram_cache_safe(self):
-        pass
 
     def _add_to_ram_cache(self, url: str, pix: QPixmap):
         if not pix or pix.isNull():
@@ -111,8 +113,14 @@ class AsyncImageLoader(QObject):
                         found_path = os.path.join(self.covers_cache_dir, fname)
 
                 if found_path and os.path.exists(found_path):
-                    pix = QPixmap(found_path)
-                    if not pix.isNull():
+                    reader = QImageReader(found_path)
+                    orig_size = reader.size()
+                    if orig_size.width() > 500 or orig_size.height() > 500:
+                        scaled_size = orig_size.scaled(500, 500, Qt.KeepAspectRatio)
+                        reader.setScaledSize(scaled_size)
+                    img = reader.read()
+                    if not img.isNull():
+                        pix = QPixmap.fromImage(img)
                         self._add_to_ram_cache(url, pix)
                         t = target_ref()
                         if t:
@@ -143,9 +151,6 @@ class AsyncImageLoader(QObject):
             reply.setProperty("start_time", time.time())
             reply.finished.connect(self._done)
 
-        def _done(self):
-            pass
-
     def _done(self):
         self.active_reqs -= 1
         reply = self.sender()
@@ -157,40 +162,47 @@ class AsyncImageLoader(QObject):
 
         if reply.error() == QNetworkReply.NoError:
             data = reply.readAll()
-            raw_bytes = data.data()
-            pix = QPixmap()
-            pix.loadFromData(data)
+            raw_bytes = bytes(data)
 
-            if not pix.isNull():
-                self._add_to_ram_cache(url, pix)
+            def decode_task(raw, u, refs, fast):
+                img = QImage()
+                img.loadFromData(raw)
+                if not img.isNull():
+                    if img.width() > 500 or img.height() > 500:
+                        img = img.scaled(500, 500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    self.image_decoded.emit(u, img, refs, fast)
 
-            try:
-                parsed = urlparse(url)
-                qs = parse_qs(parsed.query)
-                if 'id' in qs:
-                    cid = qs['id'][0]
-                    fname = f"{cid}.jpg"
-                    cached_path = os.path.join(self.covers_cache_dir, fname)
-
-                    def save_cover():
-                        try:
-                            with open(cached_path, "wb") as f:
-                                f.write(raw_bytes)
-                            self._covers_cache_files.add(fname)
-                        except Exception:
-                            pass
-
-                    threading.Thread(target=save_cover, daemon=True).start()
-            except Exception:
-                pass
-
-            for target_ref in target_refs:
                 try:
-                    target = target_ref()
-                    if target:
-                        target.set_image(pix, animate=(not is_fast_cache))
-                except RuntimeError:
+                    parsed = urlparse(u)
+                    qs = parse_qs(parsed.query)
+                    if 'id' in qs:
+                        cid = qs['id'][0]
+                        fname = f"{cid}.jpg"
+                        cached_path = os.path.join(self.covers_cache_dir, fname)
+                        with open(cached_path, "wb") as f:
+                            f.write(raw)
+                        self._covers_cache_files.add(fname)
+                except Exception:
                     pass
+
+            threading.Thread(
+                target=decode_task,
+                args=(raw_bytes, url, target_refs, is_fast_cache),
+                daemon=True
+            ).start()
 
         reply.deleteLater()
         self._process()
+
+    def _on_image_decoded(self, url, img, target_refs, is_fast_cache):
+        if not img or img.isNull():
+            return
+        pix = QPixmap.fromImage(img)
+        self._add_to_ram_cache(url, pix)
+        for target_ref in target_refs:
+            try:
+                target = target_ref()
+                if target:
+                    target.set_image(pix, animate=(not is_fast_cache))
+            except RuntimeError:
+                pass

@@ -6,6 +6,8 @@ import random
 import string
 import requests
 import time
+from requests.adapters import HTTPAdapter
+
 from config import APP_NAME
 from utils import logger
 from core.models import Song, Album, Artist
@@ -20,12 +22,23 @@ class NavidromeClient:
         self.client_name = APP_NAME.replace(" ", "")
         self.failures = 0
         self.circuit_breaker_until = 0
+
         self.session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=30, pool_maxsize=30)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def _get_auth_params(self) -> dict:
         salt = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         token = hashlib.md5((self.password + salt).encode('utf-8')).hexdigest()
-        return {'u': self.user, 't': token, 's': salt, 'v': self.api_version, 'c': self.client_name, 'f': 'json'}
+        return {
+            'u': self.user,
+            't': token,
+            's': salt,
+            'v': self.api_version,
+            'c': self.client_name,
+            'f': 'json'
+        }
 
     def ping(self) -> bool:
         try:
@@ -76,7 +89,7 @@ class NavidromeClient:
         data = self._make_request("getStarred", self._get_auth_params())
         starred_data = data.get('starred', {})
         if not starred_data:
-            return[]
+            return []
         return [Song(s) for s in starred_data.get('song', [])[:limit]]
 
     def get_albums(self, offset: int = 0, limit: int = 30) -> list:
@@ -84,14 +97,14 @@ class NavidromeClient:
         params['type'] = 'alphabeticalByName'
         params['size'] = limit
         params['offset'] = offset
-        res = self._make_request("getAlbumList", params).get('albumList', {}).get('album',[])
+        res = self._make_request("getAlbumList", params).get('albumList', {}).get('album', [])
         return [Album(a) for a in res]
 
     def get_random_albums(self, limit: int = 10) -> list:
         params = self._get_auth_params()
         params['type'] = 'random'
         params['size'] = limit
-        res = self._make_request("getAlbumList", params).get('albumList', {}).get('album',[])
+        res = self._make_request("getAlbumList", params).get('albumList', {}).get('album', [])
         return [Album(a) for a in res]
 
     def get_random_songs(self, limit: int = 50) -> list:
@@ -102,10 +115,10 @@ class NavidromeClient:
 
     def get_artists(self) -> list:
         data = self._make_request("getArtists", self._get_auth_params())
-        indices = data.get('artists', {}).get('index',[])
+        indices = data.get('artists', {}).get('index', [])
         all_artists = []
         for i in indices:
-            for a in i.get('artist',[]):
+            for a in i.get('artist', []):
                 all_artists.append(Artist(a))
         return all_artists
 
@@ -122,7 +135,7 @@ class NavidromeClient:
         params['id'] = artist_id
         artist_data = self._make_request("getArtist", params).get('artist', {})
         if 'album' in artist_data:
-            artist_data['album'] =[Album(a) for a in artist_data['album']]
+            artist_data['album'] = [Album(a) for a in artist_data['album']]
         return Artist(artist_data)
 
     def get_top_songs_for_artist(self, artist_name: str, limit: int = 50) -> list:
@@ -146,7 +159,7 @@ class NavidromeClient:
         params['playlistId'] = playlist_id
         params['songId'] = song_ids
         return self._make_request("createPlaylist", params)
-        
+
     def delete_playlist(self, playlist_id: str):
         params = self._get_auth_params()
         params['id'] = playlist_id
@@ -161,8 +174,11 @@ class NavidromeClient:
         params['albumCount'] = limit
         params['artistCount'] = limit
         res = self._make_request("search3", params).get('searchResult3', {})
-        
-        if 'artist' in res: res['artist'] = [Artist(i) for i in res['artist']]
-        if 'album' in res: res['album'] = [Album(i) for i in res['album']]
-        if 'song' in res: res['song'] = [Song(i) for i in res['song']]
+
+        if 'artist' in res:
+            res['artist'] = [Artist(i) for i in res['artist']]
+        if 'album' in res:
+            res['album'] = [Album(i) for i in res['album']]
+        if 'song' in res:
+            res['song'] = [Song(i) for i in res['song']]
         return res

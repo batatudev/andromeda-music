@@ -1,16 +1,14 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_details.py
-# OPIS ZMIAN: Bezpośrednie wyliczanie docelowego wiersza w _handle_playlist_drop i wymuszenie odświeżenia przez force=True
+import random
+from concurrent.futures import ThreadPoolExecutor
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-import random
 
 from config import THEME
 from utils import MediaItem
@@ -18,8 +16,8 @@ from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer
 from ui.components import SongItem, MediaCard, MediaHeader
 from core.i18n import tr
-
 from views.library_base import LibraryScrollArea
+
 
 class DetailsView(LibraryScrollArea):
     def __init__(self, main_window):
@@ -74,20 +72,45 @@ class DetailsView(LibraryScrollArea):
                 art = self.main_window.repo.get_artist(d.get('id'))
                 if not art:
                     return None
-                songs = self.main_window.repo.get_top_songs_for_artist(art.title)
-                if len(songs) < 20:
+
+                songs = self.main_window.repo.get_top_songs_for_artist(art.title, limit=100)
+                albums_list = art.get('album', [])
+
+                if len(songs) < 20 and albums_list:
                     ids = {s.item_id for s in songs}
-                    for a in art.get('album', []):
-                        if len(songs) >= 100:
-                            break
-                        alb_data = self.main_window.repo.get_album(a.item_id)
-                        if alb_data:
-                            for ns in alb_data.get('song', []):
-                                if ns.item_id not in ids:
-                                    songs.append(ns)
-                                    ids.add(ns.item_id)
+
+                    sync_mgr = getattr(self.main_window.repo, 'library_sync', None)
+                    if sync_mgr:
+                        for a in albums_list:
+                            if len(songs) >= 100:
+                                break
+                            local_songs = sync_mgr.get_album_songs(a.item_id)
+                            for s_dict in local_songs:
+                                sid = s_dict.get('id')
+                                if sid and sid not in ids:
+                                    songs.append(MediaItem(s_dict))
+                                    ids.add(sid)
+
+                    if len(songs) < 20 and not self.main_window.repo._is_offline():
+                        unfetched_albums = albums_list[:6]
+                        with ThreadPoolExecutor(max_workers=4) as executor:
+                            futures = [
+                                executor.submit(self.main_window.repo.get_album, a.item_id)
+                                for a in unfetched_albums
+                            ]
+                            for f in futures:
+                                try:
+                                    alb_data = f.result()
+                                    if alb_data:
+                                        for ns in alb_data.get('song', []):
+                                            if ns.item_id not in ids:
+                                                songs.append(ns)
+                                                ids.add(ns.item_id)
+                                except Exception:
+                                    pass
+
                 random.shuffle(songs)
-                return (MediaType.ARTIST, art, art.get('album', []), songs)
+                return (MediaType.ARTIST, art, albums_list, songs)
 
         def on_ready(data):
             if not data:

@@ -4,9 +4,10 @@ os.environ["QT_API"] = "pyside6"
 import qtawesome as qta
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QPainter, QPainterPath
+from PySide6.QtGui import QPainter, QPainterPath, QPixmap
 
 from config import THEME
+from ui.widgets.buttons import get_cached_icon
 
 
 class RoundedImage(QWidget):
@@ -91,13 +92,27 @@ class RoundedImage(QWidget):
 
         pixmap = self.pixmap_cache
         if not pixmap or pixmap.isNull():
-            pixmap = qta.icon('fa5s.music', color=THEME["text_muted"]).pixmap(w // 2, h // 2)
+            pixmap = get_cached_icon('fa5s.music', color=THEME.get("text_muted", "#888888")).pixmap(w // 2, h // 2)
 
         scaled = pixmap.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
 
+        rounded = QPixmap(w, h)
+        rounded.fill(Qt.transparent)
+
+        painter = QPainter(rounded)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+        clip_path = QPainterPath()
+        clip_path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
+        painter.setClipPath(clip_path)
+
         x_off = (scaled.width() - w) // 2
         y_off = (scaled.height() - h) // 2
-        self.prepared_pixmap = scaled.copy(x_off, y_off, w, h)
+        painter.drawPixmap(-x_off, -y_off, scaled)
+        painter.end()
+
+        self.prepared_pixmap = rounded
         self.update()
 
     def paintEvent(self, e):
@@ -109,13 +124,10 @@ class RoundedImage(QWidget):
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         p.setOpacity(self._opacity)
 
-        path = QPainterPath()
-        path.addRoundedRect(0, 0, self.width(), self.height(), self.radius, self.radius)
-        p.setClipPath(path)
-
-        p.translate(self.width() / 2, self.height() / 2)
-        p.scale(self._zoom, self._zoom)
-        p.translate(-self.width() / 2, -self.height() / 2)
+        if self._zoom != 1.0:
+            p.translate(self.width() / 2, self.height() / 2)
+            p.scale(self._zoom, self._zoom)
+            p.translate(-self.width() / 2, -self.height() / 2)
 
         p.drawPixmap(0, 0, self.prepared_pixmap)
         p.end()
