@@ -1,10 +1,15 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/components/download_item.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() dla statusów zadań pobierania
+
 import qtawesome as qta
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QProgressBar
 from config import THEME
 from ui.widgets import HoverIconButton, RoundedImage
+from core.i18n import tr
 
 class DownloadItemWidget(QFrame):
     """
@@ -87,19 +92,20 @@ class DownloadItemWidget(QFrame):
         self.btn_remove = HoverIconButton('fa5s.times', icon_size=14)
         self.btn_remove.setFixedSize(32, 32)
         self.btn_remove.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; border-radius: 16px; }} QPushButton:hover {{ background: {THEME['btn_remove_hover']}; }}"
+            f"QPushButton {{ background: transparent; border: none; border-radius: 16px; }} "
+            f"QPushButton:hover {{ background: {THEME['btn_remove_hover']}; }}"
         )
-        self.btn_remove.setToolTip("Usuń pobieranie / plik")
+        self.btn_remove.setToolTip(tr("dialogs.delete", "Usuń"))
         self.btn_remove.clicked.connect(remove_cb)
         layout.addWidget(self.btn_remove)
 
     def _translate_status(self, st):
         trans = {
-            "QUEUED": "Oczekuje w kolejce",
-            "DOWNLOADING": "Pobieranie...",
-            "COMPLETED": "Pobrano",
-            "ERROR": "Błąd",
-            "PAUSED": "Wstrzymano"
+            "QUEUED": tr("downloads.status_queued", "Oczekuje w kolejce"),
+            "DOWNLOADING": tr("downloads.status_downloading", "Pobieranie..."),
+            "COMPLETED": tr("downloads.status_completed", "Pobrano"),
+            "ERROR": tr("downloads.status_error", "Błąd"),
+            "PAUSED": tr("downloads.status_paused", "Wstrzymano")
         }
         return trans.get(st, st)
 

@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_now_playing.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w głównym widoku odtwarzania oraz kolejce bocznej
+
 import qtawesome as qta
 
 from PySide6.QtWidgets import (
@@ -14,6 +18,7 @@ from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF, QPoint,
 from config import THEME, APP_CONFIG
 from ui.widgets import DragDropContainer, RoundedImage, ClickableLabel, HoverIconButton, SmoothScrollArea
 from ui.components import SongItem
+from core.i18n import tr
 
 class VideoGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
@@ -121,14 +126,20 @@ class NowPlayingWidget(QFrame):
 
         self.media_layout.addWidget(self.art_wrapper)
 
-        self.title_lbl = QLabel("Nic nie gra")
+        not_playing_txt = tr("player.not_playing", "Nic nie gra")
+        self.title_lbl = QLabel(not_playing_txt)
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setAlignment(Qt.AlignCenter)
         self.title_lbl.setStyleSheet(
             f"font-size: 40px; font-weight: bold; color: {THEME['text_main']}; background: transparent; margin-top: 20px;"
         )
 
-        self.artist_lbl = ClickableLabel("-", default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="24px")
+        self.artist_lbl = ClickableLabel(
+            "-",
+            default_color=THEME["text_muted"],
+            hover_color=THEME["text_main"],
+            font_size="24px"
+        )
         self.artist_lbl.setAlignment(Qt.AlignCenter)
 
         self.left_layout.addStretch(1)
@@ -140,15 +151,19 @@ class NowPlayingWidget(QFrame):
         self.queue_frame = QFrame()
         self.queue_frame.setObjectName("NowPlayingQueueFrame")
         self.queue_frame.setStyleSheet(
-            f"#NowPlayingQueueFrame {{ background-color: rgba({THEME['bg_main_rgb']}, 100); border-radius: 12px; border: 1px solid {THEME['border']}; }}"
+            f"#NowPlayingQueueFrame {{ background-color: rgba({THEME['bg_main_rgb']}, 100); "
+            f"border-radius: 12px; border: 1px solid {THEME['border']}; }}"
         )
 
         qf_layout = QVBoxLayout(self.queue_frame)
         qf_layout.setContentsMargins(15, 15, 15, 15)
 
         header_layout = QHBoxLayout()
-        self.q_title = QLabel("Kolejka odtwarzania")
-        self.q_title.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {THEME['text_main']}; background: transparent;")
+        queue_txt = tr("player.queue_title", "Kolejka odtwarzania")
+        self.q_title = QLabel(queue_txt)
+        self.q_title.setStyleSheet(
+            f"font-size: 18px; font-weight: bold; color: {THEME['text_main']}; background: transparent;"
+        )
         header_layout.addWidget(self.q_title)
         header_layout.addStretch()
 
@@ -156,13 +171,17 @@ class NowPlayingWidget(QFrame):
 
         self.btn_q_shuffle = HoverIconButton('fa5s.random', hover_color=THEME['accent'], icon_size=14)
         self.btn_q_shuffle.setFixedSize(32, 32)
-        self.btn_q_shuffle.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
-        self.btn_q_shuffle.setToolTip("Losuj")
+        self.btn_q_shuffle.setStyleSheet(
+            f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}"
+        )
+        self.btn_q_shuffle.setToolTip(tr("player.shuffle", "Losuj"))
 
         self.btn_q_clear = HoverIconButton('fa5s.trash-alt', hover_color=THEME['accent'], icon_size=14)
         self.btn_q_clear.setFixedSize(32, 32)
-        self.btn_q_clear.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_remove_hover']}; }}")
-        self.btn_q_clear.setToolTip("Wyczyść kolejkę")
+        self.btn_q_clear.setStyleSheet(
+            f"{btn_base} QPushButton:hover {{ background: {THEME['btn_remove_hover']}; }}"
+        )
+        self.btn_q_clear.setToolTip(tr("player.clear", "Wyczyść"))
 
         header_layout.addWidget(self.btn_q_shuffle)
         header_layout.addWidget(self.btn_q_clear)

@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_player_bar.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w dolnym pasku odtwarzacza i etykietach kontrolnych
+
 import qtawesome as qta
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
@@ -8,6 +12,7 @@ from PySide6.QtCore import Qt, Signal, QSize
 
 from config import THEME
 from ui.widgets import ClickableFrame, RoundedImage, ClickableElidedLabel, HoverIconButton, PremiumSlider, ClickableLabel
+from core.i18n import tr
 
 class PlayerBarWidget(ClickableFrame):
     play_pause_requested = Signal()
@@ -27,7 +32,7 @@ class PlayerBarWidget(ClickableFrame):
     title_clicked = Signal()
     artist_clicked = Signal()
     album_clicked = Signal()
-    
+
     def __init__(self, initial_volume=80):
         super().__init__()
         self.setObjectName("PlayerBar")
@@ -38,7 +43,7 @@ class PlayerBarWidget(ClickableFrame):
         self._is_loading = False
         self._last_playing_state = False
         self._init_ui(initial_volume)
-        
+
     def _init_ui(self, initial_volume):
         p_lay = QHBoxLayout(self)
         p_lay.setContentsMargins(20, 0, 20, 0)
@@ -47,24 +52,44 @@ class PlayerBarWidget(ClickableFrame):
         self.pb_left = QWidget()
         self.pb_left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.pb_left.setMinimumWidth(0)
-        
+
         l_lay = QHBoxLayout(self.pb_left)
         l_lay.setContentsMargins(0, 0, 10, 0)
         l_lay.setSpacing(0)
-        
+
         self.pb_img = RoundedImage(size=80, radius=8)
 
         v_info = QVBoxLayout()
         v_info.setSpacing(2)
         v_info.setContentsMargins(15, 0, 0, 0)
 
-        self.pb_t = ClickableElidedLabel("Nic nie gra", default_color=THEME["text_main"], hover_color=THEME["accent"], font_weight="bold", font_size="18px")
-        self.pb_a = ClickableElidedLabel("-", default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="14px")
-        self.pb_alb = ClickableElidedLabel("-", default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="14px")
+        not_playing_txt = tr("player.not_playing", "Nic nie gra")
+        self.pb_t = ClickableElidedLabel(
+            not_playing_txt,
+            default_color=THEME["text_main"],
+            hover_color=THEME["accent"],
+            font_weight="bold",
+            font_size="18px"
+        )
+        self.pb_a = ClickableElidedLabel(
+            "-",
+            default_color=THEME["text_muted"],
+            hover_color=THEME["text_main"],
+            font_size="14px"
+        )
+        self.pb_alb = ClickableElidedLabel(
+            "-",
+            default_color=THEME["text_muted"],
+            hover_color=THEME["text_main"],
+            font_size="14px"
+        )
 
         self.pb_fav_btn = HoverIconButton('fa5.heart', default_color=THEME["text_muted"], icon_size=16)
         self.pb_fav_btn.setFixedSize(32, 32)
-        self.pb_fav_btn.setStyleSheet(f"QPushButton {{ background: transparent; border: none; border-radius: 16px; }} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.pb_fav_btn.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: none; border-radius: 16px; }} "
+            f"QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}"
+        )
 
         h_info = QHBoxLayout()
         h_info.setSpacing(5)
@@ -88,20 +113,21 @@ class PlayerBarWidget(ClickableFrame):
 
         self.pb_mid = QWidget()
         self.pb_mid.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        self.pb_mid.setFixedWidth(520) 
-        
+        self.pb_mid.setFixedWidth(520)
+
         m_lay = QVBoxLayout(self.pb_mid)
         m_lay.setAlignment(Qt.AlignCenter)
         m_lay.setSpacing(8)
-        
+
         btns = QHBoxLayout()
         btns.setSpacing(10)
-        
+
         btn_base = "QPushButton { background: transparent; border: none; border-radius: 18px; }"
 
         self.btn_shuffle = HoverIconButton('fa5s.random', icon_size=16)
         self.btn_shuffle.setFixedSize(36, 36)
         self.btn_shuffle.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.btn_shuffle.setToolTip(tr("player.shuffle", "Losuj"))
 
         self.btn_skip_b = HoverIconButton('fa5s.backward', icon_size=16)
         self.btn_skip_b.setFixedSize(36, 36)
@@ -134,7 +160,7 @@ class PlayerBarWidget(ClickableFrame):
         self.btn_video_toggle = HoverIconButton('fa5s.video', icon_size=16)
         self.btn_video_toggle.setFixedSize(36, 36)
         self.btn_video_toggle.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
-        self.btn_video_toggle.setToolTip("Teledysk z YouTube")
+        self.btn_video_toggle.setToolTip(tr("player.music_video", "Teledysk"))
         self.btn_video_toggle.setCheckable(True)
 
         btns.addStretch()
@@ -153,41 +179,41 @@ class PlayerBarWidget(ClickableFrame):
         self.cur_time.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 12px;")
         self.cur_time.setFixedWidth(40)
         self.cur_time.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        
+
         self.slider = PremiumSlider(Qt.Horizontal)
         self.slider.setFixedWidth(400)
-        
+
         self.total_time = ClickableLabel("0:00", default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="12px")
         self.total_time.setFixedWidth(40)
-        self.total_time.setToolTip("Przełącz: Czas całkowity / Czas pozostały")
         self.total_time.clicked.connect(self._toggle_time_display)
-        
+
         prog.addStretch()
         prog.addWidget(self.cur_time)
         prog.addWidget(self.slider)
         prog.addWidget(self.total_time)
         prog.addStretch()
-        
+
         m_lay.addLayout(btns)
         m_lay.addLayout(prog)
 
         self.pb_right = QWidget()
         self.pb_right.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.pb_right.setMinimumWidth(0)
-        
+
         r_lay = QHBoxLayout(self.pb_right)
         r_lay.setContentsMargins(0, 0, 0, 0)
         r_lay.setSpacing(8)
-        
+
         r_lay.addStretch(1)
 
         self.btn_q = HoverIconButton('fa5s.list-ul', icon_size=18)
         self.btn_q.setFixedSize(36, 36)
         self.btn_q.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.btn_q.setToolTip(tr("player.queue_title", "Kolejka odtwarzania"))
 
         vol_c = QWidget()
         vol_c.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        
+
         vol_l = QHBoxLayout(vol_c)
         vol_l.setContentsMargins(0, 0, 0, 0)
         vol_l.setSpacing(5)
@@ -209,7 +235,7 @@ class PlayerBarWidget(ClickableFrame):
         p_lay.addWidget(self.pb_left, 1)
         p_lay.addWidget(self.pb_mid, 0)
         p_lay.addWidget(self.pb_right, 1)
-        
+
         self.btn_play.clicked.connect(self.play_pause_requested.emit)
         self.btn_next.clicked.connect(self.next_requested.emit)
         self.btn_prev.clicked.connect(self.prev_requested.emit)
@@ -300,12 +326,12 @@ class PlayerBarWidget(ClickableFrame):
 
     def set_video_active(self, is_active):
         self.btn_video_toggle.set_default_color(THEME["accent"] if is_active else THEME["text_muted"])
-        
+
     def set_mute_state(self, is_muted):
         self.btn_mute.update_icon('fa5s.volume-mute' if is_muted else 'fa5s.volume-up')
-        
+
     def reset(self):
-        self.pb_t.setText("Nic nie gra")
+        self.pb_t.setText(tr("player.not_playing", "Nic nie gra"))
         self.pb_a.setText("-")
         self.pb_alb.setText("-")
         self.pb_img.set_image(None, animate=False)

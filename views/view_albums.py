@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_albums.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku albumów
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -8,6 +12,7 @@ from PySide6.QtGui import QFont
 from core.enums import MediaType
 from ui.widgets import FlowLayout
 from ui.components import MediaCard
+from core.i18n import tr
 
 from views.library_base import LibraryScrollArea
 
@@ -26,7 +31,8 @@ class AlbumsView(LibraryScrollArea):
     def load(self):
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
-        self.content_layout.addWidget(QLabel("Wszystkie Albumy", font=QFont("Sans", 24, QFont.Bold)))
+        title_txt = tr("albums.title", "Wszystkie Albumy")
+        self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
         self.album_flow = FlowLayout(spacing=25)
         self.content_layout.addLayout(self.album_flow)
         self.offset = 0
@@ -38,15 +44,21 @@ class AlbumsView(LibraryScrollArea):
         if self.is_loading:
             return
         self.is_loading = True
+
         def fetch():
             return self.main_window.repo.get_albums(self.offset, 30)
+
         def on_ready(albs):
             if albs:
                 self.content_widget.setUpdatesEnabled(False)
                 for a in albs:
                     c = MediaCard(a, MediaType.ALBUM)
                     c.clicked.connect(self.main_window._show_details)
-                    c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
+                    c.play_clicked.connect(
+                        lambda d, t: self.main_window.engine.play_list(
+                            self.main_window.repo.get_album(d.item_id).get('song', []), 0
+                        )
+                    )
                     c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     c.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     c.artist_clicked.connect(self.main_window._show_details)
@@ -59,4 +71,5 @@ class AlbumsView(LibraryScrollArea):
                     self.offset += 1
                 self.content_widget.setUpdatesEnabled(True)
             self.is_loading = False
+
         self.main_window.run_async(fetch, on_ready, page_bound=True)

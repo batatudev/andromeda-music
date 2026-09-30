@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_artists.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku wykonawców
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -8,6 +12,7 @@ from PySide6.QtGui import QFont
 from core.enums import MediaType
 from ui.widgets import FlowLayout
 from ui.components import MediaCard
+from core.i18n import tr
 
 from views.library_base import LibraryScrollArea
 
@@ -26,7 +31,8 @@ class ArtistsView(LibraryScrollArea):
     def load(self):
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
-        self.content_layout.addWidget(QLabel("Wszyscy Artyści", font=QFont("Sans", 24, QFont.Bold)))
+        title_txt = tr("artists.title", "Wszyscy Artyści")
+        self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
         self.artist_flow = FlowLayout(spacing=25)
         self.content_layout.addLayout(self.artist_flow)
         self.offset = 0
@@ -38,17 +44,23 @@ class ArtistsView(LibraryScrollArea):
         if self.is_loading:
             return
         self.is_loading = True
+
         def fetch():
             if not self.main_window.all_artists_data:
                 self.main_window.all_artists_data = self.main_window.repo.get_artists()
             return self.main_window.all_artists_data[self.offset : self.offset + 30]
+
         def on_ready(paczka):
             if paczka:
                 self.content_widget.setUpdatesEnabled(False)
                 for a in paczka:
                     c = MediaCard(a, MediaType.ARTIST)
                     c.clicked.connect(self.main_window._show_details)
-                    c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_top_songs_for_artist(d.title), 0))
+                    c.play_clicked.connect(
+                        lambda d, t: self.main_window.engine.play_list(
+                            self.main_window.repo.get_top_songs_for_artist(d.title), 0
+                        )
+                    )
                     c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     c.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     c.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
@@ -60,4 +72,5 @@ class ArtistsView(LibraryScrollArea):
                     self.offset += 1
                 self.content_widget.setUpdatesEnabled(True)
             self.is_loading = False
+
         self.main_window.run_async(fetch, on_ready, page_bound=True)

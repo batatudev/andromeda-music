@@ -1,17 +1,23 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/components/headers.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w nagłówkach widoków oraz kolejki odtwarzania
+
 import qtawesome as qta
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame,
+    QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame
 )
 from PySide6.QtCore import Qt, Signal
 
 from config import THEME
 from ui.widgets import RoundedImage
+from core.i18n import tr
 
 class MediaHeader(QFrame):
     play_clicked = Signal()
+
     def __init__(self, title, stats_text):
         super().__init__()
         self.setFixedHeight(280)
@@ -21,7 +27,12 @@ class MediaHeader(QFrame):
         self.bg_label.setScaledContents(True)
 
         self.overlay = QLabel(self)
-        self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba({THEME['bg_main_rgb']},100), stop:0.5 rgba({THEME['bg_main_rgb']},180), stop:1 {THEME['bg_main']});")
+        self.overlay.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            f"stop:0 rgba({THEME['bg_main_rgb']},100), "
+            f"stop:0.5 rgba({THEME['bg_main_rgb']},180), "
+            f"stop:1 {THEME['bg_main']});"
+        )
 
         l = QHBoxLayout(self)
         l.setContentsMargins(35, 35, 35, 35)
@@ -36,21 +47,31 @@ class MediaHeader(QFrame):
         self.title_lbl = QLabel(title)
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setMinimumHeight(70)
-        self.title_lbl.setStyleSheet(f"font-size: 48px; font-weight: bold; color: {THEME['text_main']}; background: transparent; margin-bottom: 5px;")
+        self.title_lbl.setStyleSheet(
+            f"font-size: 48px; font-weight: bold; color: {THEME['text_main']}; "
+            f"background: transparent; margin-bottom: 5px;"
+        )
 
         bl = QHBoxLayout()
         bl.setSpacing(15)
         bl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        bs = f"QPushButton {{ background: {THEME['play_bg']}; color: {THEME['play_color']}; font-weight: bold; padding: 10px 25px; border-radius: 22px; font-size: 15px; border: none; }} QPushButton:hover {{ background: {THEME['accent']}; color: white; }}"
+        bs = (
+            f"QPushButton {{ background: {THEME['play_bg']}; color: {THEME['play_color']}; "
+            f"font-weight: bold; padding: 10px 25px; border-radius: 22px; font-size: 15px; border: none; }} "
+            f"QPushButton:hover {{ background: {THEME['accent']}; color: white; }}"
+        )
 
-        self.btn_play = QPushButton(qta.icon('fa5s.play', color=THEME['play_color']), " Odtwarzaj")
+        play_txt = tr("player.play", "Odtwarzaj")
+        self.btn_play = QPushButton(qta.icon('fa5s.play', color=THEME['play_color']), f" {play_txt}")
         self.btn_play.setStyleSheet(bs)
         self.btn_play.setCursor(Qt.PointingHandCursor)
         self.btn_play.clicked.connect(self.play_clicked.emit)
 
         self.stats_lbl = QLabel(stats_text)
-        self.stats_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px; background: transparent; margin-left: 10px;")
+        self.stats_lbl.setStyleSheet(
+            f"color: {THEME['text_muted']}; font-size: 14px; background: transparent; margin-left: 10px;"
+        )
 
         bl.addWidget(self.btn_play)
         bl.addWidget(self.stats_lbl)
@@ -58,11 +79,10 @@ class MediaHeader(QFrame):
 
         v.addWidget(self.title_lbl)
         v.addSpacing(10)
-        v_layout = v
-        v_layout.addLayout(bl)
-        v_layout.addStretch()
+        v.addLayout(bl)
+        v.addStretch()
 
-        l.addLayout(v_layout)
+        l.addLayout(v)
         l.addStretch()
 
     def resizeEvent(self, e):
@@ -91,7 +111,12 @@ class QueueHeader(QFrame):
         self.bg_label.setScaledContents(True)
 
         self.overlay = QLabel(self)
-        self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba({THEME['bg_main_rgb']},100), stop:0.5 rgba({THEME['bg_main_rgb']},180), stop:1 {THEME['bg_main']}); border-radius: 15px;")
+        self.overlay.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            f"stop:0 rgba({THEME['bg_main_rgb']},100), "
+            f"stop:0.5 rgba({THEME['bg_main_rgb']},180), "
+            f"stop:1 {THEME['bg_main']}); border-radius: 15px;"
+        )
 
         l = QHBoxLayout(self)
         l.setContentsMargins(35, 35, 35, 35)
@@ -104,33 +129,52 @@ class QueueHeader(QFrame):
         v.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
 
         self.sub_lbl = QLabel(subtitle)
-        self.sub_lbl.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {THEME['accent']}; letter-spacing: 2px; background: transparent;")
+        self.sub_lbl.setStyleSheet(
+            f"font-size: 12px; font-weight: bold; color: {THEME['accent']}; letter-spacing: 2px; background: transparent;"
+        )
 
         self.title_lbl = QLabel(title)
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setMinimumHeight(75)
-        self.title_lbl.setStyleSheet(f"font-size: 48px; font-weight: bold; color: {THEME['text_main']}; background: transparent; margin-bottom: 10px;")
+        self.title_lbl.setStyleSheet(
+            f"font-size: 48px; font-weight: bold; color: {THEME['text_main']}; "
+            f"background: transparent; margin-bottom: 10px;"
+        )
 
         bl = QHBoxLayout()
         bl.setSpacing(15)
         bl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        bs_play = f"QPushButton {{ background: {THEME['play_bg']}; color: {THEME['play_color']}; font-weight: bold; padding: 10px 25px; border-radius: 22px; font-size: 15px; border: none; }} QPushButton:hover {{ background: {THEME['accent']}; color: white; }} QPushButton:disabled {{ background: {THEME['btn_hover_bg']}; color: {THEME['text_muted']}; }}"
-        bs_other = f"QPushButton {{ background: {THEME['btn_hover_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 10px 20px; border-radius: 22px; font-size: 14px; border: none; }} QPushButton:hover {{ background: {THEME['border']}; }} QPushButton:disabled {{ color: {THEME['text_muted']}; }}"
+        bs_play = (
+            f"QPushButton {{ background: {THEME['play_bg']}; color: {THEME['play_color']}; "
+            f"font-weight: bold; padding: 10px 25px; border-radius: 22px; font-size: 15px; border: none; }} "
+            f"QPushButton:hover {{ background: {THEME['accent']}; color: white; }} "
+            f"QPushButton:disabled {{ background: {THEME['btn_hover_bg']}; color: {THEME['text_muted']}; }}"
+        )
+        bs_other = (
+            f"QPushButton {{ background: {THEME['btn_hover_bg']}; color: {THEME['text_main']}; "
+            f"font-weight: bold; padding: 10px 20px; border-radius: 22px; font-size: 14px; border: none; }} "
+            f"QPushButton:hover {{ background: {THEME['border']}; }} "
+            f"QPushButton:disabled {{ color: {THEME['text_muted']}; }}"
+        )
 
-        self.btn_play = QPushButton(qta.icon('fa5s.play', color=THEME["play_color"]), " Odtwarzaj")
+        play_txt = tr("player.play", "Odtwarzaj")
+        shuffle_txt = tr("player.shuffle", "Losuj")
+        clear_txt = tr("player.clear", "Wyczyść")
+
+        self.btn_play = QPushButton(qta.icon('fa5s.play', color=THEME["play_color"]), f" {play_txt}")
         self.btn_play.setStyleSheet(bs_play)
         self.btn_play.setCursor(Qt.PointingHandCursor)
         self.btn_play.setFixedHeight(44)
         self.btn_play.clicked.connect(self.play_clicked.emit)
 
-        self.btn_shuffle = QPushButton(qta.icon('fa5s.random', color=THEME["text_main"]), " Losuj")
+        self.btn_shuffle = QPushButton(qta.icon('fa5s.random', color=THEME["text_main"]), f" {shuffle_txt}")
         self.btn_shuffle.setStyleSheet(bs_other)
         self.btn_shuffle.setCursor(Qt.PointingHandCursor)
         self.btn_shuffle.setFixedHeight(44)
         self.btn_shuffle.clicked.connect(self.shuffle_clicked.emit)
 
-        self.btn_clear = QPushButton(qta.icon('fa5s.trash-alt', color=THEME["text_main"]), " Wyczyść")
+        self.btn_clear = QPushButton(qta.icon('fa5s.trash-alt', color=THEME["text_main"]), f" {clear_txt}")
         self.btn_clear.setStyleSheet(bs_other)
         self.btn_clear.setCursor(Qt.PointingHandCursor)
         self.btn_clear.setFixedHeight(44)
@@ -151,10 +195,14 @@ class QueueHeader(QFrame):
 
     def set_empty_state(self, is_empty):
         if is_empty:
-            self.title_lbl.setText("Twoja kolejka jest pusta")
-            self.sub_lbl.setText("KOLEJKA ODTWARZANIA")
+            empty_title = tr("player.empty_queue", "Twoja kolejka jest pusta")
+            queue_subtitle = tr("player.queue_title", "Kolejka odtwarzania").upper()
+            self.title_lbl.setText(empty_title)
+            self.sub_lbl.setText(queue_subtitle)
             self.bg_label.clear()
-            self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1a1a1a, stop:1 {THEME['bg_main']}); border-radius: 15px;")
+            self.overlay.setStyleSheet(
+                f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1a1a1a, stop:1 {THEME['bg_main']}); border-radius: 15px;"
+            )
             self.btn_play.setEnabled(False)
             self.btn_play.setIcon(qta.icon('fa5s.play', color=THEME['text_muted']))
             self.btn_shuffle.setEnabled(False)
@@ -169,7 +217,12 @@ class QueueHeader(QFrame):
             self.btn_shuffle.setIcon(qta.icon('fa5s.random', color=THEME['text_main']))
             self.btn_clear.setEnabled(True)
             self.btn_clear.setIcon(qta.icon('fa5s.trash-alt', color=THEME['text_main']))
-            self.overlay.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba({THEME['bg_main_rgb']},100), stop:0.5 rgba({THEME['bg_main_rgb']},180), stop:1 {THEME['bg_main']}); border-radius: 15px;")
+            self.overlay.setStyleSheet(
+                f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+                f"stop:0 rgba({THEME['bg_main_rgb']},100), "
+                f"stop:0.5 rgba({THEME['bg_main_rgb']},180), "
+                f"stop:1 {THEME['bg_main']}); border-radius: 15px;"
+            )
 
     def resizeEvent(self, e):
         self.bg_label.resize(self.size())

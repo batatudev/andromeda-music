@@ -1,7 +1,11 @@
 import os
-import sys
-
 os.environ["QT_API"] = "pyside6"
+
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/settings/tab_video.py
+# OPIS ZMIAN: Oczyszczenie etykiet z dopisków w nawiasach oraz pełne wdrożenie i18n przez tr()
+
+import sys
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
@@ -10,6 +14,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer
 
 from config import APP_CONFIG, save_config, THEME
+from core.i18n import tr
 
 class TabVideo(QWidget):
     def __init__(self, settings_view):
@@ -22,18 +27,27 @@ class TabVideo(QWidget):
 
         video_group = QFrame()
         video_group.setObjectName("SettingsCard")
-        video_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
+        video_group.setStyleSheet(
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}"
+        )
         video_layout = QVBoxLayout(video_group)
 
-        lbl_v_title = QLabel("Teledyski")
-        lbl_v_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 5px; background: transparent;")
+        lbl_v_title = QLabel(tr("settings.video.header", "Teledyski"))
+        lbl_v_title.setStyleSheet(
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 5px; background: transparent;"
+        )
         video_layout.addWidget(lbl_v_title)
 
-        lbl_v_hint = QLabel("Zapisz ustawienia, aby zastosować filtry wizualne natychmiast. Ustawienia rozdzielczości będą aktywne od następnego utworu.")
-        lbl_v_hint.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 12px; margin-bottom: 15px; background: transparent;")
+        lbl_v_hint = QLabel(tr("settings.video.hint", "Ustawienia rozdzielczości będą aktywne od następnego utworu."))
+        lbl_v_hint.setStyleSheet(
+            f"color: {THEME['text_muted']}; font-size: 12px; margin-bottom: 15px; background: transparent;"
+        )
         video_layout.addWidget(lbl_v_hint)
 
-        input_style = f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; border: 1px solid {THEME['border']}; border-radius: 5px; padding: 8px; height: 18px;"
+        input_style = (
+            f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; "
+            f"border: 1px solid {THEME['border']}; border-radius: 5px; padding: 8px; height: 18px;"
+        )
 
         self.combo_res = QComboBox()
         self.combo_res.addItems(["1080p", "720p", "480p", "240p"])
@@ -42,7 +56,10 @@ class TabVideo(QWidget):
         self.combo_res.setFixedWidth(350)
 
         self.combo_auto_res = QComboBox()
-        self.combo_auto_res.addItems(["Wyłączona", "Włączona (Zalecane)"])
+        self.combo_auto_res.addItems([
+            tr("settings.disabled", "Wyłączona"),
+            tr("settings.enabled", "Włączona")
+        ])
         self.combo_auto_res.setCurrentIndex(1 if APP_CONFIG.get("video_auto_res", True) else 0)
         self.combo_auto_res.setStyleSheet(input_style)
         self.combo_auto_res.setFixedWidth(350)
@@ -65,9 +82,9 @@ class TabVideo(QWidget):
             r.addStretch()
             parent_layout.addLayout(r)
 
-        add_row(video_layout, "Rozdzielczość bazy:", self.combo_res)
-        add_row(video_layout, "Automatyczna (ARF):", self.combo_auto_res)
-        add_row(video_layout, "Minimalna jakość (ARF):", self.combo_min_res)
+        add_row(video_layout, tr("settings.video.res", "Domyślna rozdzielczość:"), self.combo_res)
+        add_row(video_layout, tr("settings.video.arf", "Adaptacyjna jakość (ARF):"), self.combo_auto_res)
+        add_row(video_layout, tr("settings.video.min_res", "Minimalna rozdzielczość:"), self.combo_min_res)
 
         slider_style = f"""
             QSlider {{ background: transparent; }}
@@ -113,25 +130,31 @@ class TabVideo(QWidget):
 
             parent_layout.addLayout(lay)
 
-        lbl_v_dyn = QLabel("Profil: Teledysk")
-        lbl_v_dyn.setStyleSheet(f"font-weight: bold; color: {THEME['accent']}; margin-top: 10px; margin-bottom: 5px; background: transparent;")
+        lbl_v_dyn = QLabel(tr("settings.video.profile_dynamic", "Teledysk (Wideo)"))
+        lbl_v_dyn.setStyleSheet(
+            f"font-weight: bold; color: {THEME['accent']}; margin-top: 10px; margin-bottom: 5px; background: transparent;"
+        )
         video_layout.addWidget(lbl_v_dyn)
 
-        add_slider(video_layout, "Przyciemnienie:", "video_dynamic_opacity", True)
-        add_slider(video_layout, "Rozmycie wideo:", "video_dynamic_blur", False)
+        add_slider(video_layout, tr("settings.video.opacity", "Przyciemnienie:"), "video_dynamic_opacity", True)
+        add_slider(video_layout, tr("settings.video.blur", "Rozmycie:"), "video_dynamic_blur", False)
 
-        lbl_v_stat = QLabel("Profil: Statyczny")
-        lbl_v_stat.setStyleSheet(f"font-weight: bold; color: {THEME['accent']}; margin-top: 15px; margin-bottom: 5px; background: transparent;")
+        lbl_v_stat = QLabel(tr("settings.video.profile_static", "Tło statyczne (Okładka)"))
+        lbl_v_stat.setStyleSheet(
+            f"font-weight: bold; color: {THEME['accent']}; margin-top: 15px; margin-bottom: 5px; background: transparent;"
+        )
         video_layout.addWidget(lbl_v_stat)
 
-        add_slider(video_layout, "Przyciemnienie:", "video_static_opacity", True)
-        add_slider(video_layout, "Rozmycie wideo:", "video_static_blur", False)
+        add_slider(video_layout, tr("settings.video.opacity", "Przyciemnienie:"), "video_static_opacity", True)
+        add_slider(video_layout, tr("settings.video.blur", "Rozmycie:"), "video_static_blur", False)
 
         self.lbl_v_status = QLabel("")
         self.lbl_v_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent;")
 
-        btn_save_video = QPushButton("Zapisz Ustawienia Wideo")
-        btn_save_video.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_save_video = QPushButton(tr("settings.save", "Zapisz"))
+        btn_save_video.setStyleSheet(
+            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;"
+        )
         btn_save_video.setCursor(Qt.PointingHandCursor)
         btn_save_video.clicked.connect(self._save_v_conf)
 
@@ -169,5 +192,5 @@ class TabVideo(QWidget):
         self.settings_view._initial_settings["video_static_opacity"] = APP_CONFIG["video_static_opacity"]
         self.settings_view._initial_settings["video_static_blur"] = APP_CONFIG["video_static_blur"]
 
-        self.lbl_v_status.setText("Zapisano pomyślnie")
+        self.lbl_v_status.setText(tr("settings.saved", "Zapisano ustawienia"))
         QTimer.singleShot(3000, self, self._clear_status_text)

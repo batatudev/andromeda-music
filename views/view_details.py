@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_details.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku szczegółów albumów, playlist i wykonawców
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 )
@@ -13,6 +17,7 @@ from utils import MediaItem
 from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer
 from ui.components import SongItem, MediaCard, MediaHeader
+from core.i18n import tr
 
 from views.library_base import LibraryScrollArea
 
@@ -48,7 +53,7 @@ class DetailsView(LibraryScrollArea):
 
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
-        loading = QLabel("Wczytywanie...")
+        loading = QLabel(tr("common.loading", "Wczytywanie..."))
         loading.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(loading)
         self.content_layout.addStretch()
@@ -67,21 +72,22 @@ class DetailsView(LibraryScrollArea):
                     return (MediaType.PLAYLIST, {})
             else:
                 art = self.main_window.repo.get_artist(d.get('id'))
-                if not art: return None
+                if not art:
+                    return None
                 songs = self.main_window.repo.get_top_songs_for_artist(art.title)
                 if len(songs) < 20:
                     ids = {s.item_id for s in songs}
-                    for a in art.get('album',[]):
+                    for a in art.get('album', []):
                         if len(songs) >= 100:
                             break
                         alb_data = self.main_window.repo.get_album(a.item_id)
                         if alb_data:
-                            for ns in alb_data.get('song',[]):
+                            for ns in alb_data.get('song', []):
                                 if ns.item_id not in ids:
                                     songs.append(ns)
                                     ids.add(ns.item_id)
                 random.shuffle(songs)
-                return (MediaType.ARTIST, art, art.get('album',[]), songs)
+                return (MediaType.ARTIST, art, art.get('album', []), songs)
 
         def on_ready(data):
             if not data:
@@ -90,17 +96,19 @@ class DetailsView(LibraryScrollArea):
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
 
+            tracks_label = tr("menu.tracks", "utworów").lower()
+
             if data[0] == MediaType.PLAYLIST:
                 pl = data[1]
                 self.current_playlist_id = pl.get('id')
                 self.current_playlist_name = pl.get('name', 'Unknown')
 
-                songs = pl.get('entry',[])
+                songs = pl.get('entry', [])
                 if not songs:
-                    songs = pl.get('song',[])
+                    songs = pl.get('song', [])
                 songs = [MediaItem(s) for s in songs]
                 self.current_playlist_songs = list(songs)
-                stats_text = f"{len(songs)} utworów"
+                stats_text = f"{len(songs)} {tracks_label}"
 
                 h = MediaHeader(pl.get('name', 'Unknown'), stats_text)
                 h.play_clicked.connect(lambda: self.main_window.engine.play_list(songs, 0))
@@ -119,7 +127,9 @@ class DetailsView(LibraryScrollArea):
                     item.clicked.connect(lambda song, idx=i, sl=songs: self.main_window.engine.play_list(sl, idx))
                     item.fav_clicked.connect(self.main_window._handle_song_fav)
                     item.add_to_queue_clicked.connect(self.main_window.engine.add_to_queue)
-                    item.remove_from_playlist_clicked.connect(lambda s_d, idx=i: self._remove_from_playlist(s_d, idx))
+                    item.remove_from_playlist_clicked.connect(
+                        lambda s_d, idx=i: self._remove_from_playlist(s_d, idx)
+                    )
                     item.artist_clicked.connect(self.main_window._show_details)
                     item.album_clicked.connect(self.main_window._show_details)
                     item.set_custom_cover_clicked.connect(self.main_window._set_custom_album_cover)
@@ -132,11 +142,11 @@ class DetailsView(LibraryScrollArea):
 
             elif data[0] == MediaType.ALBUM:
                 alb = data[1]
-                songs = alb.get('song',[])
+                songs = alb.get('song', [])
                 art_name = alb.artist
                 year = alb.get('year')
                 yr_str = f"  •  {year}" if year else ""
-                stats_text = f"{art_name}  •  {len(songs)} utworów{yr_str}"
+                stats_text = f"{art_name}  •  {len(songs)} {tracks_label}{yr_str}"
 
                 h = MediaHeader(alb.title, stats_text)
                 h.play_clicked.connect(lambda: self.main_window.engine.play_list(songs, 0))
@@ -168,17 +178,21 @@ class DetailsView(LibraryScrollArea):
                         self.main_window.loader.load(self.main_window.client.get_cover_art_url(item_cid), item)
             else:
                 _, art, albs, songs = data
-                h = MediaHeader(art.title, f"{len(albs)} albumów  •  {len(songs)} utworów")
+                albums_label = tr("menu.albums", "albumów").lower()
+                h = MediaHeader(art.title, f"{len(albs)} {albums_label}  •  {len(songs)} {tracks_label}")
                 h.play_clicked.connect(lambda: self.main_window.engine.play_list(songs, 0))
                 if art.cover_id:
                     self.main_window.loader.load(self.main_window.client.get_cover_art_url(art.cover_id), h)
                 self.content_layout.addWidget(h)
 
+                more_txt = "Więcej"
+                less_txt = "Mniej"
+
                 if albs:
                     hl = QHBoxLayout()
-                    hl.addWidget(QLabel("Albumy", font=QFont("Sans", 24, QFont.Bold)))
+                    hl.addWidget(QLabel(tr("menu.albums", "Albumy"), font=QFont("Sans", 24, QFont.Bold)))
                     hl.addStretch()
-                    btn_toggle_a = QPushButton("Więcej")
+                    btn_toggle_a = QPushButton(more_txt)
                     btn_toggle_a.setStyleSheet(f"background:transparent; color:{THEME['accent']}; font-weight:bold;")
                     btn_toggle_a.setCursor(Qt.PointingHandCursor)
                     if len(albs) > 6:
@@ -196,7 +210,11 @@ class DetailsView(LibraryScrollArea):
                         for i, a in enumerate(albs[:limit]):
                             c = MediaCard(a, MediaType.ALBUM)
                             c.clicked.connect(self.main_window._show_details)
-                            c.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
+                            c.play_clicked.connect(
+                                lambda d, t: self.main_window.engine.play_list(
+                                    self.main_window.repo.get_album(d.item_id).get('song', []), 0
+                                )
+                            )
                             c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                             c.download_videos_clicked.connect(self.main_window._handle_download_videos)
                             c.artist_clicked.connect(self.main_window._show_details)
@@ -208,16 +226,23 @@ class DetailsView(LibraryScrollArea):
                                 self.main_window.loader.load(self.main_window.client.get_cover_art_url(a.cover_id), c)
                         self.content_widget.setUpdatesEnabled(True)
 
-                    btn_toggle_a.clicked.connect(lambda: (btn_toggle_a.setText("Mniej" if btn_toggle_a.text() == "Więcej" else "Więcej"), build_a(btn_toggle_a.text() == "Mniej")))
+                    btn_toggle_a.clicked.connect(
+                        lambda: (
+                            btn_toggle_a.setText(less_txt if btn_toggle_a.text() == more_txt else more_txt),
+                            build_a(btn_toggle_a.text() == less_txt)
+                        )
+                    )
                     build_a(False)
                     self.content_layout.addWidget(gc)
 
                 if songs:
                     hls = QHBoxLayout()
-                    hls.addWidget(QLabel("Utwory", font=QFont("Sans", 24, QFont.Bold)))
+                    hls.addWidget(QLabel(tr("menu.tracks", "Utwory"), font=QFont("Sans", 24, QFont.Bold)))
                     hls.addStretch()
-                    btn_more_s = QPushButton("Więcej")
-                    btn_more_s.setStyleSheet(f"background:transparent; color:{THEME['accent']}; font-weight:bold; margin-top:40px;")
+                    btn_more_s = QPushButton(more_txt)
+                    btn_more_s.setStyleSheet(
+                        f"background:transparent; color:{THEME['accent']}; font-weight:bold; margin-top:40px;"
+                    )
                     btn_more_s.setCursor(Qt.PointingHandCursor)
                     if len(songs) > 10:
                         hls.addWidget(btn_more_s)
@@ -248,9 +273,15 @@ class DetailsView(LibraryScrollArea):
                                 self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), item)
                         self.content_widget.setUpdatesEnabled(True)
 
-                    btn_more_s.clicked.connect(lambda: (btn_more_s.setText("Mniej" if btn_more_s.text() == "Więcej" else "Więcej"), build_s(btn_more_s.text() == "Mniej")))
+                    btn_more_s.clicked.connect(
+                        lambda: (
+                            btn_more_s.setText(less_txt if btn_more_s.text() == more_txt else more_txt),
+                            build_s(btn_more_s.text() == less_txt)
+                        )
+                    )
                     build_s(False)
                     self.content_layout.addWidget(sc)
+
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
 
@@ -259,16 +290,21 @@ class DetailsView(LibraryScrollArea):
     def _remove_from_playlist(self, song, idx):
         if not self.current_playlist_id:
             return
+
         def on_ready(res):
             self.load({"id": self.current_playlist_id, "name": self.current_playlist_name}, MediaType.PLAYLIST)
-        self.main_window.run_async(lambda: self.main_window.client.update_playlist(self.current_playlist_id, song_index_to_remove=idx), on_ready)
+
+        self.main_window.run_async(
+            lambda: self.main_window.client.update_playlist(self.current_playlist_id, song_index_to_remove=idx),
+            on_ready
+        )
 
     def _handle_playlist_drop(self, old_idx, drop_y):
         if not self.current_playlist_id or not self.current_playlist_songs:
             return
 
         layout = self.content_layout
-        song_widgets =[]
+        song_widgets = []
         for i in range(layout.count()):
             item = layout.itemAt(i)
             if item.widget() and isinstance(item.widget(), SongItem):
@@ -288,7 +324,12 @@ class DetailsView(LibraryScrollArea):
             target_pl_idx -= 1
         self.current_playlist_songs.insert(target_pl_idx, song)
 
-        song_ids =[s.item_id for s in self.current_playlist_songs]
+        song_ids = [s.item_id for s in self.current_playlist_songs]
+
         def on_ready(res):
             self.load({"id": self.current_playlist_id, "name": self.current_playlist_name}, MediaType.PLAYLIST)
-        self.main_window.run_async(lambda: self.main_window.client.replace_playlist(self.current_playlist_id, song_ids), on_ready)
+
+        self.main_window.run_async(
+            lambda: self.main_window.client.replace_playlist(self.current_playlist_id, song_ids),
+            on_ready
+        )

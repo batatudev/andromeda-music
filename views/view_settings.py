@@ -1,6 +1,11 @@
 import os
-import sys
 os.environ["QT_API"] = "pyside6"
+
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_settings.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w głównym nagłówku oraz nazwach zakładek
+
+import sys
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QPushButton
@@ -8,6 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from config import APP_CONFIG, THEME
+from core.i18n import tr
 
 from views.settings.tab_server import TabServer
 from views.settings.tab_theme import TabTheme
@@ -38,8 +44,10 @@ class SettingsView(QWidget):
         center_lay.setSpacing(20)
 
         header_lay = QHBoxLayout()
-        lbl_title = QLabel("Ustawienia")
-        lbl_title.setStyleSheet(f"font-size: 32px; font-weight: bold; color: {THEME['text_main']}; background: transparent;")
+        lbl_title = QLabel(tr("settings.title", "Ustawienia"))
+        lbl_title.setStyleSheet(
+            f"font-size: 32px; font-weight: bold; color: {THEME['text_main']}; background: transparent;"
+        )
         header_lay.addWidget(lbl_title)
 
         lbl_version = QLabel("Andromeda Music")
@@ -61,11 +69,11 @@ class SettingsView(QWidget):
         self.tab_dev = TabDev(self)
 
         tabs_info = [
-            ("Serwer", self.tab_server),
-            ("Wygląd", self.tab_theme),
-            ("Wideo", self.tab_video),
-            ("Pobieranie", self.tab_offline),
-            ("Deweloper", self.tab_dev)
+            (tr("settings.tab_server", "Serwer"), self.tab_server),
+            (tr("settings.tab_theme", "Wygląd"), self.tab_theme),
+            (tr("settings.tab_video", "Wideo"), self.tab_video),
+            (tr("settings.tab_offline", "Pobieranie"), self.tab_offline),
+            (tr("settings.tab_dev", "Deweloper"), self.tab_dev)
         ]
 
         for i, (name, tab_widget) in enumerate(tabs_info):
@@ -180,8 +188,9 @@ class SettingsView(QWidget):
 
             v_cnt = len(APP_CONFIG.get("video_auto_dl_playlists", []))
             a_cnt = len(APP_CONFIG.get("audio_auto_dl_playlists", []))
-            self.tab_offline.btn_auto_pl.setText(f"Wybierz playlisty... ({v_cnt} wybrano)")
-            self.tab_offline.btn_audio_auto_pl.setText(f"Wybierz playlisty... ({a_cnt} wybrano)")
+            prefix = tr("settings.offline.select_playlists", "Wybierz playlisty...")
+            self.tab_offline.btn_auto_pl.setText(f"{prefix} ({v_cnt})")
+            self.tab_offline.btn_audio_auto_pl.setText(f"{prefix} ({a_cnt})")
 
         if hasattr(self, 'tab_dev'):
             self.tab_dev.combo_dev.setCurrentIndex(1 if APP_CONFIG.get("dev_mode", False) else 0)

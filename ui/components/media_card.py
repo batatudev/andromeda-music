@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/components/media_card.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w menu kontekstowym kafelków mediów
+
 import qtawesome as qta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFrame, QMenu
@@ -11,6 +15,7 @@ from PySide6.QtGui import QAction
 from config import THEME
 from ui.widgets import RoundedImage, ClickableElidedLabel, ElidedLabel, get_cached_icon
 from core.enums import MediaType
+from core.i18n import tr
 
 class MediaCard(QFrame):
     clicked = Signal(object, str)
@@ -46,11 +51,15 @@ class MediaCard(QFrame):
 
         self.overlay = QFrame(self.img_container)
         self.overlay.setObjectName("CardOverlay")
-        self.overlay.setStyleSheet(f"border-radius: {self.radius}px; background-color: rgba(0,0,0,0.55); border: none;")
+        self.overlay.setStyleSheet(
+            f"border-radius: {self.radius}px; background-color: rgba(0,0,0,0.55); border: none;"
+        )
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.overlay.hide()
 
-        self.play_btn = QPushButton(get_cached_icon('fa5s.play', color=THEME["play_color"]), "", self.img_container)
+        self.play_btn = QPushButton(
+            get_cached_icon('fa5s.play', color=THEME["play_color"]), "", self.img_container
+        )
         self.play_btn.setObjectName("CardPlayBtn")
         self.play_btn.setFixedSize(46, 46)
         self.play_btn.setIconSize(QSize(20, 20))
@@ -60,7 +69,12 @@ class MediaCard(QFrame):
         self.title_lbl = ElidedLabel(data.title)
         self.title_lbl.setObjectName("CardTitle")
 
-        self.artist_lbl = ClickableElidedLabel(data.artist, default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="13px")
+        self.artist_lbl = ClickableElidedLabel(
+            data.artist,
+            default_color=THEME["text_muted"],
+            hover_color=THEME["text_main"],
+            font_size="13px"
+        )
 
         if type_str == MediaType.ALBUM:
             self.artist_lbl.clicked.connect(self._on_artist_click)
@@ -116,56 +130,100 @@ class MediaCard(QFrame):
             }}
         """)
 
-        act_play = QAction(qta.icon('fa5s.play', color=THEME['text_main']), "Odtwórz", self)
+        act_play = QAction(
+            qta.icon('fa5s.play', color=THEME['text_main']),
+            tr("context.play", "Odtwórz"),
+            self
+        )
         act_play.triggered.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
         menu.addAction(act_play)
 
-        act_queue = QAction(qta.icon('fa5s.plus', color=THEME['text_main']), "Dodaj do kolejki", self)
+        act_queue = QAction(
+            qta.icon('fa5s.plus', color=THEME['text_main']),
+            tr("context.add_queue", "Dodaj do kolejki"),
+            self
+        )
         act_queue.triggered.connect(lambda: self.add_to_queue_clicked.emit(self.data, self.type_str))
         menu.addAction(act_queue)
 
         if self.type_str == MediaType.ALBUM:
             menu.addSeparator()
-            act_artist = QAction(qta.icon('fa5s.user', color=THEME['text_main']), "Przejdź do wykonawcy", self)
+            act_artist = QAction(
+                qta.icon('fa5s.user', color=THEME['text_main']),
+                tr("context.go_artist", "Przejdź do wykonawcy"),
+                self
+            )
             act_artist.triggered.connect(self._on_artist_click)
             menu.addAction(act_artist)
-            
-            act_dl_videos = QAction(qta.icon('fa5s.video', color=THEME['text_main']), "Pobierz teledyski offline", self)
+
+            act_dl_videos = QAction(
+                qta.icon('fa5s.video', color=THEME['text_main']),
+                tr("context.download_video", "Pobierz teledysk"),
+                self
+            )
             act_dl_videos.triggered.connect(lambda: self.download_videos_clicked.emit(self.data, self.type_str))
             menu.addAction(act_dl_videos)
-            
+
             menu.addSeparator()
-            
-            act_custom_cov = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własną okładkę", self)
+
+            act_custom_cov = QAction(
+                qta.icon('fa5s.image', color=THEME['text_main']),
+                tr("context.custom_cover", "Ustaw własną okładkę"),
+                self
+            )
             act_custom_cov.triggered.connect(lambda: self.set_custom_cover_clicked.emit(self.data, self.type_str))
             menu.addAction(act_custom_cov)
-            
-            act_reset_cov = QAction(qta.icon('fa5s.undo', color=THEME['text_main']), "Przywróć domyślną", self)
+
+            act_reset_cov = QAction(
+                qta.icon('fa5s.undo', color=THEME['text_main']),
+                tr("context.reset_cover", "Przywróć domyślną"),
+                self
+            )
             act_reset_cov.triggered.connect(lambda: self.reset_custom_cover_clicked.emit(self.data, self.type_str))
             menu.addAction(act_reset_cov)
 
-            act_save_cov = QAction(qta.icon('fa5s.download', color=THEME['text_main']), "Zapisz okładkę do pliku", self)
+            act_save_cov = QAction(
+                qta.icon('fa5s.download', color=THEME['text_main']),
+                tr("context.save_cover", "Zapisz okładkę do pliku"),
+                self
+            )
             act_save_cov.triggered.connect(lambda: self.save_image_clicked.emit(self.data, self.type_str))
             menu.addAction(act_save_cov)
-            
+
         if self.type_str == MediaType.ARTIST:
             menu.addSeparator()
-            
-            act_dl_videos = QAction(qta.icon('fa5s.video', color=THEME['text_main']), "Pobierz teledyski offline", self)
+
+            act_dl_videos = QAction(
+                qta.icon('fa5s.video', color=THEME['text_main']),
+                tr("context.download_video", "Pobierz teledysk"),
+                self
+            )
             act_dl_videos.triggered.connect(lambda: self.download_videos_clicked.emit(self.data, self.type_str))
             menu.addAction(act_dl_videos)
-            
+
             menu.addSeparator()
-            
-            act_custom_img = QAction(qta.icon('fa5s.image', color=THEME['text_main']), "Ustaw własne zdjęcie", self)
+
+            act_custom_img = QAction(
+                qta.icon('fa5s.image', color=THEME['text_main']),
+                tr("context.custom_artist_img", "Ustaw własne zdjęcie"),
+                self
+            )
             act_custom_img.triggered.connect(lambda: self.set_custom_image_clicked.emit(self.data, self.type_str))
             menu.addAction(act_custom_img)
 
-            act_reset_img = QAction(qta.icon('fa5s.undo', color=THEME['text_main']), "Przywróć domyślne", self)
+            act_reset_img = QAction(
+                qta.icon('fa5s.undo', color=THEME['text_main']),
+                tr("context.reset_cover", "Przywróć domyślną"),
+                self
+            )
             act_reset_img.triggered.connect(lambda: self.reset_custom_image_clicked.emit(self.data, self.type_str))
             menu.addAction(act_reset_img)
 
-            act_save_img = QAction(qta.icon('fa5s.download', color=THEME['text_main']), "Zapisz zdjęcie do pliku", self)
+            act_save_img = QAction(
+                qta.icon('fa5s.download', color=THEME['text_main']),
+                tr("context.save_cover", "Zapisz okładkę do pliku"),
+                self
+            )
             act_save_img.triggered.connect(lambda: self.save_image_clicked.emit(self.data, self.type_str))
             menu.addAction(act_save_img)
 

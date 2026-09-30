@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_downloads.py
+# OPIS ZMIAN: Naprawa gramatyki, oczyszczenie etykiet z krzyku i wdrożenie pełnego i18n przez tr()
+
 import qtawesome as qta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
@@ -10,6 +14,7 @@ from PySide6.QtCore import Qt
 from config import THEME, APP_CONFIG
 from ui.widgets import CollapsibleSection
 from ui.components import DownloadItemWidget
+from core.i18n import tr
 
 class DownloadsView(QWidget):
     """
@@ -27,13 +32,15 @@ class DownloadsView(QWidget):
 
         header_lay = QHBoxLayout()
         title_lay = QVBoxLayout()
-        title_lbl = QLabel("Menadżer Pobrania")
+        title_lbl = QLabel(tr("downloads.title", "Pobrane"))
         title_lbl.setStyleSheet(f"font-size: 28px; font-weight: bold; color: {THEME['text_main']};")
 
-        self.total_size_lbl = QLabel("Zajęte miejsce: 0 MB")
+        self.total_size_lbl = QLabel(f"{tr('downloads.storage', 'Zajęte miejsce:')} 0 MB")
         self.total_size_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_muted']};")
 
-        self.stats_lbl = QLabel("Wideo: 0 | Audio: 0")
+        self.stats_lbl = QLabel(
+            f"{tr('downloads.stats_audio', 'Audio:')} 0 | {tr('downloads.stats_video', 'Wideo:')} 0"
+        )
         self.stats_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_main']}; font-weight: bold;")
 
         title_lay.addWidget(title_lbl)
@@ -45,74 +52,117 @@ class DownloadsView(QWidget):
         header_lay.addLayout(title_lay)
         header_lay.addStretch()
 
-        btn_style = f"""
-            QToolButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }}
-            QToolButton:hover {{ background-color: {THEME['hover_card']}; }}
-            QToolButton::menu-indicator {{ image: none; }}
-        """
+        btn_style = (
+            f"QToolButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
+            f"QToolButton:hover {{ background-color: {THEME['hover_card']}; }} "
+            f"QToolButton::menu-indicator {{ image: none; }}"
+        )
 
-        menu_style = f"""
-            QMenu {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; border: 1px solid {THEME['border']}; border-radius: 6px; padding: 4px; }}
-            QMenu::item {{ padding: 8px 25px 8px 10px; border-radius: 4px; background: transparent; }}
-            QMenu::item:selected {{ background-color: {THEME['nav_bg']}; }}
-            QMenu::separator {{ height: 1px; background: {THEME['border']}; margin: 4px 10px; }}
-        """
+        menu_style = (
+            f"QMenu {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+            f"border: 1px solid {THEME['border']}; border-radius: 6px; padding: 4px; }} "
+            f"QMenu::item {{ padding: 8px 25px 8px 10px; border-radius: 4px; background: transparent; }} "
+            f"QMenu::item:selected {{ background-color: {THEME['nav_bg']}; }} "
+            f"QMenu::separator {{ height: 1px; background: {THEME['border']}; margin: 4px 10px; }}"
+        )
 
         # MENU POBIERZ WIDEO
         self.btn_dl_video = QToolButton()
-        self.btn_dl_video.setText("Pobierz Wideo...")
+        self.btn_dl_video.setText(tr("downloads.btn_video", "Pobierz wideo..."))
         self.btn_dl_video.setPopupMode(QToolButton.InstantPopup)
         self.btn_dl_video.setCursor(Qt.PointingHandCursor)
         self.btn_dl_video.setStyleSheet(btn_style)
 
         v_menu = QMenu(self)
         v_menu.setStyleSheet(menu_style)
-        v_menu.addAction(qta.icon('fa5s.heart', color='#e74c3c'), "Pobierz Ulubione", lambda: self.main_window.start_bulk_download("favorites", media_type="video"))
-        v_menu.addAction(qta.icon('fa5s.list', color='#e74c3c'), "Pobierz z Playlisty", lambda: self._show_playlist_picker("video"))
-        v_menu.addAction(qta.icon('fa5s.database', color='#e74c3c'), "Pobierz Całą Bazę", lambda: self.main_window.start_bulk_download("all", media_type="video"))
+        v_menu.addAction(
+            qta.icon('fa5s.heart', color='#e74c3c'),
+            tr("downloads.favs", "Pobierz polubione"),
+            lambda: self.main_window.start_bulk_download("favorites", media_type="video")
+        )
+        v_menu.addAction(
+            qta.icon('fa5s.list', color='#e74c3c'),
+            tr("downloads.playlist", "Pobierz z playlisty"),
+            lambda: self._show_playlist_picker("video")
+        )
+        v_menu.addAction(
+            qta.icon('fa5s.database', color='#e74c3c'),
+            tr("downloads.library", "Pobierz całą bibliotekę"),
+            lambda: self.main_window.start_bulk_download("all", media_type="video")
+        )
         self.btn_dl_video.setMenu(v_menu)
         header_lay.addWidget(self.btn_dl_video)
 
         # MENU POBIERZ AUDIO
         self.btn_dl_audio = QToolButton()
-        self.btn_dl_audio.setText("Pobierz Audio...")
+        self.btn_dl_audio.setText(tr("downloads.btn_audio", "Pobierz audio..."))
         self.btn_dl_audio.setPopupMode(QToolButton.InstantPopup)
         self.btn_dl_audio.setCursor(Qt.PointingHandCursor)
         self.btn_dl_audio.setStyleSheet(btn_style)
 
         a_menu = QMenu(self)
         a_menu.setStyleSheet(menu_style)
-        a_menu.addAction(qta.icon('fa5s.heart', color=THEME['accent']), "Pobierz Ulubione", lambda: self.main_window.start_bulk_download("favorites", media_type="audio"))
-        a_menu.addAction(qta.icon('fa5s.list', color=THEME['accent']), "Pobierz z Playlisty", lambda: self._show_playlist_picker("audio"))
-        a_menu.addAction(qta.icon('fa5s.database', color=THEME['accent']), "Pobierz Całą Bazę (Zalecane)", lambda: self.main_window.start_bulk_download("all", media_type="audio"))
+        a_menu.addAction(
+            qta.icon('fa5s.heart', color=THEME['accent']),
+            tr("downloads.favs", "Pobierz polubione"),
+            lambda: self.main_window.start_bulk_download("favorites", media_type="audio")
+        )
+        a_menu.addAction(
+            qta.icon('fa5s.list', color=THEME['accent']),
+            tr("downloads.playlist", "Pobierz z playlisty"),
+            lambda: self._show_playlist_picker("audio")
+        )
+        a_menu.addAction(
+            qta.icon('fa5s.database', color=THEME['accent']),
+            tr("downloads.library", "Pobierz całą bibliotekę"),
+            lambda: self.main_window.start_bulk_download("all", media_type="audio")
+        )
         self.btn_dl_audio.setMenu(a_menu)
         header_lay.addWidget(self.btn_dl_audio)
 
         # MENU ZARZĄDZAJ
         self.btn_manage = QToolButton()
-        self.btn_manage.setText("Zarządzaj")
+        self.btn_manage.setText(tr("downloads.btn_manage", "Zarządzaj"))
         self.btn_manage.setPopupMode(QToolButton.InstantPopup)
         self.btn_manage.setCursor(Qt.PointingHandCursor)
         self.btn_manage.setStyleSheet(btn_style)
 
         manage_menu = QMenu(self)
         manage_menu.setStyleSheet(menu_style)
-        manage_menu.addAction("Wyczyść historię (ukryj błędy)", lambda: (self.v_mgr.clear_history(), self.a_mgr.clear_history()))
-        manage_menu.addAction("Anuluj oczekujące pobierania", lambda: (self.v_mgr.cancel_all(), self.a_mgr.cancel_all()))
-        manage_menu.addAction("Usuń WSZYSTKIE pliki z dysku (Audio i Wideo)", lambda: (self.v_mgr.delete_all_files(), self.a_mgr.delete_all_files()))
+        manage_menu.addAction(
+            tr("downloads.clear_history", "Wyczyść historię"),
+            lambda: (self.v_mgr.clear_history(), self.a_mgr.clear_history())
+        )
+        manage_menu.addAction(
+            tr("downloads.cancel_pending", "Anuluj oczekujące pobierania"),
+            lambda: (self.v_mgr.cancel_all(), self.a_mgr.cancel_all())
+        )
+        manage_menu.addAction(
+            tr("downloads.delete_all", "Usuń wszystkie pobrane pliki"),
+            lambda: (self.v_mgr.delete_all_files(), self.a_mgr.delete_all_files())
+        )
         self.btn_manage.setMenu(manage_menu)
         header_lay.addWidget(self.btn_manage)
 
         # WSTRZYMANIE AUDIO
-        self.btn_snooze_audio = QPushButton("Wstrzymaj Audio")
-        self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
+        self.btn_snooze_audio = QPushButton(tr("downloads.pause_audio", "Wstrzymaj audio"))
+        self.btn_snooze_audio.setStyleSheet(
+            f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
+            f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+        )
         self.btn_snooze_audio.setCursor(Qt.PointingHandCursor)
         self.btn_snooze_audio.clicked.connect(self._toggle_snooze_audio)
         header_lay.addWidget(self.btn_snooze_audio)
 
         # WSTRZYMANIE WIDEO
-        self.btn_snooze = QPushButton("Wstrzymaj Wideo")
-        self.btn_snooze.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
+        self.btn_snooze = QPushButton(tr("downloads.pause_video", "Wstrzymaj wideo"))
+        self.btn_snooze.setStyleSheet(
+            f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
+            f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+        )
         self.btn_snooze.setCursor(Qt.PointingHandCursor)
         self.btn_snooze.clicked.connect(self._toggle_snooze)
         header_lay.addWidget(self.btn_snooze)
@@ -123,8 +173,8 @@ class DownloadsView(QWidget):
         self.items_layout.setSpacing(20)
         self.items_layout.setAlignment(Qt.AlignTop)
 
-        self.audio_section = CollapsibleSection("Muzyka (Audio)")
-        self.video_section = CollapsibleSection("Teledyski (Wideo)")
+        self.audio_section = CollapsibleSection(tr("downloads.section_audio", "Muzyka (Audio)"))
+        self.video_section = CollapsibleSection(tr("downloads.section_video", "Teledyski (Wideo)"))
 
         self.items_layout.addWidget(self.audio_section)
         self.items_layout.addWidget(self.video_section)
@@ -171,16 +221,12 @@ class DownloadsView(QWidget):
         def on_ready(playlists):
             from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QScrollArea, QWidget, QPushButton
             dlg = QDialog(self)
-            typ_txt = "WIDEO" if media_type == "video" else "AUDIO"
-            dlg.setWindowTitle(f"Wybierz playlistę ({typ_txt})")
+            typ_txt = tr("downloads.section_video", "Wideo") if media_type == "video" else tr("downloads.section_audio", "Audio")
+            dlg.setWindowTitle(f"{tr('downloads.playlist', 'Pobierz z playlisty')} ({typ_txt})")
             dlg.setFixedSize(320, 450)
             from config import get_app_style
             dlg.setStyleSheet(get_app_style())
             layout = QVBoxLayout(dlg)
-
-            lbl = QLabel("Wybierz playlistę do pobrania:")
-            lbl.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {THEME['text_main']}; margin-bottom: 10px;")
-            layout.addWidget(lbl)
 
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
@@ -192,7 +238,10 @@ class DownloadsView(QWidget):
 
             for pl in playlists:
                 btn = QPushButton(pl.get('name'))
-                btn.setStyleSheet(f"text-align: left; padding: 10px; border-radius: 5px; background: {THEME['bg_card']}; color: {THEME['text_main']}; border: none;")
+                btn.setStyleSheet(
+                    f"text-align: left; padding: 10px; border-radius: 5px; background: {THEME['bg_card']}; "
+                    f"color: {THEME['text_main']}; border: none;"
+                )
                 btn.setCursor(Qt.PointingHandCursor)
                 def make_cb(pid, pname):
                     return lambda: self._start_pl_bulk(dlg, pid, pname, media_type)
@@ -216,18 +265,32 @@ class DownloadsView(QWidget):
             return
         self._pending_reload = False
         if self.a_mgr.is_snoozed:
-            self.btn_snooze_audio.setText("Wznów Audio")
-            self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['accent']}; color: white; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}")
+            self.btn_snooze_audio.setText(tr("downloads.resume_audio", "Wznów audio"))
+            self.btn_snooze_audio.setStyleSheet(
+                f"QPushButton {{ background-color: {THEME['accent']}; color: white; "
+                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}"
+            )
         else:
-            self.btn_snooze_audio.setText("Wstrzymaj Audio")
-            self.btn_snooze_audio.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
+            self.btn_snooze_audio.setText(tr("downloads.pause_audio", "Wstrzymaj audio"))
+            self.btn_snooze_audio.setStyleSheet(
+                f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
+                f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+            )
 
         if self.v_mgr.is_snoozed:
-            self.btn_snooze.setText("Wznów Wideo")
-            self.btn_snooze.setStyleSheet(f"QPushButton {{ background-color: {THEME['accent']}; color: white; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}")
+            self.btn_snooze.setText(tr("downloads.resume_video", "Wznów wideo"))
+            self.btn_snooze.setStyleSheet(
+                f"QPushButton {{ background-color: {THEME['accent']}; color: white; "
+                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}"
+            )
         else:
-            self.btn_snooze.setText("Wstrzymaj Wideo")
-            self.btn_snooze.setStyleSheet(f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} QPushButton:hover {{ background-color: {THEME['hover_card']}; }}")
+            self.btn_snooze.setText(tr("downloads.pause_video", "Wstrzymaj wideo"))
+            self.btn_snooze.setStyleSheet(
+                f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
+                f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+            )
 
         self.audio_section.clear()
         self.video_section.clear()
@@ -239,22 +302,25 @@ class DownloadsView(QWidget):
         v_dls, v_sz = self.v_mgr.get_total_download_stats()
         a_dls, a_sz = self.a_mgr.get_total_download_stats()
 
+        storage_lbl = tr("downloads.storage", "Zajęte miejsce:")
         total_sz = v_sz + a_sz
         if total_sz > 1024 * 1024 * 1024:
-            self.total_size_lbl.setText(f"Zajęte miejsce: {total_sz / (1024**3):.2f} GB")
+            self.total_size_lbl.setText(f"{storage_lbl} {total_sz / (1024**3):.2f} GB")
         elif total_sz > 0:
-            self.total_size_lbl.setText(f"Zajęte miejsce: {total_sz / (1024**2):.1f} MB")
+            self.total_size_lbl.setText(f"{storage_lbl} {total_sz / (1024**2):.1f} MB")
         else:
-            self.total_size_lbl.setText("Zajęte miejsce: 0 MB")
+            self.total_size_lbl.setText(f"{storage_lbl} 0 MB")
 
-        self.stats_lbl.setText(f"Audio: {a_dls} plików | Wideo: {v_dls} plików")
+        self.stats_lbl.setText(
+            f"{tr('downloads.stats_audio', 'Audio:')} {a_dls} | {tr('downloads.stats_video', 'Wideo:')} {v_dls}"
+        )
 
         def sort_rows(rows, is_video):
             return sorted(rows, key=lambda x: 0 if x[2] == "DOWNLOADING" else (1 if x[2] == "QUEUED" else 2))
 
         sorted_v = sort_rows(v_rows, True)
         if not sorted_v:
-            lbl = QLabel("Brak teledysków w kolejce lub na dysku.")
+            lbl = QLabel(tr("downloads.no_videos", "Brak pobranych teledysków."))
             lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
             self.video_section.addWidget(lbl)
         else:
@@ -274,7 +340,7 @@ class DownloadsView(QWidget):
 
         sorted_a = sort_rows(a_rows, False)
         if not sorted_a:
-            lbl = QLabel("Brak utworów w kolejce lub na dysku.")
+            lbl = QLabel(tr("downloads.no_audio", "Brak pobranej muzyki."))
             lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
             self.audio_section.addWidget(lbl)
         else:

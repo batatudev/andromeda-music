@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_search.py
+# OPIS ZMIAN: Oczyszczenie pola wyszukiwania ze zbędnych dopisków i pełne wdrożenie i18n przez tr()
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 )
@@ -11,6 +15,7 @@ from config import THEME
 from core.enums import MediaType
 from ui.widgets import FlowLayout
 from ui.components import SongItem, MediaCard
+from core.i18n import tr
 
 from views.library_base import LibraryScrollArea
 
@@ -25,7 +30,7 @@ class SearchView(LibraryScrollArea):
 
         self.input_lay = QVBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Czego chcesz posłuchać? (Artyści, Utwory, Albumy)")
+        self.search_input.setPlaceholderText(tr("search.placeholder", "Czego chcesz posłuchać?"))
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {THEME['bg_card']};
@@ -58,7 +63,7 @@ class SearchView(LibraryScrollArea):
         self.search_input.setFocus()
         if not self.last_query:
             self._clear_layout(self.results_layout)
-            lbl = QLabel("Wpisz tekst, aby rozpocząć wyszukiwanie...")
+            lbl = QLabel(tr("search.prompt", "Wpisz tekst, aby rozpocząć wyszukiwanie..."))
             lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
             lbl.setAlignment(Qt.AlignCenter)
             self.results_layout.addWidget(lbl)
@@ -68,7 +73,7 @@ class SearchView(LibraryScrollArea):
         if not self.last_query:
             self.search_timer.stop()
             self._clear_layout(self.results_layout)
-            lbl = QLabel("Wpisz tekst, aby rozpocząć wyszukiwanie...")
+            lbl = QLabel(tr("search.prompt", "Wpisz tekst, aby rozpocząć wyszukiwanie..."))
             lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
             lbl.setAlignment(Qt.AlignCenter)
             self.results_layout.addWidget(lbl)
@@ -81,7 +86,7 @@ class SearchView(LibraryScrollArea):
             return
 
         self._clear_layout(self.results_layout)
-        lbl = QLabel("Szukam w bibliotece...")
+        lbl = QLabel(tr("search.searching", "Szukam w bibliotece..."))
         lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
         lbl.setAlignment(Qt.AlignCenter)
         self.results_layout.addWidget(lbl)
@@ -97,24 +102,30 @@ class SearchView(LibraryScrollArea):
             self._clear_layout(self.results_layout)
 
             if not data or (not data.get('artist') and not data.get('album') and not data.get('song')):
-                err_lbl = QLabel(f"Brak wyników dla hasła '{query}'")
+                no_res_txt = tr("search.no_results", "Brak wyników dla hasła")
+                err_lbl = QLabel(f"{no_res_txt} '{query}'")
                 err_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
                 err_lbl.setAlignment(Qt.AlignCenter)
                 self.results_layout.addWidget(err_lbl)
                 self.results_widget.setUpdatesEnabled(True)
                 return
 
-            artists = data.get('artist',[])
-            albums = data.get('album',[])
-            songs = data.get('song',[])
+            artists = data.get('artist', [])
+            albums = data.get('album', [])
+            songs = data.get('song', [])
 
             if artists:
-                self.results_layout.addWidget(QLabel("Artyści", font=QFont("Sans", 20, QFont.Bold)))
+                artists_txt = tr("menu.artists", "Artyści")
+                self.results_layout.addWidget(QLabel(artists_txt, font=QFont("Sans", 20, QFont.Bold)))
                 flow_arts = FlowLayout(spacing=25)
                 for a in artists:
                     card = MediaCard(a, MediaType.ARTIST)
                     card.clicked.connect(self.main_window._show_details)
-                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_top_songs_for_artist(d.title), 0))
+                    card.play_clicked.connect(
+                        lambda d, t: self.main_window.engine.play_list(
+                            self.main_window.repo.get_top_songs_for_artist(d.title), 0
+                        )
+                    )
                     card.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     card.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     card.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
@@ -127,12 +138,17 @@ class SearchView(LibraryScrollArea):
                 self.results_layout.addSpacing(20)
 
             if albums:
-                self.results_layout.addWidget(QLabel("Albumy", font=QFont("Sans", 20, QFont.Bold)))
+                albums_txt = tr("menu.albums", "Albumy")
+                self.results_layout.addWidget(QLabel(albums_txt, font=QFont("Sans", 20, QFont.Bold)))
                 flow_albs = FlowLayout(spacing=25)
                 for a in albums:
                     card = MediaCard(a, MediaType.ALBUM)
                     card.clicked.connect(self.main_window._show_details)
-                    card.play_clicked.connect(lambda d, t: self.main_window.engine.play_list(self.main_window.repo.get_album(d.item_id).get('song',[]), 0))
+                    card.play_clicked.connect(
+                        lambda d, t: self.main_window.engine.play_list(
+                            self.main_window.repo.get_album(d.item_id).get('song', []), 0
+                        )
+                    )
                     card.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
                     card.download_videos_clicked.connect(self.main_window._handle_download_videos)
                     card.artist_clicked.connect(self.main_window._show_details)
@@ -146,7 +162,8 @@ class SearchView(LibraryScrollArea):
                 self.results_layout.addSpacing(20)
 
             if songs:
-                self.results_layout.addWidget(QLabel("Utwory", font=QFont("Sans", 20, QFont.Bold)))
+                tracks_txt = tr("menu.tracks", "Utwory")
+                self.results_layout.addWidget(QLabel(tracks_txt, font=QFont("Sans", 20, QFont.Bold)))
                 sc = QWidget()
                 vl = QVBoxLayout(sc)
                 vl.setContentsMargins(0, 0, 0, 0)

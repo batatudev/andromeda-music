@@ -1,10 +1,15 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/components/bulk_download_handler.py
+# OPIS ZMIAN: Oczyszczenie komunikatów potwierdzeń i wdrożenie i18n przez tr()
+
 from PySide6.QtWidgets import QMessageBox
 from config import APP_CONFIG, THEME
 from core.models import MediaItem
 from utils import logger
+from core.i18n import tr
 
 class BulkDownloadHandler:
     """
@@ -92,13 +97,21 @@ class BulkDownloadHandler:
 
         def on_ready(songs):
             if not songs:
-                QMessageBox.information(main_window, "Brak utworów", "Nie znaleziono utworów do pobrania.")
+                QMessageBox.information(
+                    main_window,
+                    tr("downloads.title", "Pobrane"),
+                    tr("dialogs.bulk_no_songs", "Nie znaleziono utworów do pobrania.")
+                )
                 return
 
             if media_type == "video":
                 valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
                 if not valid_songs:
-                    QMessageBox.information(main_window, "Brak linków", "Znalezione utwory nie posiadają linków do wideo.")
+                    QMessageBox.information(
+                        main_window,
+                        tr("downloads.section_video", "Teledyski (Wideo)"),
+                        tr("dialogs.bulk_no_links", "Znalezione utwory nie posiadają linków do wideo.")
+                    )
                     return
 
                 quality = APP_CONFIG.get("video_offline_quality", "1080p")
@@ -112,8 +125,17 @@ class BulkDownloadHandler:
                 est_mb = count * avg_mb
                 est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
 
-                msg = f"Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar do pobrania: ~{est_str} (Jakość: {quality}).\n\nCzy chcesz rozpocząć pobieranie wideo?"
-                ans = QMessageBox.question(main_window, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
+                msg = (
+                    f"Znaleziono {count} utworów z teledyskami.\n"
+                    f"Szacowany rozmiar: ~{est_str} ({quality}).\n\n"
+                    f"Rozpocząć pobieranie?"
+                )
+                ans = QMessageBox.question(
+                    main_window,
+                    tr("dialogs.confirm", "Potwierdzenie pobierania"),
+                    msg,
+                    QMessageBox.Yes | QMessageBox.No
+                )
 
                 if ans == QMessageBox.Yes:
                     items_to_add = []
@@ -124,8 +146,8 @@ class BulkDownloadHandler:
                     if items_to_add:
                         main_window.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
                     main_window.show_toast(
-                        f"Dodano zadania ({len(items_to_add)}) do kolejki pobierania wideo.",
-                        title="Pobieranie Wideo",
+                        f"Dodano {len(items_to_add)} zadań do kolejki.",
+                        title=tr("downloads.section_video", "Teledyski (Wideo)"),
                         icon_str="fa5s.film",
                         icon_color="#e74c3c"
                     )
@@ -138,16 +160,25 @@ class BulkDownloadHandler:
                 est_mb = count * avg_mb
                 est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
 
-                msg = f"Znaleziono {count} utworów audio.\nSzacowany rozmiar do pobrania: ~{est_str}.\n\nCzy chcesz rozpocząć pobieranie muzyki?"
-                ans = QMessageBox.question(main_window, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
+                msg = (
+                    f"Znaleziono {count} utworów audio.\n"
+                    f"Szacowany rozmiar: ~{est_str}.\n\n"
+                    f"Rozpocząć pobieranie?"
+                )
+                ans = QMessageBox.question(
+                    main_window,
+                    tr("dialogs.confirm", "Potwierdzenie pobierania"),
+                    msg,
+                    QMessageBox.Yes | QMessageBox.No
+                )
 
                 if ans == QMessageBox.Yes:
                     items_to_add = [(s.item_id, s.title) for s in valid_songs]
                     if items_to_add:
                         main_window.engine.audio_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
                     main_window.show_toast(
-                        f"Dodano zadania ({len(items_to_add)}) do kolejki pobierania audio.",
-                        title="Pobieranie Audio",
+                        f"Dodano {len(items_to_add)} zadań do kolejki.",
+                        title=tr("downloads.section_audio", "Muzyka (Audio)"),
                         icon_str="fa5s.music",
                         icon_color=THEME.get("accent", "#1db954")
                     )

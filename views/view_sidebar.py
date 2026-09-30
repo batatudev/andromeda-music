@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_sidebar.py
+# OPIS ZMIAN: Wpięcie pełnego i18n przez tr() oraz usunięcie hardcoded tekstów ze zwijania i rozwijania paska
+
 import qtawesome as qta
 
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget, QHBoxLayout, QPushButton, QLabel
@@ -8,6 +12,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QPropertyAnimation, QEasingCurve, 
 
 from config import THEME, Pages
 from ui.widgets import HoverIconButton, SmoothScrollArea
+from core.i18n import tr
 
 class SidebarWidget(QFrame):
     page_requested = Signal(int)
@@ -25,12 +30,12 @@ class SidebarWidget(QFrame):
         self.setFixedWidth(self._current_width)
         self.nav_btns = {}
         self.is_collapsed = False
-        
+
         self.anim = QPropertyAnimation(self, b"sidebarWidth")
         self.anim.setDuration(300)
         self.anim.setEasingCurve(QEasingCurve.InOutQuad)
         self.anim.finished.connect(self._on_anim_finished)
-        
+
         side_l = QVBoxLayout(self)
         side_l.setContentsMargins(0, 10, 0, 0)
         side_l.setSpacing(5)
@@ -71,8 +76,7 @@ class SidebarWidget(QFrame):
         nav_lay.addStretch()
         side_l.addWidget(top)
 
-        from core.i18n import tr
-        items =[
+        items = [
             (tr("menu.home", "Główna"), 'fa5s.home', Pages.HOME),
             (tr("menu.search", "Szukaj"), 'fa5s.search', Pages.SEARCH),
             (tr("menu.tracks", "Utwory"), 'fa5s.music', Pages.TRACKS),
@@ -85,12 +89,15 @@ class SidebarWidget(QFrame):
             btn = HoverIconButton(icon, hover_color=THEME["text_main"])
             btn.setText(f"  {name}")
             btn.setProperty("isMenu", "true")
+            btn.setProperty("menu_title", name)
             btn.clicked.connect(lambda ch, i=idx: self.page_requested.emit(i))
             side_l.addWidget(btn)
             self.nav_btns[idx] = btn
 
-        self.lbl_pl = QLabel("  PLAYLISTY")
-        self.lbl_pl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px; background: transparent;")
+        self.lbl_pl = QLabel(f"  {tr('menu.playlists', 'PLAYLISTY')}")
+        self.lbl_pl.setStyleSheet(
+            f"color: {THEME['text_muted']}; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 15px; margin-bottom: 5px; background: transparent;"
+        )
         side_l.addWidget(self.lbl_pl)
 
         self.playlist_scroll = SmoothScrollArea()
@@ -107,20 +114,20 @@ class SidebarWidget(QFrame):
         side_l.addWidget(self.playlist_scroll)
 
         self.btn_dev = HoverIconButton('fa5s.code', hover_color=THEME["text_main"])
-        self.btn_dev.setText("  Dev mode")
+        self.btn_dev.setText(f"  {tr('menu.dev', 'Tryb dewelopera')}")
         self.btn_dev.setProperty("isMenu", "true")
         self.btn_dev.clicked.connect(self.dev_requested.emit)
         self.btn_dev.setVisible(dev_mode)
         side_l.addWidget(self.btn_dev)
 
         self.btn_downloads = HoverIconButton('fa5s.download', hover_color=THEME["text_main"])
-        self.btn_downloads.setText("  Pobrane")
+        self.btn_downloads.setText(f"  {tr('menu.downloads', 'Pobrane')}")
         self.btn_downloads.setProperty("isMenu", "true")
         self.btn_downloads.clicked.connect(lambda: self.page_requested.emit(Pages.DOWNLOADS))
         side_l.addWidget(self.btn_downloads)
 
         self.btn_settings = HoverIconButton('fa5s.cog', hover_color=THEME["text_main"])
-        self.btn_settings.setText("  Ustawienia")
+        self.btn_settings.setText(f"  {tr('menu.settings', 'Ustawienia')}")
         self.btn_settings.setProperty("isMenu", "true")
         self.btn_settings.clicked.connect(self.settings_requested.emit)
         side_l.addWidget(self.btn_settings)
@@ -139,10 +146,10 @@ class SidebarWidget(QFrame):
             i = self.playlist_layout.takeAt(0)
             if i.widget():
                 i.widget().deleteLater()
-        
+
         if not data:
             return
-        
+
         for pl in data:
             pl_name = pl.get('name')
             pl_id = pl.get('id')
@@ -156,7 +163,12 @@ class SidebarWidget(QFrame):
                 btn.setText("")
                 btn.setToolTip(pl_name)
 
-            btn_style = f"QPushButton {{ background-color: transparent; border: none; text-align: left; padding: 12px 15px; font-size: 13px; border-radius: 6px; color: {THEME['text_muted']}; margin: 2px 10px; }} QPushButton:hover {{ color: {THEME['text_main']}; background-color: {THEME['bg_card']}; }} QPushButton[active=\"true\"] {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; }}"
+            btn_style = (
+                f"QPushButton {{ background-color: transparent; border: none; text-align: left; "
+                f"padding: 12px 15px; font-size: 13px; border-radius: 6px; color: {THEME['text_muted']}; margin: 2px 10px; }} "
+                f"QPushButton:hover {{ color: {THEME['text_main']}; background-color: {THEME['bg_card']}; }} "
+                f"QPushButton[active=\"true\"] {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; }}"
+            )
             btn.setStyleSheet(btn_style)
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda ch, pid=pl_id, pname=pl_name: self.playlist_requested.emit(pid, pname))
@@ -165,10 +177,10 @@ class SidebarWidget(QFrame):
     def set_collapsed(self, collapsed):
         if self.is_collapsed == collapsed:
             return
-        
+
         self.is_collapsed = collapsed
         self.anim.stop()
-        
+
         if collapsed:
             self._update_text_visibility(show_text=False)
             self.anim.setStartValue(self.width())
@@ -176,7 +188,7 @@ class SidebarWidget(QFrame):
         else:
             self.anim.setStartValue(self.width())
             self.anim.setEndValue(200)
-            
+
         self.anim.start()
 
     def _on_anim_finished(self):
@@ -189,13 +201,14 @@ class SidebarWidget(QFrame):
             self.btn_refresh.hide()
             self.lbl_pl.hide()
             self.btn_settings.setText("")
-            self.btn_settings.setToolTip("Ustawienia")
+            self.btn_settings.setToolTip(tr("menu.settings", "Ustawienia"))
             self.btn_dev.setText("")
-            self.btn_dev.setToolTip("Dev mode")
+            self.btn_dev.setToolTip(tr("menu.dev", "Tryb dewelopera"))
             self.btn_downloads.setText("")
-            self.btn_downloads.setToolTip("Pobrane")
+            self.btn_downloads.setToolTip(tr("menu.downloads", "Pobrane"))
             for btn in self.nav_btns.values():
-                btn.setToolTip(btn.text().strip())
+                title = btn.property("menu_title") or ""
+                btn.setToolTip(title)
                 btn.setText("")
             for i in range(self.playlist_layout.count()):
                 w = self.playlist_layout.itemAt(i).widget()
@@ -206,15 +219,15 @@ class SidebarWidget(QFrame):
             self.btn_back.show()
             self.btn_refresh.show()
             self.lbl_pl.show()
-            self.btn_settings.setText("  Ustawienia")
+            self.btn_settings.setText(f"  {tr('menu.settings', 'Ustawienia')}")
             self.btn_settings.setToolTip("")
-            self.btn_downloads.setText("  Pobrane")
+            self.btn_downloads.setText(f"  {tr('menu.downloads', 'Pobrane')}")
             self.btn_downloads.setToolTip("")
-            self.btn_dev.setText("  Dev mode")
+            self.btn_dev.setText(f"  {tr('menu.dev', 'Tryb dewelopera')}")
             self.btn_dev.setToolTip("")
-            names = {Pages.HOME: "Główna", Pages.SEARCH: "Szukaj", Pages.TRACKS: "Utwory", Pages.ALBUMS: "Albumy", Pages.ARTISTS: "Artyści", Pages.FAVS: "Ulubione"}
             for idx, btn in self.nav_btns.items():
-                btn.setText(f"  {names.get(idx, '')}")
+                title = btn.property("menu_title") or ""
+                btn.setText(f"  {title}")
             for i in range(self.playlist_layout.count()):
                 w = self.playlist_layout.itemAt(i).widget()
                 if w and w.property("pl_name"):

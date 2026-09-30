@@ -1,11 +1,16 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/dialogs/playlist_dialog.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w oknie dodawania i tworzenia playlisty
+
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QWidget
 )
 from PySide6.QtCore import Qt
 from config import THEME, APP_CONFIG, get_app_style
+from core.i18n import tr
 
 class PlaylistDialog(QDialog):
     """
@@ -23,23 +28,27 @@ class PlaylistDialog(QDialog):
         self._fetch_playlists()
 
     def _init_ui(self):
-        self.setWindowTitle("Dodaj do playlisty")
+        title_txt = tr("dialogs.playlist_add_title", "Dodaj do playlisty")
+        self.setWindowTitle(title_txt)
         self.setFixedSize(320, 450)
         self.setStyleSheet(get_app_style())
         self.main_layout = QVBoxLayout(self)
 
-        lbl_title = QLabel("Dodaj lub utwórz playlistę:")
-        lbl_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {THEME['text_main']}; margin-bottom: 10px;")
+        lbl_title = QLabel(title_txt)
+        lbl_title.setStyleSheet(
+            f"font-size: 16px; font-weight: bold; color: {THEME['text_main']}; margin-bottom: 10px;"
+        )
         self.main_layout.addWidget(lbl_title)
 
         new_pl_layout = QHBoxLayout()
         self.inp_new_pl = QLineEdit()
-        self.inp_new_pl.setPlaceholderText("Nowa playlista...")
+        self.inp_new_pl.setPlaceholderText(tr("dialogs.playlist_new_placeholder", "Nowa playlista..."))
         self.inp_new_pl.setStyleSheet(
-            f"background: {THEME['bg_main']}; color: {THEME['text_main']}; padding: 8px; border: 1px solid {THEME['border']}; border-radius: 5px;"
+            f"background: {THEME['bg_main']}; color: {THEME['text_main']}; padding: 8px; "
+            f"border: 1px solid {THEME['border']}; border-radius: 5px;"
         )
 
-        btn_new_pl = QPushButton("Utwórz")
+        btn_new_pl = QPushButton(tr("dialogs.create", "Utwórz"))
         btn_new_pl.setCursor(Qt.PointingHandCursor)
         btn_new_pl.setStyleSheet(
             f"background: {THEME['accent']}; color: white; padding: 8px; border-radius: 5px; font-weight: bold;"
@@ -83,7 +92,8 @@ class PlaylistDialog(QDialog):
             for pl in playlists:
                 btn = QPushButton(pl.get('name'))
                 btn.setStyleSheet(
-                    f"text-align: left; padding: 10px; border-radius: 5px; background: {THEME['bg_card']}; color: {THEME['text_main']}; border: none;"
+                    f"text-align: left; padding: 10px; border-radius: 5px; background: {THEME['bg_card']}; "
+                    f"color: {THEME['text_main']}; border: none;"
                 )
                 btn.setCursor(Qt.PointingHandCursor)
                 btn.clicked.connect(lambda ch=False, pid=pl.get('id'): self._select_playlist(pid))

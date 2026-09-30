@@ -1,12 +1,17 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_tracks.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku listy utworów
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 
 from core.enums import MediaType
 from ui.components import SongItem
+from core.i18n import tr
 
 from views.library_base import LibraryScrollArea
 
@@ -25,7 +30,8 @@ class TracksView(LibraryScrollArea):
     def load(self):
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
-        self.content_layout.addWidget(QLabel("Wszystkie Utwory", font=QFont("Sans", 24, QFont.Bold)))
+        title_txt = tr("tracks.title", "Wszystkie Utwory")
+        self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
         self.track_list_layout = QVBoxLayout()
         self.content_layout.addLayout(self.track_list_layout)
         self.offset = 0
@@ -37,8 +43,10 @@ class TracksView(LibraryScrollArea):
         if self.is_loading:
             return
         self.is_loading = True
+
         def fetch():
             return self.main_window.repo.get_random_songs(50)
+
         def on_ready(songs):
             if songs:
                 self.content_widget.setUpdatesEnabled(False)
@@ -58,4 +66,5 @@ class TracksView(LibraryScrollArea):
                         self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), i)
                 self.content_widget.setUpdatesEnabled(True)
             self.is_loading = False
+
         self.main_window.run_async(fetch, on_ready, page_bound=True)

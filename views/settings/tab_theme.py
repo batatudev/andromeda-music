@@ -1,4 +1,10 @@
 import os
+os.environ["QT_API"] = "pyside6"
+
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/settings/tab_theme.py
+# OPIS ZMIAN: Oczyszczenie etykiet i pełne wdrożenie i18n przez tr()
+
 import sys
 
 from PySide6.QtWidgets import (
@@ -9,36 +15,49 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
 from config import APP_CONFIG, save_config, THEME
+from core.i18n import tr
 
 class TabTheme(QWidget):
     def __init__(self, settings_view):
         super().__init__()
         self.settings_view = settings_view
-        
+
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        
+
         theme_group = QFrame()
         theme_group.setObjectName("SettingsCard")
-        theme_group.setStyleSheet(f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}")
+        theme_group.setStyleSheet(
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}"
+        )
         theme_layout = QVBoxLayout(theme_group)
 
-        lbl_t_title = QLabel("Wygląd aplikacji")
-        lbl_t_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
+        lbl_t_title = QLabel(tr("settings.theme.header", "Wygląd aplikacji"))
+        lbl_t_title.setStyleSheet(
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;"
+        )
         theme_layout.addWidget(lbl_t_title)
 
-        input_style = f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; border: 1px solid {THEME['border']}; border-radius: 5px; padding: 8px; height: 18px;"
+        input_style = (
+            f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; "
+            f"border: 1px solid {THEME['border']}; border-radius: 5px; padding: 8px; height: 18px;"
+        )
 
         self.combo_theme = QComboBox()
-        self.combo_theme.addItems(["Systemowy", "Ciemny", "Jasny", "Własny motyw (JSON)"])
-        
+        self.combo_theme.addItems([
+            tr("settings.theme.system", "Systemowy"),
+            tr("settings.theme.dark", "Ciemny"),
+            tr("settings.theme.light", "Jasny"),
+            tr("settings.theme.custom", "Własny motyw")
+        ])
+
         self.combo_lang = QComboBox()
         self.combo_lang.addItems(["Polski", "English"])
         current_lang = APP_CONFIG.get("language", "pl")
         self.combo_lang.setCurrentIndex(0 if current_lang == "pl" else 1)
         self.combo_lang.setStyleSheet(input_style)
         self.combo_lang.setFixedWidth(350)
-        
+
         current_mode = APP_CONFIG.get("theme_mode", "system")
         if current_mode == "system":
             self.combo_theme.setCurrentIndex(0)
@@ -52,8 +71,10 @@ class TabTheme(QWidget):
         self.combo_theme.setFixedWidth(350)
 
         self.current_accent = APP_CONFIG["accent"]
-        self.btn_color = QPushButton("Wybierz kolor")
-        self.btn_color.setStyleSheet(f"background-color: {self.current_accent}; color: white; padding: 8px; border-radius: 5px;")
+        self.btn_color = QPushButton(tr("settings.theme.pick_color", "Wybierz kolor"))
+        self.btn_color.setStyleSheet(
+            f"background-color: {self.current_accent}; color: white; padding: 8px; border-radius: 5px;"
+        )
         self.btn_color.setCursor(Qt.PointingHandCursor)
         self.btn_color.clicked.connect(self._pick_color)
 
@@ -78,12 +99,14 @@ class TabTheme(QWidget):
             r.addStretch()
             parent_layout.addLayout(r)
 
-        add_row(theme_layout, "Motyw:", self.combo_theme)
-        add_row(theme_layout, "Język (Wymaga restartu):", self.combo_lang)
-        add_row(theme_layout, "Kolor akcentu:", color_widget)
+        add_row(theme_layout, tr("settings.theme.mode", "Motyw:"), self.combo_theme)
+        add_row(theme_layout, tr("settings.theme.lang", "Język:"), self.combo_lang)
+        add_row(theme_layout, tr("settings.theme.accent", "Kolor akcentu:"), color_widget)
 
-        btn_save_theme = QPushButton("Zapisz i Restartuj")
-        btn_save_theme.setStyleSheet(f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;")
+        btn_save_theme = QPushButton(tr("settings.save_restart", "Zapisz i restartuj"))
+        btn_save_theme.setStyleSheet(
+            f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;"
+        )
         btn_save_theme.setCursor(Qt.PointingHandCursor)
         btn_save_theme.clicked.connect(self._save_and_restart)
 
@@ -99,7 +122,9 @@ class TabTheme(QWidget):
         color = QColorDialog.getColor(QColor(self.current_accent), self)
         if color.isValid():
             self.current_accent = color.name()
-            self.btn_color.setStyleSheet(f"background-color: {self.current_accent}; color: white; padding: 8px; border-radius: 5px;")
+            self.btn_color.setStyleSheet(
+                f"background-color: {self.current_accent}; color: white; padding: 8px; border-radius: 5px;"
+            )
 
     def _save_and_restart(self):
         idx = self.combo_theme.currentIndex()
@@ -111,7 +136,7 @@ class TabTheme(QWidget):
             APP_CONFIG["theme_mode"] = "custom"
         else:
             APP_CONFIG["theme_mode"] = "dark"
-            
+
         APP_CONFIG["language"] = "pl" if self.combo_lang.currentIndex() == 0 else "en"
         APP_CONFIG["accent"] = self.current_accent
 

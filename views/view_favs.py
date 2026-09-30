@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: views/view_favs.py
+# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku ulubionych utworów
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -8,6 +12,7 @@ import qtawesome as qta
 
 from config import THEME
 from ui.components import SongItem
+from core.i18n import tr
 
 from views.library_base import LibraryScrollArea
 
@@ -21,7 +26,7 @@ class FavsView(LibraryScrollArea):
 
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
-        lbl = QLabel("Wczytywanie...")
+        lbl = QLabel(tr("common.loading", "Wczytywanie..."))
         lbl.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(lbl)
         self.content_layout.addStretch()
@@ -30,14 +35,16 @@ class FavsView(LibraryScrollArea):
         def on_ready(songs):
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
-            self.content_layout.addWidget(QLabel("Twoje ulubione utwory", font=QFont("Sans", 24, QFont.Bold)))
+            title_txt = tr("favs.title", "Twoje ulubione utwory")
+            self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
             if not songs:
                 self.content_layout.addStretch()
                 iv = QVBoxLayout()
                 iv.setAlignment(Qt.AlignCenter)
                 ie = QLabel()
                 ie.setPixmap(qta.icon('fa5s.heart-broken', color=THEME["text_muted"]).pixmap(100, 100))
-                te = QLabel("Brak polubionych")
+                empty_txt = tr("favs.empty", "Brak polubionych utworów")
+                te = QLabel(empty_txt)
                 te.setStyleSheet(f"color:{THEME['text_muted']}; font-size:18px;")
                 iv.addWidget(ie)
                 iv.addWidget(te)
