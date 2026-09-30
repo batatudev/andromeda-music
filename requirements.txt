@@ -1,6 +1,14 @@
-PySide6==6.7.2
-requests==2.32.3
-qtawesome==1.3.1
-yt-dlp==2024.7.9
-pydbus==0.6.0
-PyGObject==3.48.2
+# Andromeda Music - Python Dependencies
+# Kompatybilne z Linux (Fedora, Arch Linux / Omarchy, Ubuntu, Debian)
+
+PySide6>=6.7.0
+requests>=2.32.0
+qtawesome>=1.3.1
+yt-dlp>=2025.1.1
+mutagen>=1.47.0
+darkdetect>=0.8.0
+
+# Integracja systemowa MPRIS2 / D-Bus (Linux)
+# Uwaga: na Arch/Omarchy zaleca się: pacman -S python-gobject
+PyGObject>=3.46.0
+pydbus>=0.6.0
