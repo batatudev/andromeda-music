@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: ui/widgets/drag_drop.py
-# OPIS ZMIAN: Dynamiczny odczyt indeksu w DragHandle oraz bezpieczne dekodowanie bajtów w dropEvent
+# OPIS ZMIAN: Poprawka obsługi drag.exec dla Wayland/KDE oraz precyzyjne wyliczanie pozycji wskaźnika
 
 import qtawesome as qta
 from PySide6.QtWidgets import QWidget, QLabel, QApplication, QGraphicsOpacityEffect
@@ -26,16 +26,19 @@ class DragDropContainer(QWidget):
         if e.mimeData().hasFormat("application/x-queue-index"):
             self._drag_active = True
             e.acceptProposedAction()
+        else:
+            e.ignore()
 
     def dragLeaveEvent(self, e):
         self._drag_active = False
         self._set_indicator(-1)
+        e.accept()
 
     def dragMoveEvent(self, e):
         if e.mimeData().hasFormat("application/x-queue-index"):
             e.acceptProposedAction()
             pos_y = int(e.position().y())
-            if abs(pos_y - self._last_drag_pos_y) < 4:
+            if abs(pos_y - self._last_drag_pos_y) < 3:
                 return
             self._last_drag_pos_y = pos_y
 
@@ -47,7 +50,7 @@ class DragDropContainer(QWidget):
                     item = layout.itemAt(i)
                     if item and item.widget():
                         w = item.widget()
-                        if pos_y < w.geometry().center().y():
+                        if pos_y <= w.geometry().bottom():
                             indicator_y = w.geometry().top() - (layout.spacing() // 2)
                             break
                 else:
@@ -56,6 +59,8 @@ class DragDropContainer(QWidget):
                         indicator_y = last_w.geometry().bottom() + (layout.spacing() // 2)
 
             self._set_indicator(indicator_y)
+        else:
+            e.ignore()
 
     def dropEvent(self, e):
         self._drag_active = False
@@ -66,7 +71,9 @@ class DragDropContainer(QWidget):
             data = raw.decode("utf-8", errors="ignore")
             if data.isdigit():
                 self.drop_occurred.emit(int(data), int(e.position().y()))
-        e.acceptProposedAction()
+            e.acceptProposedAction()
+        else:
+            e.ignore()
 
     def _set_indicator(self, y):
         if self._indicator_y != y:
@@ -152,7 +159,7 @@ class DragHandle(QLabel):
             self.parent_item.setGraphicsEffect(effect)
 
         self.setCursor(Qt.ClosedHandCursor)
-        drag.exec(Qt.MoveAction)
+        drag.exec(Qt.MoveAction | Qt.CopyAction, Qt.MoveAction)
 
         self.setCursor(Qt.OpenHandCursor)
         self.drag_start_pos = None

@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/main_window.py
+# OPIS ZMIAN: Dodano brakujący import SongItem usuwający NameError w _handle_now_playing_queue_drop
+
 import sys
 import time
 
@@ -17,9 +21,11 @@ from api_client import NavidromeClient
 from config import APP_CONFIG, APP_NAME, save_config, THEME, get_app_style, Pages
 from utils import Worker, AsyncImageLoader, logger, telemetry_recorder, NetworkMonitor
 from core.enums import EngineState, TelemetryEvent, MediaType
+from core.i18n import tr
 
 from ui.widgets import HoverIconButton, SmoothScrollArea, ToastNotification
 from ui.dialogs import PlaylistDialog
+from ui.components import SongItem
 from ui.components.custom_media_manager import CustomMediaManager
 from ui.components.bulk_download_handler import BulkDownloadHandler
 
@@ -586,12 +592,17 @@ class MainWindow(QMainWindow):
             item = layout.itemAt(i)
             if item.widget() and isinstance(item.widget(), SongItem):
                 song_widgets.append(item.widget())
-        target_q_idx = len(song_widgets)
+
+        if not song_widgets:
+            return
+
+        target_idx = len(song_widgets) - 1
         for i, w in enumerate(song_widgets):
-            if drop_y < w.geometry().center().y():
-                target_q_idx = i
+            if drop_y <= w.geometry().bottom():
+                target_idx = i
                 break
-        self.engine.handle_queue_drop(old_idx, target_q_idx)
+
+        self.engine.handle_queue_drop(old_idx, target_idx)
 
     def _shuffle_queue(self):
         if self._is_fetching:
@@ -656,7 +667,7 @@ class MainWindow(QMainWindow):
 
     def _on_queue_cleared(self):
         self.player_bar.reset()
-        self.now_playing_view.title_lbl.setText("Nic nie gra")
+        self.now_playing_view.title_lbl.setText(tr("player.not_playing", "Nic nie gra"))
         self.now_playing_view.artist_lbl.setText("-")
         self.now_playing_view.set_image(None, animate=False)
         self._on_queue_updated()

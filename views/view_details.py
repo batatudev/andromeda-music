@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: views/view_details.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku szczegółów albumów, playlist i wykonawców
+# OPIS ZMIAN: Bezpośrednie wyliczanie docelowego wiersza w _handle_playlist_drop i wymuszenie odświeżenia przez force=True
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
@@ -292,7 +292,7 @@ class DetailsView(LibraryScrollArea):
             return
 
         def on_ready(res):
-            self.load({"id": self.current_playlist_id, "name": self.current_playlist_name}, MediaType.PLAYLIST)
+            self.load({"id": self.current_playlist_id, "name": self.current_playlist_name}, MediaType.PLAYLIST, force=True)
 
         self.main_window.run_async(
             lambda: self.main_window.client.update_playlist(self.current_playlist_id, song_index_to_remove=idx),
@@ -310,24 +310,25 @@ class DetailsView(LibraryScrollArea):
             if item.widget() and isinstance(item.widget(), SongItem):
                 song_widgets.append(item.widget())
 
-        target_pl_idx = len(song_widgets)
+        if not song_widgets:
+            return
+
+        target_pl_idx = len(song_widgets) - 1
         for i, w in enumerate(song_widgets):
-            if drop_y < w.geometry().center().y():
+            if drop_y <= w.geometry().bottom():
                 target_pl_idx = i
                 break
 
-        if old_idx == target_pl_idx or old_idx == target_pl_idx - 1:
+        if old_idx == target_pl_idx:
             return
 
         song = self.current_playlist_songs.pop(old_idx)
-        if old_idx < target_pl_idx:
-            target_pl_idx -= 1
         self.current_playlist_songs.insert(target_pl_idx, song)
 
         song_ids = [s.item_id for s in self.current_playlist_songs]
 
         def on_ready(res):
-            self.load({"id": self.current_playlist_id, "name": self.current_playlist_name}, MediaType.PLAYLIST)
+            self.load({"id": self.current_playlist_id, "name": self.current_playlist_name}, MediaType.PLAYLIST, force=True)
 
         self.main_window.run_async(
             lambda: self.main_window.client.replace_playlist(self.current_playlist_id, song_ids),
