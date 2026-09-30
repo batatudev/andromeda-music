@@ -3,12 +3,10 @@ os.environ["QT_API"] = "pyside6"
 
 import time
 import sqlite3
-import threading
-import queue
-from PySide6.QtCore import QObject, Signal, QTimer
 from config import APP_CONFIG
 from utils import logger
 from core.paths import PathsManager
+from engine.base_download_manager import BaseDownloadManager, DownloadStatus
 
 try:
     import yt_dlp
@@ -16,44 +14,18 @@ try:
 except ImportError:
     HAS_YTDLP = False
 
-class DownloadStatus:
-    QUEUED = "QUEUED"
-    DOWNLOADING = "DOWNLOADING"
-    COMPLETED = "COMPLETED"
-    ERROR = "ERROR"
-    PAUSED = "PAUSED"
-
-class VideoDownloadManager(QObject):
-    download_progress = Signal(str, float)
-    download_status_changed = Signal(str, str)
-    queue_updated = Signal()
-
+class VideoDownloadManager(BaseDownloadManager):
+    """
+    Menedżer pobierania teledysków z YouTube (yt-dlp) w tle.
+    """
     def __init__(self):
-        super().__init__()
-        self.db_path = PathsManager.get_video_db_path()
-        self.download_dir = PathsManager.get_offline_videos_dir()
-
-        self._path_cache = {}
-        self._init_db()
-        self._reload_path_cache()
-
-        self.download_queue = queue.PriorityQueue()
-        self.is_snoozed = False
-        self.snooze_until = 0
-
-        self.current_download_task = None
-        self.cancel_current_event = threading.Event()
+        super().__init__(
+            db_path=PathsManager.get_video_db_path(),
+            download_dir=PathsManager.get_offline_videos_dir(),
+            name="Menedżer pobierania wideo"
+        )
         self._last_progress_emit = 0
-
-        self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
-        self.worker_thread.start()
-
-        self._reload_queued_to_memory()
         self.load_yt_link_overrides()
-
-        self.snooze_timer = QTimer(self)
-        self.snooze_timer.timeout.connect(self._check_snooze)
-        self.snooze_timer.start(10000)
 
     def _init_db(self):
         conn = PathsManager.get_db_connection(self.db_path)
@@ -108,23 +80,6 @@ class VideoDownloadManager(QObject):
         conn.commit()
         conn.close()
 
-    def _reload_path_cache(self):
-        try:
-            conn = PathsManager.get_db_connection(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT item_id, file_path FROM downloads WHERE status = ?",
-                (DownloadStatus.COMPLETED,)
-            )
-            self._path_cache = {
-                row[0]: row[1] for row in cursor.fetchall()
-                if row[1] and os.path.exists(row[1])
-            }
-            conn.close()
-        except Exception as e:
-            logger.log(f"Błąd ładowania path cache wideo: {e}")
-            self._path_cache = {}
-
     def _reload_queued_to_memory(self):
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
@@ -145,7 +100,7 @@ class VideoDownloadManager(QObject):
             _set_yt_link_override(row[0], row[1])
         conn.close()
 
-    def save_yt_link_override(self, item_id, url, title=""):
+    def save_yt_link_override(self, item_id: str, url: str, title: str = ""):
         from utils import _set_yt_link_override
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
@@ -157,7 +112,7 @@ class VideoDownloadManager(QObject):
         conn.close()
         _set_yt_link_override(item_id, url)
 
-    def delete_yt_link_override(self, item_id):
+    def delete_yt_link_override(self, item_id: str):
         from utils import _set_yt_link_override
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
@@ -166,40 +121,10 @@ class VideoDownloadManager(QObject):
         conn.close()
         _set_yt_link_override(item_id, None)
 
-    def _update_db_status(self, item_id, status, file_path=None):
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        if file_path:
-            cursor.execute(
-                "UPDATE downloads SET status = ?, file_path = ? WHERE item_id = ?",
-                (status, file_path, item_id)
-            )
-            if status == DownloadStatus.COMPLETED:
-                self._path_cache[item_id] = file_path
-        else:
-            cursor.execute(
-                "UPDATE downloads SET status = ? WHERE item_id = ?",
-                (status, item_id)
-            )
+    def get_video_path(self, item_id: str) -> str | None:
+        return self.get_file_path(item_id)
 
-        if status != DownloadStatus.COMPLETED:
-            self._path_cache.pop(item_id, None)
-
-        conn.commit()
-        conn.close()
-        self.download_status_changed.emit(item_id, status)
-
-    def get_video_path(self, item_id):
-        path = self._path_cache.get(item_id)
-        if path:
-            if os.path.exists(path):
-                return path
-            else:
-                self._path_cache.pop(item_id, None)
-                self._update_db_status(item_id, DownloadStatus.ERROR)
-        return None
-
-    def add_to_queue(self, item_id, yt_link, title, high_priority=False, cover_id=""):
+    def add_to_queue(self, item_id: str, yt_link: str, title: str, high_priority: bool = False, cover_id: str = ""):
         if not HAS_YTDLP or not yt_link:
             return
 
@@ -231,7 +156,7 @@ class VideoDownloadManager(QObject):
         self.download_status_changed.emit(item_id, DownloadStatus.QUEUED)
         self.queue_updated.emit()
 
-    def add_to_queue_bulk(self, items_list, high_priority=False):
+    def add_to_queue_bulk(self, items_list: list, high_priority: bool = False):
         if not HAS_YTDLP or not items_list:
             return
 
@@ -296,135 +221,6 @@ class VideoDownloadManager(QObject):
                     self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
             self.queue_updated.emit()
 
-    def remove_download(self, item_id):
-        self._path_cache.pop(item_id, None)
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT file_path, status FROM downloads WHERE item_id = ?", (item_id,))
-        row = cursor.fetchone()
-        if row:
-            if row[1] == DownloadStatus.DOWNLOADING and self.current_download_task == item_id:
-                self.cancel_current_event.set()
-
-            file_path = row[0]
-            if file_path and os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except OSError:
-                    pass
-
-            cursor.execute("DELETE FROM downloads WHERE item_id = ?", (item_id,))
-            conn.commit()
-
-        conn.close()
-        self.download_status_changed.emit(item_id, "")
-        self.queue_updated.emit()
-
-    def clear_history(self):
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE downloads SET is_hidden = 1 WHERE status IN (?, ?)",
-            (DownloadStatus.COMPLETED, DownloadStatus.ERROR)
-        )
-        conn.commit()
-        conn.close()
-        self.queue_updated.emit()
-
-    def cancel_all(self):
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM downloads WHERE status = ?", (DownloadStatus.QUEUED,))
-        if self.current_download_task:
-            self.cancel_current_event.set()
-        conn.commit()
-        conn.close()
-
-        while not self.download_queue.empty():
-            try:
-                self.download_queue.get_nowait()
-                self.download_queue.task_done()
-            except queue.Empty:
-                break
-
-        self.queue_updated.emit()
-
-    def delete_all_files(self):
-        self._path_cache.clear()
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT file_path FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
-        rows = cursor.fetchall()
-
-        for row in rows:
-            fp = row[0]
-            if fp and os.path.exists(fp):
-                try:
-                    os.remove(fp)
-                except OSError:
-                    pass
-
-        cursor.execute(
-            "DELETE FROM downloads WHERE status IN (?, ?)",
-            (DownloadStatus.COMPLETED, DownloadStatus.ERROR)
-        )
-        conn.commit()
-        conn.close()
-        self.queue_updated.emit()
-
-    def set_snooze(self, hours):
-        if hours == 0:
-            self.is_snoozed = False
-            self.snooze_until = 0
-            logger.log("Menadżer pobierania: Wznowiono")
-        else:
-            self.is_snoozed = True
-            if hours == -1:
-                self.snooze_until = -1
-                logger.log("Menadżer pobierania: Wstrzymano na stałe")
-            elif hours == -2:
-                self.snooze_until = -2
-                logger.log("Menadżer pobierania: Wstrzymano do ponownego uruchomienia")
-            else:
-                self.snooze_until = time.time() + (hours * 3600)
-                logger.log(f"Menadżer pobierania: Wstrzymano na {hours}h")
-
-            if self.current_download_task:
-                logger.log("Menadżer pobierania: Wstrzymywanie obecnego zadania...")
-                self.cancel_current_event.set()
-        self.queue_updated.emit()
-
-    def _check_snooze(self):
-        if self.is_snoozed:
-            if self.snooze_until > 0 and time.time() > self.snooze_until:
-                self.is_snoozed = False
-                self.snooze_until = 0
-                logger.log("Menadżer pobierania: Wybudzono z uśpienia (czas minął)")
-                self.queue_updated.emit()
-
-    def get_all_downloads(self):
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC"
-        )
-        rows = cursor.fetchall()
-        conn.close()
-        return rows
-
-    def get_total_download_stats(self):
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*), SUM(file_size) FROM downloads WHERE status = ?",
-            (DownloadStatus.COMPLETED,)
-        )
-        row = cursor.fetchone()
-        conn.close()
-        count = row[0] if row and row[0] else 0
-        total_size = row[1] if row and row[1] else 0
-        return count, total_size
-
     def _worker_loop(self):
         while True:
             if self.is_snoozed:
@@ -433,7 +229,7 @@ class VideoDownloadManager(QObject):
 
             try:
                 priority, timestamp, item_id, yt_link, title = self.download_queue.get(timeout=2)
-            except queue.Empty:
+            except Exception:
                 continue
 
             conn = PathsManager.get_db_connection(self.db_path)
@@ -448,23 +244,23 @@ class VideoDownloadManager(QObject):
 
             self.current_download_task = item_id
             self.cancel_current_event.clear()
-            self._update_db_status(item_id, DownloadStatus.DOWNLOADING)
+            self._update_status(item_id, DownloadStatus.DOWNLOADING)
 
             try:
                 self._download_video(item_id, yt_link)
             except Exception as e:
                 logger.log(f"Video Download Error ({item_id}): {e}")
                 if not self.cancel_current_event.is_set():
-                    self._update_db_status(item_id, DownloadStatus.ERROR)
+                    self._update_status(item_id, DownloadStatus.ERROR)
                 else:
-                    self._update_db_status(item_id, DownloadStatus.QUEUED)
+                    self._update_status(item_id, DownloadStatus.QUEUED)
                     self.download_queue.put((10, time.time(), item_id, yt_link, title))
 
             self.current_download_task = None
             self.download_queue.task_done()
             self.queue_updated.emit()
 
-    def _download_video(self, item_id, yt_link):
+    def _download_video(self, item_id: str, yt_link: str):
         configured_path = APP_CONFIG.get("video_offline_path")
         if configured_path:
             base_dir = os.path.expanduser(configured_path)
@@ -516,18 +312,7 @@ class VideoDownloadManager(QObject):
             if os.path.exists(filename):
                 file_size = os.path.getsize(filename)
                 resolution = info.get('resolution', quality_str)
-
-                self._path_cache[item_id] = filename
-                conn = PathsManager.get_db_connection(self.db_path)
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE downloads SET status = ?, file_path = ?, resolution = ?, file_size = ? WHERE item_id = ?",
-                    (DownloadStatus.COMPLETED, filename, resolution, file_size, item_id)
-                )
-                conn.commit()
-                conn.close()
-                self.download_status_changed.emit(item_id, DownloadStatus.COMPLETED)
-
+                self._update_status(item_id, DownloadStatus.COMPLETED, file_path=filename, size=file_size, resolution=resolution)
                 logger.log(f"Pobrano wideo offline dla: {item_id} ({resolution}, {file_size} bajtów)")
             else:
                 raise Exception("Plik nie został znaleziony po pobraniu")

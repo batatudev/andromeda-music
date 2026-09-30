@@ -3,19 +3,14 @@ os.environ["QT_API"] = "pyside6"
 
 import sys
 import time
-import shutil
-import requests
-import random
 
 import qtawesome as qta
 
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QStackedWidget, QLabel, QScrollArea, QDialog, QLineEdit, QFrame, QPushButton,
-    QGraphicsOpacityEffect, QMenu, QFileDialog, QMessageBox, QInputDialog
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QStackedWidget
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QThreadPool, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QPoint
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, Signal, QTimer, QThreadPool
 from PySide6.QtMultimedia import QMediaPlayer
 
 from api_client import NavidromeClient
@@ -23,8 +18,11 @@ from config import APP_CONFIG, APP_NAME, save_config, THEME, get_app_style, Page
 from utils import Worker, AsyncImageLoader, logger, telemetry_recorder, NetworkMonitor
 from core.enums import EngineState, TelemetryEvent, MediaType
 
-from ui.widgets import DragDropContainer, HoverIconButton, SmoothScrollArea
-from ui.components import SongItem, QueueHeader
+from ui.widgets import HoverIconButton, SmoothScrollArea, ToastNotification
+from ui.dialogs import PlaylistDialog
+from ui.components.custom_media_manager import CustomMediaManager
+from ui.components.bulk_download_handler import BulkDownloadHandler
+
 from views.view_now_playing import NowPlayingWidget
 from views.view_sidebar import SidebarWidget
 from views.view_player_bar import PlayerBarWidget
@@ -145,7 +143,6 @@ class MainWindow(QMainWindow):
                 pass
             self._active_toast = None
 
-        from ui.widgets import ToastNotification
         toast = ToastNotification(self, message, title=title, icon_str=icon_str, icon_color=icon_color, duration=duration)
         self._active_toast = toast
         toast.show_toast()
@@ -173,58 +170,7 @@ class MainWindow(QMainWindow):
         self.router.navigate(Pages.HOME)
 
     def _sync_auto_downloads(self):
-        def fetch():
-            video_songs = []
-            audio_songs = []
-
-            if APP_CONFIG.get("video_auto_dl_favs", False):
-                video_songs.extend(self.client.get_starred(1000))
-            if APP_CONFIG.get("audio_auto_dl_favs", False):
-                audio_songs.extend(self.client.get_starred(1000))
-
-            v_pl_ids = APP_CONFIG.get("video_auto_dl_playlists", [])
-            for pid in v_pl_ids:
-                try:
-                    params = self.client._get_auth_params()
-                    params["id"] = pid
-                    res = self.client._make_request("getPlaylist", params)
-                    entry = res.get("playlist", {}).get("entry", [])
-                    from core.models import MediaItem
-                    video_songs.extend([MediaItem(s) for s in entry])
-                except Exception as e:
-                    logger.log(f"Auto-sync wideo playlist {pid} failed: {e}")
-
-            a_pl_ids = APP_CONFIG.get("audio_auto_dl_playlists", [])
-            for pid in a_pl_ids:
-                try:
-                    params = self.client._get_auth_params()
-                    params["id"] = pid
-                    res = self.client._make_request("getPlaylist", params)
-                    entry = res.get("playlist", {}).get("entry", [])
-                    from core.models import MediaItem
-                    audio_songs.extend([MediaItem(s) for s in entry])
-                except Exception as e:
-                    logger.log(f"Auto-sync audio playlist {pid} failed: {e}")
-
-            return video_songs, audio_songs
-
-        def on_ready(result):
-            if not result: return
-            video_songs, audio_songs = result
-
-            v_items_to_add = []
-            for s in video_songs:
-                link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
-                if link:
-                    v_items_to_add.append((s.item_id, link, s.title, s.cover_id))
-            if v_items_to_add:
-                self.engine.video_download_manager.add_to_queue_bulk(v_items_to_add, high_priority=False)
-
-            a_items_to_add = [(s.item_id, s.title) for s in audio_songs]
-            if a_items_to_add:
-                self.engine.audio_download_manager.add_to_queue_bulk(a_items_to_add, high_priority=False)
-
-        self.run_async(fetch, on_ready, page_bound=False)
+        BulkDownloadHandler.sync_auto_downloads(self)
 
     def _handle_song_fav(self, song, new_state):
         song_id = song.item_id
@@ -244,7 +190,9 @@ class MainWindow(QMainWindow):
 
                 def on_video_resolved(link):
                     if link and APP_CONFIG.get("video_auto_dl_favs", False):
-                        self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
+                        self.engine.video_download_manager.add_to_queue(
+                            song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id
+                        )
 
                 self.run_async(resolve_video_fav, on_video_resolved, page_bound=False)
 
@@ -278,6 +226,7 @@ class MainWindow(QMainWindow):
             self._is_fetching = True
             self.sidebar.setCursor(Qt.WaitCursor)
         task_id = self.current_page_task_id if page_bound else None
+
         def worker_logic():
             try:
                 res = task_func()
@@ -285,6 +234,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 logger.log(f"Async Worker Error: {e}")
                 self.async_signal.emit(callback_func, None, task_id)
+
         self.threadpool.start(Worker(worker_logic))
 
     def _show_details(self, data, type_str):
@@ -329,71 +279,48 @@ class MainWindow(QMainWindow):
         self.sidebar.refresh_requested.connect(self._refresh_current)
         from ui.components.sidebar_controller import SidebarController
         self.sidebar_ctrl = SidebarController(self)
-        self.sidebar.playlist_requested.connect(lambda pid, pname: self.router.show_details({"id": pid, "name": pname}, MediaType.PLAYLIST))
+        self.sidebar.playlist_requested.connect(
+            lambda pid, pname: self.router.show_details({"id": pid, "name": pname}, MediaType.PLAYLIST)
+        )
         self.sidebar.settings_requested.connect(self._toggle_settings)
         self.sidebar.dev_requested.connect(lambda: self.router.switch_page(Pages.DEV_MODE))
 
         self.stack = QStackedWidget()
         self.pages = [None] * len(Pages)
 
-        for page_id in Pages:
-            if page_id == Pages.NOW_PLAYING:
-                self.now_playing_view = NowPlayingWidget()
-                self.now_playing_view.queue_content.drop_occurred.connect(self._handle_now_playing_queue_drop)
-                self.pages[page_id] = self.now_playing_view
-                self.stack.addWidget(self.now_playing_view)
-            elif page_id == Pages.SETTINGS:
-                self.settings_view = SettingsView(self)
-                s = SmoothScrollArea()
-                s.setWidgetResizable(True)
-                s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                s.setStyleSheet("background: transparent; border: none;")
-                s.setWidget(self.settings_view)
-                self.pages[page_id] = s
-                self.stack.addWidget(s)
-            elif page_id == Pages.DEV_MODE:
-                self.dev_view = DevModeView(self)
-                s = SmoothScrollArea()
-                s.setWidgetResizable(True)
-                s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                s.setStyleSheet("background: transparent; border: none;")
-                s.setWidget(self.dev_view)
-                self.pages[page_id] = s
-                self.stack.addWidget(s)
-            elif page_id == Pages.DOWNLOADS:
-                self.downloads_view = DownloadsView(self)
-                s = SmoothScrollArea()
-                s.setWidgetResizable(True)
-                s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-                s.setStyleSheet("background: transparent; border: none;")
-                s.setWidget(self.downloads_view)
-                self.pages[page_id] = s
-                self.stack.addWidget(s)
-            elif page_id == Pages.HOME:
-                self.pages[page_id] = HomeView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.SEARCH:
-                self.pages[page_id] = SearchView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.ALBUMS:
-                self.pages[page_id] = AlbumsView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.TRACKS:
-                self.pages[page_id] = TracksView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.ARTISTS:
-                self.pages[page_id] = ArtistsView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.FAVS:
-                self.pages[page_id] = FavsView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.DETAILS:
-                self.pages[page_id] = DetailsView(self)
-                self.stack.addWidget(self.pages[page_id])
-            elif page_id == Pages.QUEUE:
-                dummy = QWidget()
-                self.pages[page_id] = dummy
-                self.stack.addWidget(dummy)
+        self.now_playing_view = NowPlayingWidget()
+        self.now_playing_view.queue_content.drop_occurred.connect(self._handle_now_playing_queue_drop)
+        self.settings_view = SettingsView(self)
+        self.dev_view = DevModeView(self)
+        self.downloads_view = DownloadsView(self)
+
+        def make_scrollable(view_widget):
+            s = SmoothScrollArea()
+            s.setWidgetResizable(True)
+            s.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            s.setStyleSheet("background: transparent; border: none;")
+            s.setWidget(view_widget)
+            return s
+
+        page_factories = {
+            Pages.HOME: lambda: HomeView(self),
+            Pages.FAVS: lambda: FavsView(self),
+            Pages.QUEUE: lambda: QWidget(),
+            Pages.ALBUMS: lambda: AlbumsView(self),
+            Pages.DETAILS: lambda: DetailsView(self),
+            Pages.TRACKS: lambda: TracksView(self),
+            Pages.ARTISTS: lambda: ArtistsView(self),
+            Pages.SETTINGS: lambda: make_scrollable(self.settings_view),
+            Pages.NOW_PLAYING: lambda: self.now_playing_view,
+            Pages.DEV_MODE: lambda: make_scrollable(self.dev_view),
+            Pages.SEARCH: lambda: SearchView(self),
+            Pages.DOWNLOADS: lambda: make_scrollable(self.downloads_view)
+        }
+
+        for pid in Pages:
+            w = page_factories[pid]()
+            self.pages[pid] = w
+            self.stack.addWidget(w)
 
         self.router.setup(self.stack, self.pages)
 
@@ -465,16 +392,19 @@ class MainWindow(QMainWindow):
     def _handle_add_to_queue(self, data, type_str):
         if self._is_fetching:
             return
+
         def fetch():
             if type_str == MediaType.ALBUM:
                 return self.client.get_album(data.item_id).get('song', [])
             elif type_str == MediaType.ARTIST:
                 return self.client.get_top_songs_for_artist(data.title)
             return []
+
         def on_ready(songs):
             if songs:
                 for s in songs:
                     self.engine.add_to_queue(s)
+
         self.run_async(fetch, on_ready, page_bound=False)
 
     def _handle_download_videos(self, data, type_str):
@@ -484,83 +414,7 @@ class MainWindow(QMainWindow):
             self.start_bulk_download("artist", data.title, data.title, media_type="video")
 
     def start_bulk_download(self, bulk_type, target_id=None, target_name=None, media_type="video"):
-        if self._is_fetching:
-            return
-
-        def fetch():
-            songs = []
-            if bulk_type == "favorites":
-                songs = self.client.get_starred(1000)
-            elif bulk_type == "playlist":
-                params = self.client._get_auth_params()
-                params["id"] = target_id
-                res = self.client._make_request("getPlaylist", params)
-                entry = res.get("playlist", {}).get("entry", [])
-                from core.models import MediaItem
-                songs = [MediaItem(s) for s in entry]
-            elif bulk_type == "album":
-                songs = self.client.get_album(target_id).get('song', [])
-            elif bulk_type == "artist":
-                songs = self.client.get_top_songs_for_artist(target_id, limit=500)
-            elif bulk_type == "all":
-                if hasattr(self, 'repo'):
-                    return self.repo.library_sync.get_all_songs()
-                else:
-                    songs = self.client.get_random_songs(1000)
-            return songs
-
-        def on_ready(songs):
-            if not songs:
-                QMessageBox.information(self, "Brak utworów", "Nie znaleziono utworów do pobrania.")
-                return
-
-            if media_type == "video":
-                valid_songs = [s for s in songs if getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)]
-                if not valid_songs:
-                    QMessageBox.information(self, "Brak linków", "Znalezione utwory nie posiadają linków do wideo.")
-                    return
-
-                quality = APP_CONFIG.get("video_offline_quality", "1080p")
-                avg_mb = 25
-                if quality == "720p": avg_mb = 15
-                elif quality == "480p": avg_mb = 10
-
-                count = len(valid_songs)
-                est_mb = count * avg_mb
-                est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
-
-                msg = f"Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar do pobrania: ~{est_str} (Jakość: {quality}).\n\nCzy chcesz rozpocząć pobieranie wideo?"
-                ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
-
-                if ans == QMessageBox.Yes:
-                    items_to_add = []
-                    for s in valid_songs:
-                        link = getattr(s, 'yt_link', None) or getattr(s, 'youtube_url', None)
-                        if link:
-                            items_to_add.append((s.item_id, link, s.title, s.cover_id))
-                    if items_to_add:
-                        self.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
-                    self.show_toast(f"Dodano zadania ({len(items_to_add)}) do kolejki pobierania wideo.", title="Pobieranie Wideo", icon_str="fa5s.film", icon_color="#e74c3c")
-
-            elif media_type == "audio":
-                from core.models import MediaItem
-                valid_songs = [s if isinstance(s, MediaItem) else MediaItem(s) for s in songs]
-
-                avg_mb = 6
-                count = len(valid_songs)
-                est_mb = count * avg_mb
-                est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
-
-                msg = f"Znaleziono {count} utworów audio.\nSzacowany rozmiar do pobrania: ~{est_str}.\n\nCzy chcesz rozpocząć pobieranie muzyki?"
-                ans = QMessageBox.question(self, "Potwierdzenie pobierania", msg, QMessageBox.Yes | QMessageBox.No)
-
-                if ans == QMessageBox.Yes:
-                    items_to_add = [(s.item_id, s.title) for s in valid_songs]
-                    if items_to_add:
-                        self.engine.audio_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
-                    self.show_toast(f"Dodano zadania ({len(items_to_add)}) do kolejki pobierania audio.", title="Pobieranie Audio", icon_str="fa5s.music", icon_color=THEME["accent"])
-
-        self.run_async(fetch, on_ready, page_bound=False)
+        BulkDownloadHandler.start_bulk_download(self, bulk_type, target_id, target_name, media_type)
 
     def _pb_title_clicked(self):
         if 0 <= self.engine.idx < len(self.engine.queue):
@@ -697,265 +551,31 @@ class MainWindow(QMainWindow):
                     self.loader.load(self.client.get_cover_art_url(cid), self.now_playing_view)
 
     def _set_custom_artist_image(self, data, type_str):
-        if type_str != MediaType.ARTIST:
-            return
-
-        artist_id = data.item_id
-        cover_id = data.cover_id
-
-        if not artist_id and not cover_id:
-            return
-
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Wybierz zdjęcie artysty", "", "Images (*.png *.jpg *.jpeg)"
-        )
-        if file_path:
-            ext = os.path.splitext(file_path)[1].lower()
-            target_dir = self.loader.custom_artists_dir
-
-            for cid in [artist_id, cover_id]:
-                if not cid:
-                    continue
-                for old_ext in ['.jpg', '.jpeg', '.png']:
-                    old_file = os.path.join(target_dir, f"{cid}{old_ext}")
-                    if os.path.exists(old_file):
-                        try:
-                            os.remove(old_file)
-                        except Exception:
-                            pass
-
-            try:
-                if cover_id:
-                    shutil.copy2(file_path, os.path.join(target_dir, f"{cover_id}{ext}"))
-                if artist_id and artist_id != cover_id:
-                    shutil.copy2(file_path, os.path.join(target_dir, f"{artist_id}{ext}"))
-
-                self.loader.refresh_file_indexes()
-                self.loader._ram_cache.clear()
-                self._refresh_current()
-                logger.log(f"Ustawiono własne zdjęcie dla artysty {artist_id or cover_id}")
-            except Exception as e:
-                logger.log(f"Błąd kopiowania zdjęcia artysty: {e}")
+        CustomMediaManager.set_custom_artist_image(self, data, type_str, self.loader, self._refresh_current)
 
     def _reset_custom_artist_image(self, data, type_str):
-        if type_str != MediaType.ARTIST:
-            return
-
-        artist_id = data.item_id
-        cover_id = data.cover_id
-
-        target_dir = self.loader.custom_artists_dir
-        deleted = False
-
-        for cid in [artist_id, cover_id]:
-            if not cid:
-                continue
-            for ext in ['.jpg', '.jpeg', '.png']:
-                file_path = os.path.join(target_dir, f"{cid}{ext}")
-                if os.path.exists(file_path):
-                    try:
-                        os.remove(file_path)
-                        deleted = True
-                    except Exception:
-                        pass
-
-        if deleted:
-            self.loader.refresh_file_indexes()
-            self.loader._ram_cache.clear()
-            self._refresh_current()
-            logger.log(f"Przywrócono domyślne zdjęcie dla artysty {artist_id or cover_id}")
+        CustomMediaManager.reset_custom_artist_image(self, data, type_str, self.loader, self._refresh_current)
 
     def _set_custom_album_cover(self, data, type_str):
-        if type_str not in [MediaType.ALBUM, MediaType.SONG]:
-            return
-
-        album_id = data.get('albumId') if type_str == MediaType.SONG else data.item_id
-        cover_id = data.cover_id
-
-        if not album_id and not cover_id:
-            return
-
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Wybierz okładkę", "", "Images (*.png *.jpg *.jpeg)"
+        CustomMediaManager.set_custom_album_cover(
+            self, data, type_str, self.loader, self._refresh_current, self._refresh_player_bar_if_needed
         )
-        if file_path:
-            ext = os.path.splitext(file_path)[1].lower()
-            target_dir = self.loader.custom_covers_dir
-
-            for cid in [album_id, cover_id]:
-                if not cid:
-                    continue
-                for old_ext in ['.jpg', '.jpeg', '.png']:
-                    old_file = os.path.join(target_dir, f"{cid}{old_ext}")
-                    if os.path.exists(old_file):
-                        try:
-                            os.remove(old_file)
-                        except Exception:
-                            pass
-
-            try:
-                if cover_id:
-                    shutil.copy2(file_path, os.path.join(target_dir, f"{cover_id}{ext}"))
-                if album_id and album_id != cover_id:
-                    shutil.copy2(file_path, os.path.join(target_dir, f"{album_id}{ext}"))
-
-                self.loader.refresh_file_indexes()
-                self.loader._ram_cache.clear()
-                self._refresh_current()
-                self._refresh_player_bar_if_needed(album_id, cover_id)
-                logger.log(f"Ustawiono własną okładkę dla {album_id or cover_id}")
-            except Exception as e:
-                logger.log(f"Błąd kopiowania okładki: {e}")
 
     def _reset_custom_album_cover(self, data, type_str):
-        if type_str not in [MediaType.ALBUM, MediaType.SONG]:
-            return
-
-        album_id = data.get('albumId') if type_str == MediaType.SONG else data.item_id
-        cover_id = data.cover_id
-
-        target_dir = self.loader.custom_covers_dir
-        deleted = False
-        for cid in [album_id, cover_id]:
-            if not cid:
-                continue
-            for ext in ['.jpg', '.jpeg', '.png']:
-                file_path = os.path.join(target_dir, f"{cid}{ext}")
-                if os.path.exists(file_path):
-                    try:
-                        os.remove(file_path)
-                        deleted = True
-                    except Exception:
-                        pass
-
-        if deleted:
-            self.loader.refresh_file_indexes()
-            self.loader._ram_cache.clear()
-            self._refresh_current()
-            self._refresh_player_bar_if_needed(album_id, cover_id)
-            logger.log(f"Przywrócono domyślną okładkę dla {album_id or cover_id}")
-
-    def _save_image_to_file(self, data, type_str):
-        cover_id = data.cover_id
-        if not cover_id:
-            return
-
-        default_name = f"{data.artist} - {data.title}.jpg"
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Zapisz obrazek jako...", default_name, "Images (*.jpg)"
+        CustomMediaManager.reset_custom_album_cover(
+            self, data, type_str, self.loader, self._refresh_current, self._refresh_player_bar_if_needed
         )
 
-        if file_path:
-            size = 600 if type_str != MediaType.ARTIST else 1000
-            url = self.client.get_cover_art_url(cover_id, size=size)
-
-            def task():
-                try:
-                    res = requests.get(url, timeout=15)
-                    res.raise_for_status()
-                    with open(file_path, "wb") as f:
-                        f.write(res.content)
-                    return True
-                except Exception as e:
-                    logger.log(f"Błąd zapisu obrazka do pliku: {e}")
-                    return False
-
-            self.run_async(task, lambda success: logger.log("Zapisano grafikę do pliku.") if success else None)
+    def _save_image_to_file(self, data, type_str):
+        CustomMediaManager.save_image_to_file(self, self.client, data, type_str, self.run_async)
 
     def _show_playlist_dialog(self, song):
-        def fetch():
-            params = self.client._get_auth_params()
-            res = self.client._make_request("getPlaylists", params)
-            return res.get('playlists', {}).get('playlist', [])
-
-        def on_ready(playlists):
-            dlg = QDialog(self)
-            dlg.setWindowTitle("Dodaj do playlisty")
-            dlg.setFixedSize(320, 450)
-            dlg.setStyleSheet(get_app_style())
-            layout = QVBoxLayout(dlg)
-
-            lbl_title = QLabel("Dodaj lub utwórz playlistę:")
-            lbl_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {THEME['text_main']}; margin-bottom: 10px;")
-            layout.addWidget(lbl_title)
-
-            new_pl_layout = QHBoxLayout()
-            inp_new_pl = QLineEdit()
-            inp_new_pl.setPlaceholderText("Nowa playlista...")
-            inp_new_pl.setStyleSheet(f"background: {THEME['bg_main']}; color: {THEME['text_main']}; padding: 8px; border: 1px solid {THEME['border']}; border-radius: 5px;")
-
-            btn_new_pl = QPushButton("Utwórz")
-            btn_new_pl.setCursor(Qt.PointingHandCursor)
-            btn_new_pl.setStyleSheet(f"background: {THEME['accent']}; color: white; padding: 8px; border-radius: 5px; font-weight: bold;")
-
-            def create_pl():
-                name = inp_new_pl.text().strip()
-                if name:
-                    dlg.accept()
-                    def task():
-                        p = self.client._get_auth_params()
-                        p['name'] = name
-                        p['songId'] = [song.item_id]
-                        self.client._make_request("createPlaylist", p)
-
-                        if APP_CONFIG.get("video_auto_dl_playlists", False):
-                            link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
-                            if link:
-                                self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
-
-                    self.run_async(task, lambda r: self._load_playlists())
-
-            btn_new_pl.clicked.connect(create_pl)
-            new_pl_layout.addWidget(inp_new_pl)
-            new_pl_layout.addWidget(btn_new_pl)
-            layout.addLayout(new_pl_layout)
-
-            line = QFrame()
-            line.setFrameShape(QFrame.HLine)
-            line.setStyleSheet(f"background-color: {THEME['border']}; margin: 10px 0px;")
-            layout.addWidget(line)
-
-            scroll = QScrollArea()
-            scroll.setWidgetResizable(True)
-            scroll.setStyleSheet("background: transparent; border: none;")
-            content = QWidget()
-            content.setStyleSheet("background: transparent;")
-            v = QVBoxLayout(content)
-            v.setContentsMargins(0, 0, 0, 0)
-            v.setSpacing(5)
-
-            for pl in playlists:
-                btn = QPushButton(pl.get('name'))
-                btn.setStyleSheet(f"text-align: left; padding: 10px; border-radius: 5px; background: {THEME['bg_card']}; color: {THEME['text_main']}; border: none;")
-                btn.setCursor(Qt.PointingHandCursor)
-                btn.clicked.connect(lambda ch, pid=pl.get('id'): select_pl(pid))
-                v.addWidget(btn)
-
-            v.addStretch()
-            scroll.setWidget(content)
-            layout.addWidget(scroll)
-
-            def select_pl(pid):
-                dlg.accept()
-                def task():
-                    self.client.update_playlist(pid, song_id_to_add=song.item_id)
-                    if APP_CONFIG.get("video_auto_dl_playlists", False):
-                        link = getattr(song, 'yt_link', None) or getattr(song, 'youtube_url', None)
-                        if link:
-                            self.engine.video_download_manager.add_to_queue(song.item_id, link, song.title, high_priority=False, cover_id=song.cover_id)
-                self.run_async(task)
-
-            dlg.exec()
-        self.run_async(fetch, on_ready)
-
-    def _clear(self, lay):
-        while lay.count():
-            i = lay.takeAt(0)
-            if i.widget():
-                i.widget().deleteLater()
-            elif i.layout():
-                self._clear(i.layout())
+        dlg = PlaylistDialog(
+            self, self.client, song,
+            self.engine.video_download_manager,
+            on_playlists_changed=self.sidebar_ctrl.load_playlists
+        )
+        dlg.exec()
 
     def _handle_now_playing_queue_drop(self, old_idx, drop_y):
         if not self.engine.queue:
@@ -976,21 +596,17 @@ class MainWindow(QMainWindow):
     def _shuffle_queue(self):
         if self._is_fetching:
             return
+
         def fetch_songs():
             return self.client.get_random_songs(50)
+
         def process_songs(songs):
             self.engine.shuffle_queue(songs)
+
         self.run_async(fetch_songs, process_songs, page_bound=True)
 
     def _sync_queue_ui(self):
-        lay = self.now_playing_view.queue_layout
-        if lay:
-            for i in range(lay.count()):
-                item = lay.itemAt(i)
-                if item and item.widget() and isinstance(item.widget(), SongItem):
-                    w = item.widget()
-                    w.queue_index = i
-                    w.set_active(w.queue_index == self.engine.idx)
+        self.now_playing_view.sync_active_index(self.engine.idx)
 
     def _on_track_changed(self, song):
         self.force_telemetry_event = "TRACK_CHANGE"
@@ -1015,38 +631,28 @@ class MainWindow(QMainWindow):
         self._queue_update_timer.start()
 
     def _actual_queue_updated(self):
-        self._rebuild_now_playing_queue()
-
-    def _rebuild_now_playing_queue(self):
-        v_bar = self.now_playing_view.queue_scroll.verticalScrollBar()
-        old_val = v_bar.value()
-
-        self._clear(self.now_playing_view.queue_layout)
-        active_idx = self.engine.idx
-        for i, s in enumerate(self.engine.queue):
-            item = SongItem(s, active=(i == active_idx), is_queue=True, queue_index=i, compact_mode=True)
-            item.clicked.connect(lambda song, idx=i: self.engine.play_list(self.engine.queue, idx))
-            item.fav_clicked.connect(self._handle_song_fav)
-            item.play_next_clicked.connect(lambda s_d, idx=i: self.engine.queue_play_next(idx))
-            item.add_to_playlist_clicked.connect(self._show_playlist_dialog)
-            item.remove_clicked.connect(lambda s_d, idx=i: self.engine.queue_remove(idx))
-            item.artist_clicked.connect(self.router.show_details)
-            item.album_clicked.connect(self.router.show_details)
-            item.set_custom_cover_clicked.connect(self._set_custom_album_cover)
-            item.reset_custom_cover_clicked.connect(self._reset_custom_album_cover)
-            item.save_image_clicked.connect(self._save_image_to_file)
-            self.now_playing_view.queue_layout.addWidget(item)
-            if s.cover_id:
-                self.loader.load(self.client.get_cover_art_url(s.cover_id), item)
-
-        QTimer.singleShot(0, lambda: self.now_playing_view.queue_scroll.verticalScrollBar().setValue(old_val))
+        handlers = {
+            'play': lambda idx: self.engine.play_list(self.engine.queue, idx),
+            'fav': self._handle_song_fav,
+            'play_next': lambda idx: self.engine.queue_play_next(idx),
+            'add_to_playlist': self._show_playlist_dialog,
+            'remove': lambda idx: self.engine.queue_remove(idx),
+            'artist': self.router.show_details,
+            'album': self.router.show_details,
+            'set_custom_cover': self._set_custom_album_cover,
+            'reset_custom_cover': self._reset_custom_album_cover,
+            'save_image': self._save_image_to_file
+        }
+        self.now_playing_view.update_queue(
+            self.engine.queue,
+            self.engine.idx,
+            handlers,
+            self.loader,
+            self.client
+        )
 
     def _scroll_now_playing_to_active(self):
-        active_idx = self.engine.idx
-        if 0 <= active_idx < self.now_playing_view.queue_layout.count():
-            item = self.now_playing_view.queue_layout.itemAt(active_idx).widget()
-            if item:
-                self.now_playing_view.queue_scroll.ensureWidgetVisible(item)
+        self.now_playing_view.scroll_to_active(self.engine.idx)
 
     def _on_queue_cleared(self):
         self.player_bar.reset()

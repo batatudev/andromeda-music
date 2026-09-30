@@ -3,9 +3,13 @@ os.environ["QT_API"] = "pyside6"
 
 import qtawesome as qta
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QGraphicsOpacityEffect, QStackedLayout, QSizePolicy, QGraphicsView, QGraphicsScene
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
+    QGraphicsOpacityEffect, QStackedLayout, QSizePolicy,
+    QGraphicsView, QGraphicsScene
+)
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF, QPoint
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QSizeF, QPoint, QTimer
 
 from config import THEME, APP_CONFIG
 from ui.widgets import DragDropContainer, RoundedImage, ClickableLabel, HoverIconButton, SmoothScrollArea
@@ -120,7 +124,9 @@ class NowPlayingWidget(QFrame):
         self.title_lbl = QLabel("Nic nie gra")
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setAlignment(Qt.AlignCenter)
-        self.title_lbl.setStyleSheet(f"font-size: 40px; font-weight: bold; color: {THEME['text_main']}; background: transparent; margin-top: 20px;")
+        self.title_lbl.setStyleSheet(
+            f"font-size: 40px; font-weight: bold; color: {THEME['text_main']}; background: transparent; margin-top: 20px;"
+        )
 
         self.artist_lbl = ClickableLabel("-", default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="24px")
         self.artist_lbl.setAlignment(Qt.AlignCenter)
@@ -133,7 +139,9 @@ class NowPlayingWidget(QFrame):
 
         self.queue_frame = QFrame()
         self.queue_frame.setObjectName("NowPlayingQueueFrame")
-        self.queue_frame.setStyleSheet(f"#NowPlayingQueueFrame {{ background-color: rgba({THEME['bg_main_rgb']}, 100); border-radius: 12px; border: 1px solid {THEME['border']}; }}")
+        self.queue_frame.setStyleSheet(
+            f"#NowPlayingQueueFrame {{ background-color: rgba({THEME['bg_main_rgb']}, 100); border-radius: 12px; border: 1px solid {THEME['border']}; }}"
+        )
 
         qf_layout = QVBoxLayout(self.queue_frame)
         qf_layout.setContentsMargins(15, 15, 15, 15)
@@ -183,6 +191,69 @@ class NowPlayingWidget(QFrame):
         self.main_layout.addWidget(self.right_spacer)
 
         self.update_video_settings()
+
+    def update_queue(self, songs, active_idx, handlers, loader, client):
+        """
+        Dedykowana metoda budująca listę utworów w widżecie kolejki z zachowaniem scrolla.
+        """
+        v_bar = self.queue_scroll.verticalScrollBar()
+        old_val = v_bar.value()
+
+        while self.queue_layout.count():
+            item = self.queue_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for i, s in enumerate(songs):
+            item = SongItem(
+                s,
+                active=(i == active_idx),
+                is_queue=True,
+                queue_index=i,
+                compact_mode=True
+            )
+            if 'play' in handlers:
+                item.clicked.connect(lambda song, idx=i: handlers['play'](idx))
+            if 'fav' in handlers:
+                item.fav_clicked.connect(handlers['fav'])
+            if 'play_next' in handlers:
+                item.play_next_clicked.connect(lambda s_d, idx=i: handlers['play_next'](idx))
+            if 'add_to_playlist' in handlers:
+                item.add_to_playlist_clicked.connect(handlers['add_to_playlist'])
+            if 'remove' in handlers:
+                item.remove_clicked.connect(lambda s_d, idx=i: handlers['remove'](idx))
+            if 'artist' in handlers:
+                item.artist_clicked.connect(handlers['artist'])
+            if 'album' in handlers:
+                item.album_clicked.connect(handlers['album'])
+            if 'set_custom_cover' in handlers:
+                item.set_custom_cover_clicked.connect(handlers['set_custom_cover'])
+            if 'reset_custom_cover' in handlers:
+                item.reset_custom_cover_clicked.connect(handlers['reset_custom_cover'])
+            if 'save_image' in handlers:
+                item.save_image_clicked.connect(handlers['save_image'])
+
+            self.queue_layout.addWidget(item)
+            if s.cover_id and loader and client:
+                loader.load(client.get_cover_art_url(s.cover_id), item)
+
+        QTimer.singleShot(0, lambda: self.queue_scroll.verticalScrollBar().setValue(old_val))
+
+    def sync_active_index(self, active_idx):
+        """Aktualizuje podświetlenie aktywnego utworu bez przebudowy widżetów."""
+        for i in range(self.queue_layout.count()):
+            item = self.queue_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), SongItem):
+                w = item.widget()
+                w.queue_index = i
+                w.set_active(w.queue_index == active_idx)
+
+    def scroll_to_active(self, active_idx):
+        """Przewija widok kolejki do aktualnie odtwarzanego utworu."""
+        if 0 <= active_idx < self.queue_layout.count():
+            item = self.queue_layout.itemAt(active_idx)
+            if item and item.widget():
+                self.queue_scroll.ensureWidgetVisible(item.widget())
 
     def resizeEvent(self, e):
         self.bg_container.resize(self.size())

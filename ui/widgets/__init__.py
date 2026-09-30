@@ -7,3 +7,4 @@ from .buttons import HoverIconButton, get_cached_icon
 from .drag_drop import DragDropContainer, DragHandle
 from .smooth_scroll import SmoothScrollArea
 from .toast import ToastNotification
+from .collapsible import CollapsibleSection
