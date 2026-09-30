@@ -9,6 +9,7 @@ from api_client import NavidromeClient
 from utils import logger
 from core.paths import PathsManager
 
+
 class LibrarySyncManager(QObject):
     sync_progress = Signal(int, int)
     sync_completed = Signal()
@@ -60,10 +61,14 @@ class LibrarySyncManager(QObject):
             c = conn.cursor()
 
             artists = self.client.get_artists()
-            for art in artists:
-                c.execute(
+            artist_records = [
+                ("artist", art.item_id, "", art.title, json.dumps(dict(art)))
+                for art in artists
+            ]
+            if artist_records:
+                c.executemany(
                     "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
-                    ("artist", art.item_id, "", art.title, json.dumps(dict(art)))
+                    artist_records
                 )
             conn.commit()
 
@@ -84,16 +89,36 @@ class LibrarySyncManager(QObject):
                 songs_data = res.get('song', [])
                 albums_data = res.get('album', [])
 
-                for a in albums_data:
-                    c.execute(
+                album_records = [
+                    (
+                        "album",
+                        a.get('id', ''),
+                        a.get('artistId', ''),
+                        a.get('name', a.get('title', '')),
+                        json.dumps(a)
+                    )
+                    for a in albums_data
+                ]
+                if album_records:
+                    c.executemany(
                         "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
-                        ("album", a.get('id', ''), a.get('artistId', ''), a.get('name', a.get('title','')), json.dumps(a))
+                        album_records
                     )
 
-                for s in songs_data:
-                    c.execute(
+                song_records = [
+                    (
+                        "song",
+                        s.get('id', ''),
+                        s.get('albumId', ''),
+                        s.get('title', ''),
+                        json.dumps(s)
+                    )
+                    for s in songs_data
+                ]
+                if song_records:
+                    c.executemany(
                         "INSERT OR REPLACE INTO library (type, id, parent_id, title, data) VALUES (?, ?, ?, ?, ?)",
-                        ("song", s.get('id', ''), s.get('albumId', ''), s.get('title', ''), json.dumps(s))
+                        song_records
                     )
 
                 conn.commit()

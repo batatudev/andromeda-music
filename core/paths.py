@@ -8,6 +8,7 @@ from pathlib import Path
 APP_ID = "andromeda-music"
 LEGACY_APP_ID = "navidrome-player-v3"
 
+
 class PathsManager:
     _migration_checked = False
 
@@ -143,10 +144,12 @@ class PathsManager:
         Zwraca szybkie połączenie do SQLite bez blokowania nagłówka bazy.
         - synchronous = NORMAL: bezpieczna redukcja fsync.
         - busy_timeout = 5000: automatyczny retry bez wyjątku 'database is locked'.
+        - temp_store = MEMORY: tymczasowe indeksy i tabele alokowane w RAM zamiast dysku.
         """
         path_obj = Path(db_path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(path_obj), timeout=timeout)
         conn.execute("PRAGMA busy_timeout = 5000")
         conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute("PRAGMA temp_store = MEMORY")
         return conn
