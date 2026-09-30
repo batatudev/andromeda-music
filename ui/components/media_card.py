@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: ui/components/media_card.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w menu kontekstowym kafelków mediów
+# OPIS ZMIAN: Bezpośrednie ostylowanie przycisku play_btn przywracające okrągłe tło oraz kursor rączki
 
 import qtawesome as qta
 from PySide6.QtWidgets import (
@@ -63,6 +63,17 @@ class MediaCard(QFrame):
         self.play_btn.setObjectName("CardPlayBtn")
         self.play_btn.setFixedSize(46, 46)
         self.play_btn.setIconSize(QSize(20, 20))
+        self.play_btn.setCursor(Qt.PointingHandCursor)
+        self.play_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['play_bg']};
+                border-radius: 23px;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['accent']};
+            }}
+        """)
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
 
