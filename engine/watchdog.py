@@ -7,6 +7,7 @@ from PySide6.QtMultimedia import QMediaPlayer
 from core.enums import EngineState, TelemetryEvent
 from utils import logger
 
+
 class WatchdogService(QObject):
     def __init__(self, main_window):
         super().__init__()
@@ -14,10 +15,32 @@ class WatchdogService(QObject):
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
-        self._timer.start(250)
+
+        self._win.engine.state_changed.connect(self.check_monitoring)
+        self._win.engine.has_video_signal.connect(self.check_monitoring)
+        self._win.player_bar.video_toggle_requested.connect(self.check_monitoring)
 
     def stop(self):
         self._timer.stop()
+
+    def check_monitoring(self, *args):
+        win = self._win
+        engine = win.engine
+        player_bar = win.player_bar
+
+        playing = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
+        is_paused = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PausedState)
+        has_video = bool(player_bar.btn_video_toggle.isChecked() and engine.current_yt_link)
+
+        if (playing or is_paused) and has_video:
+            if not self._timer.isActive():
+                self._timer.start(500)
+        else:
+            if self._timer.isActive():
+                self._timer.stop()
+            if getattr(win, '_current_mask_state', False):
+                win._current_mask_state = False
+                win.now_playing_view.set_buffering_state(False)
 
     def _tick(self):
         win = self._win
@@ -30,18 +53,14 @@ class WatchdogService(QObject):
             return
 
         if not player_bar.btn_video_toggle.isChecked() or not engine.current_yt_link:
-            if getattr(win, '_current_mask_state', False):
-                win._current_mask_state = False
-                now_playing.set_buffering_state(False)
+            self.check_monitoring()
             return
 
         playing = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
         is_paused = (engine.player.playbackState() == QMediaPlayer.PlaybackState.PausedState)
 
         if not playing and not is_paused:
-            if getattr(win, '_current_mask_state', False):
-                win._current_mask_state = False
-                now_playing.set_buffering_state(False)
+            self.check_monitoring()
             return
 
         state_str = engine.current_engine_state

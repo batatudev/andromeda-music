@@ -26,6 +26,7 @@ from engine.audio_controller import AudioController
 from engine.video_controller_online import VideoControllerOnline
 from core.paths import PathsManager
 
+
 class PlayerEngine(QObject):
     track_changed = Signal(object)
     state_changed = Signal(bool)
@@ -244,10 +245,12 @@ class PlayerEngine(QObject):
 
     def _sync_video(self):
         if getattr(self, 'video_killed_for_track', False):
+            self._deactivate_sync_timer()
             return
         if getattr(self, '_sync_start_active', False):
             return
         if not self.video_player.source().isValid():
+            self._deactivate_sync_timer()
             return
 
         v_status = self.video_player.mediaStatus()
@@ -265,6 +268,7 @@ class PlayerEngine(QObject):
         if a_state != QMediaPlayer.PlaybackState.PlayingState:
             if self.video_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
                 self.video_player.pause()
+            self._deactivate_sync_timer()
             return
 
         if self.video_player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
@@ -399,8 +403,13 @@ class PlayerEngine(QObject):
         if is_playing:
             if self.video_player.source().isValid():
                 self.video_player.play()
+                self._activate_sync_timer()
         elif state == QMediaPlayer.PlaybackState.PausedState:
             self.video_player.pause()
+            self._deactivate_sync_timer()
+        elif state == QMediaPlayer.PlaybackState.StoppedState:
+            self.video_player.stop()
+            self._deactivate_sync_timer()
 
     def _status_upd(self, s):
         if s != QMediaPlayer.MediaStatus.NoMedia:
@@ -552,6 +561,7 @@ class PlayerEngine(QObject):
             self.current_engine_state = EngineState.LOADING_ABORTED
             self.player.stop()
             self.video_player.stop()
+            self._deactivate_sync_timer()
             return
 
         if self.idx == -1:
@@ -562,9 +572,12 @@ class PlayerEngine(QObject):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
             self.video_player.pause()
+            self._deactivate_sync_timer()
         else:
             self.player.play()
             self.video_player.play()
+            if self.current_yt_link or self.video_download_manager.is_downloaded(getattr(self.queue_mgr.current_song(), 'item_id', '')):
+                self._activate_sync_timer()
 
     def next_song(self):
         if self.queue_mgr.advance():

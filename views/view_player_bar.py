@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_player_bar.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w dolnym pasku odtwarzacza i etykietach kontrolnych
-
 import qtawesome as qta
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
@@ -13,6 +9,7 @@ from PySide6.QtCore import Qt, Signal, QSize
 from config import THEME
 from ui.widgets import ClickableFrame, RoundedImage, ClickableElidedLabel, HoverIconButton, PremiumSlider, ClickableLabel
 from core.i18n import tr
+
 
 class PlayerBarWidget(ClickableFrame):
     play_pause_requested = Signal()
@@ -42,6 +39,7 @@ class PlayerBarWidget(ClickableFrame):
         self._show_remaining_time = False
         self._is_loading = False
         self._last_playing_state = False
+        self._last_sec_pos = -1
         self._init_ui(initial_volume)
 
     def _init_ui(self, initial_volume):
@@ -275,14 +273,14 @@ class PlayerBarWidget(ClickableFrame):
         self._update_time_labels(self.slider.value())
 
     def _update_time_labels(self, p):
-        self.cur_time.setText(f"{int(p//60000)}:{int((p%60000)//1000):02d}")
+        self.cur_time.setText(f"{int(p // 60000)}:{int((p % 60000) // 1000):02d}")
         if self._current_duration > 0:
             if self._show_remaining_time:
                 rem = max(0, self._current_duration - p)
-                self.total_time.setText(f"-{int(rem//60000)}:{int((rem%60000)//1000):02d}")
+                self.total_time.setText(f"-{int(rem // 60000)}:{int((rem % 60000) // 1000):02d}")
             else:
                 d = self._current_duration
-                self.total_time.setText(f"{int(d//60000)}:{int((d%60000)//1000):02d}")
+                self.total_time.setText(f"{int(d // 60000)}:{int((d % 60000) // 1000):02d}")
 
     def _on_slider_pressed(self):
         self._slider_is_pressed = True
@@ -305,7 +303,10 @@ class PlayerBarWidget(ClickableFrame):
     def update_position(self, p):
         if not self._slider_is_pressed:
             self.slider.setValue(p)
-            self._update_time_labels(p)
+            sec = int(p // 1000)
+            if sec != self._last_sec_pos:
+                self._last_sec_pos = sec
+                self._update_time_labels(p)
 
     def update_duration(self, d):
         self._current_duration = d
@@ -337,6 +338,7 @@ class PlayerBarWidget(ClickableFrame):
         self.pb_img.set_image(None, animate=False)
         self.slider.setValue(0)
         self._current_duration = 0
+        self._last_sec_pos = -1
         self.cur_time.setText("0:00")
         self.total_time.setText("0:00")
         self.set_loading_state(False)
