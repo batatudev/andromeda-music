@@ -9,6 +9,7 @@ from config import THEME
 
 _ICON_CACHE = {}
 
+
 def get_cached_icon(icon_name, color=None):
     key = (icon_name, color)
     if key not in _ICON_CACHE:
@@ -21,11 +22,12 @@ def get_cached_icon(icon_name, color=None):
             _ICON_CACHE[key] = qta.icon(icon_name)
     return _ICON_CACHE[key]
 
+
 class HoverIconButton(QPushButton):
-    def __init__(self, icon_name, default_color=THEME["text_muted"], hover_color="white", icon_size=16, *args, **kwargs):
+    def __init__(self, icon_name, default_color=None, hover_color="white", icon_size=16, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.icon_name = icon_name
-        self.default_color = default_color
+        self.default_color = default_color if default_color is not None else THEME.get("text_muted", "#888888")
         self.hover_color = hover_color
         self.base_icon_size = icon_size
         self._scale = 1.0
