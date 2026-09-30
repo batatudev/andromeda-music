@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: ui/components/song_context_menu.py
-# OPIS ZMIAN: Oczyszczenie menu PPM ze zbędnych wywodów i pełne wdrożenie i18n przez tr()
+# OPIS ZMIAN: Naprawa błędu AttributeError przez niezawodną funkcję _get_window() dla pobierania audio/wideo
 
 import qtawesome as qta
 from PySide6.QtWidgets import (
@@ -14,6 +14,18 @@ from core.enums import MediaType
 from config import THEME
 from utils import logger
 from core.i18n import tr
+
+def _get_window(song_item):
+    """Bezpiecznie zwraca instancję głównego okna aplikacji."""
+    if hasattr(song_item, '_find_main_window'):
+        w = song_item._find_main_window()
+        if w:
+            return w
+    w = song_item.window()
+    if w and hasattr(w, 'engine'):
+        return w
+    from ui.components.song_item import _get_main_window
+    return _get_main_window()
 
 class SongContextMenu:
     @staticmethod
@@ -243,7 +255,7 @@ class SongContextMenu:
             if not ('youtube.com/watch' in url or 'youtu.be/' in url):
                 status_lbl.setText("Wprowadź prawidłowy link (youtube.com lub youtu.be).")
                 return
-            win = song_item._find_main_window()
+            win = _get_window(song_item)
             if win:
                 win.engine.video_download_manager.save_yt_link_override(
                     song.item_id, url, song.title
@@ -252,7 +264,7 @@ class SongContextMenu:
             dlg.accept()
 
         def clear_override():
-            win = song_item._find_main_window()
+            win = _get_window(song_item)
             if win:
                 win.engine.video_download_manager.delete_yt_link_override(song.item_id)
             song_item._update_dl_status_icon()
@@ -268,7 +280,7 @@ class SongContextMenu:
     @staticmethod
     def _download_video(song_item):
         song = song_item.song
-        win = song_item._find_main_window()
+        win = _get_window(song_item)
         if not win:
             logger.log("Nie można połączyć z Download Managerem")
             return
@@ -321,26 +333,26 @@ class SongContextMenu:
 
     @staticmethod
     def _download_audio(song_item):
-        win = song_item._find_main_window()
-        if win and hasattr(win, 'engine') and hasattr(win.engine, 'audio_download_manager'):
-            mgr = win.engine.audio_download_manager
+        win = _get_window(song_item)
+        if not win or not hasattr(win, 'engine') or not hasattr(win.engine, 'audio_download_manager'):
+            QMessageBox.warning(song_item, "Błąd", "Audio Download Manager nie jest dostępny.")
+            return
 
-            if mgr.is_downloaded(song_item.song.item_id):
-                win.show_toast(
-                    "Ten utwór jest już pobrany na dysk.",
-                    title=tr("downloads.section_audio", "Muzyka (Audio)"),
-                    icon_str="fa5s.check-circle",
-                    icon_color=THEME["accent"]
-                )
-                return
-
-            mgr.add_to_queue(song_item.song.item_id, song_item.song.title, high_priority=True)
-            song_item._update_dl_status_icon()
+        mgr = win.engine.audio_download_manager
+        if mgr.is_downloaded(song_item.song.item_id):
             win.show_toast(
-                f"Dodano \"{song_item.song.title}\" do kolejki pobierania.",
+                "Ten utwór jest już pobrany na dysk.",
                 title=tr("downloads.section_audio", "Muzyka (Audio)"),
-                icon_str="fa5s.music",
+                icon_str="fa5s.check-circle",
                 icon_color=THEME["accent"]
             )
-        else:
-            QMessageBox.warning(song_item, "Błąd", "Audio Download Manager nie jest dostępny.")
+            return
+
+        mgr.add_to_queue(song_item.song.item_id, song_item.song.title, high_priority=True)
+        song_item._update_dl_status_icon()
+        win.show_toast(
+            f"Dodano \"{song_item.song.title}\" do kolejki pobierania.",
+            title=tr("downloads.section_audio", "Muzyka (Audio)"),
+            icon_str="fa5s.music",
+            icon_color=THEME["accent"]
+        )

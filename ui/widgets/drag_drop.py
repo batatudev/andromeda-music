@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/widgets/drag_drop.py
+# OPIS ZMIAN: Dynamiczny odczyt indeksu w DragHandle oraz bezpieczne dekodowanie bajtów w dropEvent
+
 import qtawesome as qta
 from PySide6.QtWidgets import QWidget, QLabel, QApplication, QGraphicsOpacityEffect
 from PySide6.QtCore import Qt, Signal, QMimeData, QByteArray, QPoint
@@ -30,7 +34,7 @@ class DragDropContainer(QWidget):
     def dragMoveEvent(self, e):
         if e.mimeData().hasFormat("application/x-queue-index"):
             e.acceptProposedAction()
-            pos_y = e.position().toPoint().y()
+            pos_y = int(e.position().y())
             if abs(pos_y - self._last_drag_pos_y) < 4:
                 return
             self._last_drag_pos_y = pos_y
@@ -57,9 +61,11 @@ class DragDropContainer(QWidget):
         self._drag_active = False
         self._set_indicator(-1)
         self._last_drag_pos_y = -100
-        data = e.mimeData().data("application/x-queue-index").data().decode()
-        if data.isdigit():
-            self.drop_occurred.emit(int(data), e.position().toPoint().y())
+        if e.mimeData().hasFormat("application/x-queue-index"):
+            raw = bytes(e.mimeData().data("application/x-queue-index"))
+            data = raw.decode("utf-8", errors="ignore")
+            if data.isdigit():
+                self.drop_occurred.emit(int(data), int(e.position().y()))
         e.acceptProposedAction()
 
     def _set_indicator(self, y):
@@ -100,6 +106,15 @@ class DragHandle(QLabel):
         self.setCursor(Qt.OpenHandCursor)
         self.drag_start_pos = None
 
+    @property
+    def current_index(self):
+        if self.parent_item:
+            if getattr(self.parent_item, 'is_queue', False):
+                return getattr(self.parent_item, 'queue_index', self.index)
+            if getattr(self.parent_item, 'is_playlist', False):
+                return getattr(self.parent_item, 'playlist_index', self.index)
+        return self.index
+
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
             self.drag_start_pos = e.pos()
@@ -114,7 +129,7 @@ class DragHandle(QLabel):
 
         drag = QDrag(self)
         mime = QMimeData()
-        mime.setData("application/x-queue-index", QByteArray(str(self.index).encode()))
+        mime.setData("application/x-queue-index", QByteArray(str(self.current_index).encode("utf-8")))
         drag.setMimeData(mime)
 
         if self.parent_item:

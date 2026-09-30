@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: ui/components/song_item.py
+# OPIS ZMIAN: Dodano brakującą metodę _find_main_window() oraz bezpieczne odwołania do okna głównego
+
 import qtawesome as qta
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame, QApplication
@@ -253,6 +257,10 @@ class SongItem(QFrame):
         self.setProperty("active", "true" if active else "false")
         self._update_dl_status_icon()
         self._connect_signals()
+
+    def _find_main_window(self):
+        """Zwraca instancję głównego okna aplikacji."""
+        return _get_main_window()
 
     def _connect_signals(self):
         win = _get_main_window()

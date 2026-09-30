@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: engine/queue_manager.py
+# OPIS ZMIAN: Naprawa logiki Drag & Drop (handle_drop) oraz bezpieczne śledzenie aktywnego utworu
+
 import random
 from PySide6.QtCore import QObject, Signal
 
@@ -63,18 +67,22 @@ class QueueManager(QObject):
             self.queue_updated.emit()
 
     def handle_drop(self, old_idx, target_q_idx):
-        if old_idx == target_q_idx or old_idx == target_q_idx - 1:
+        if not (0 <= old_idx < len(self.queue)):
             return
+        if target_q_idx == old_idx or target_q_idx == old_idx + 1:
+            return
+
+        current_playing = self.current_song()
         song = self.queue.pop(old_idx)
+
         if old_idx < target_q_idx:
             target_q_idx -= 1
+
         self.queue.insert(target_q_idx, song)
-        if self.idx == old_idx:
-            self.idx = target_q_idx
-        elif old_idx < self.idx <= target_q_idx:
-            self.idx -= 1
-        elif target_q_idx <= self.idx < old_idx:
-            self.idx += 1
+
+        if current_playing and current_playing in self.queue:
+            self.idx = self.queue.index(current_playing)
+
         self.queue_updated.emit()
 
     def play_next(self, index):

@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: views/view_now_playing.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w głównym widoku odtwarzania oraz kolejce bocznej
+# OPIS ZMIAN: Wywołanie hide() przed deleteLater() przy aktualizacji kolejki dla płynności Drag & Drop
 
 import qtawesome as qta
 
@@ -221,6 +221,7 @@ class NowPlayingWidget(QFrame):
         while self.queue_layout.count():
             item = self.queue_layout.takeAt(0)
             if item.widget():
+                item.widget().hide()
                 item.widget().deleteLater()
 
         for i, s in enumerate(songs):
