@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: engine/audio_download_manager.py
+# OPIS ZMIAN: Płynne wyliczanie prędkości pobierania audio w locie oraz emisja pełnych statystyk
+
 import time
 import sqlite3
 import queue
@@ -196,21 +200,41 @@ class AudioDownloadManager(BaseDownloadManager):
 
         total_size = int(response.headers.get('content-length', 0))
         downloaded = 0
-        last_emit_time = 0
+        last_emit_time = time.time()
+        last_downloaded = 0
 
         with open(temp_file, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
+            for chunk in response.iter_content(chunk_size=16384):
                 if self.cancel_current_event.is_set():
                     raise Exception("Anulowano przez użytkownika")
                 if chunk:
                     f.write(chunk)
                     downloaded += len(chunk)
-                    if total_size > 0:
-                        current_time = time.time()
-                        if current_time - last_emit_time > 0.25:
-                            progress = (downloaded / total_size) * 100
-                            self.download_progress.emit(item_id, progress)
-                            last_emit_time = current_time
+                    current_time = time.time()
+                    time_diff = current_time - last_emit_time
+                    if time_diff > 0.2:
+                        bytes_diff = downloaded - last_downloaded
+                        speed = bytes_diff / time_diff if time_diff > 0 else 0
+
+                        if speed > 1024 * 1024:
+                            speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
+                        elif speed > 1024:
+                            speed_str = f"{speed / 1024:.0f} KB/s"
+                        else:
+                            speed_str = f"{speed:.0f} B/s"
+
+                        dl_mb = downloaded / (1024 * 1024)
+                        if total_size > 0:
+                            pct = (downloaded / total_size) * 100.0
+                            tot_mb = total_size / (1024 * 1024)
+                            stats_str = f"{dl_mb:.1f} MB / {tot_mb:.1f} MB • {speed_str}"
+                        else:
+                            pct = 0.0
+                            stats_str = f"{dl_mb:.1f} MB • {speed_str}"
+
+                        self.download_progress.emit(item_id, pct, stats_str)
+                        last_emit_time = current_time
+                        last_downloaded = downloaded
 
         os.rename(temp_file, final_file)
         self._update_status(item_id, DownloadStatus.COMPLETED, final_file, downloaded)

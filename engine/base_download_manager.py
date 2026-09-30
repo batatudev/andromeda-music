@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: engine/base_download_manager.py
+# OPIS ZMIAN: Rozszerzenie sygnału download_progress o ciąg statystyk pobierania (rozmiar i prędkość)
+
 import time
 import sqlite3
 import threading
@@ -22,7 +26,7 @@ class BaseDownloadManager(QObject):
     Abstrakcyjna klasa bazowa dla menedżerów pobierania offline (audio/wideo).
     Obsługuje kolejkę wielowątkową, uśpienie oraz operacje dyskowe i bazodanowe.
     """
-    download_progress = Signal(str, float)
+    download_progress = Signal(str, float, str)
     download_status_changed = Signal(str, str)
     queue_updated = Signal()
 

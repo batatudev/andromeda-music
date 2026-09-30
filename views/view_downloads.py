@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: views/view_downloads.py
-# OPIS ZMIAN: Naprawa gramatyki, oczyszczenie etykiet z krzyku i wdrożenie pełnego i18n przez tr()
+# OPIS ZMIAN: Przekazywanie statystyk prędkości i rozmiaru z sygnału download_progress do widżetu zadania
 
 import qtawesome as qta
 from PySide6.QtWidgets import (
@@ -363,10 +363,10 @@ class DownloadsView(QWidget):
             else:
                 self.item_widgets[key].update_status(status)
 
-    def _on_video_progress(self, item_id, pct):
+    def _on_video_progress(self, item_id, pct, stats_str=""):
         key = f"video_{item_id}"
         if key in self.item_widgets:
-            self.item_widgets[key].update_progress(pct)
+            self.item_widgets[key].update_progress(pct, stats_str)
 
     def _on_audio_status_changed(self, item_id, status):
         key = f"audio_{item_id}"
@@ -376,7 +376,7 @@ class DownloadsView(QWidget):
             else:
                 self.item_widgets[key].update_status(status)
 
-    def _on_audio_progress(self, item_id, pct):
+    def _on_audio_progress(self, item_id, pct, stats_str=""):
         key = f"audio_{item_id}"
         if key in self.item_widgets:
-            self.item_widgets[key].update_progress(pct)
+            self.item_widgets[key].update_progress(pct, stats_str)

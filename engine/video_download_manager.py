@@ -1,6 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+# WERSJA PROJEKTU: 14.20
+# MODYFIKOWANY PLIK: engine/video_download_manager.py
+# OPIS ZMIAN: Precyzyjne wyliczanie postępu i prędkości pobierania wideo bez parsowania znaków ANSI
+
 import time
 import sqlite3
 from config import APP_CONFIG
@@ -293,16 +297,34 @@ class VideoDownloadManager(BaseDownloadManager):
         def my_hook(d):
             if self.cancel_current_event.is_set():
                 raise ValueError("Download Cancelled")
-            if d['status'] == 'downloading':
+            if d.get('status') == 'downloading':
                 current_time = time.time()
-                if current_time - getattr(self, '_last_progress_emit', 0) > 0.25:
-                    p = d.get('_percent_str', '0.0%').replace('%', '').strip()
-                    try:
-                        pct = float(p)
-                        self.download_progress.emit(item_id, pct)
-                        self._last_progress_emit = current_time
-                    except ValueError:
-                        pass
+                if current_time - getattr(self, '_last_progress_emit', 0) > 0.2:
+                    downloaded = d.get('downloaded_bytes', 0) or 0
+                    total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+                    speed = d.get('speed') or 0
+
+                    if total > 0:
+                        pct = (downloaded / total) * 100.0
+                    else:
+                        pct = 0.0
+
+                    if speed > 1024 * 1024:
+                        speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
+                    elif speed > 1024:
+                        speed_str = f"{speed / 1024:.0f} KB/s"
+                    else:
+                        speed_str = f"{speed:.0f} B/s"
+
+                    dl_mb = downloaded / (1024 * 1024)
+                    if total > 0:
+                        tot_mb = total / (1024 * 1024)
+                        stats_str = f"{dl_mb:.1f} MB / {tot_mb:.1f} MB • {speed_str}"
+                    else:
+                        stats_str = f"{dl_mb:.1f} MB • {speed_str}"
+
+                    self.download_progress.emit(item_id, pct, stats_str)
+                    self._last_progress_emit = current_time
 
         ydl_opts['progress_hooks'] = [my_hook]
 

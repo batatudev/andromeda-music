@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 # WERSJA PROJEKTU: 14.20
 # MODYFIKOWANY PLIK: ui/components/download_item.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() dla statusów zadań pobierania
+# OPIS ZMIAN: Wyświetlanie prędkości i rozmiaru na żywo w status_lbl oraz płynny pasek postępu
 
 import qtawesome as qta
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QProgressBar
@@ -79,12 +79,13 @@ class DownloadItemWidget(QFrame):
         layout.addStretch()
 
         self.progress = QProgressBar()
-        self.progress.setFixedWidth(150)
-        self.progress.setFixedHeight(10)
+        self.progress.setFixedWidth(160)
+        self.progress.setFixedHeight(8)
         self.progress.setTextVisible(False)
+        self.progress.setRange(0, 100)
         self.progress.setStyleSheet(f"""
-            QProgressBar {{ background-color: {THEME['nav_bg']}; border-radius: 5px; }}
-            QProgressBar::chunk {{ background-color: {THEME['accent']}; border-radius: 5px; }}
+            QProgressBar {{ background-color: {THEME['nav_bg']}; border-radius: 4px; border: none; }}
+            QProgressBar::chunk {{ background-color: {THEME['accent']}; border-radius: 4px; }}
         """)
         self.progress.setVisible(status == "DOWNLOADING")
         layout.addWidget(self.progress)
@@ -137,7 +138,19 @@ class DownloadItemWidget(QFrame):
         if resolution is not None:
             self.resolution = resolution
         self.status_lbl.setText(self._build_status_text())
-        self.progress.setVisible(new_status == "DOWNLOADING")
+        is_dl = (new_status == "DOWNLOADING")
+        self.progress.setVisible(is_dl)
+        if not is_dl:
+            self.progress.setValue(0)
 
-    def update_progress(self, pct):
+    def update_progress(self, pct, stats_str=None):
+        if not self.progress.isVisible():
+            self.progress.setVisible(True)
         self.progress.setValue(int(pct))
+
+        dl_txt = tr("downloads.status_downloading", "Pobieranie...")
+        if stats_str:
+            pct_part = f" ({int(pct)}%)" if pct > 0 else ""
+            self.status_lbl.setText(f"{dl_txt} • {stats_str}{pct_part}")
+        else:
+            self.status_lbl.setText(f"{dl_txt} • {int(pct)}%")
