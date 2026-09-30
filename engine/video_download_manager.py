@@ -8,6 +8,7 @@ import queue
 from PySide6.QtCore import QObject, Signal, QTimer
 from config import APP_CONFIG
 from utils import logger
+from core.paths import PathsManager
 
 try:
     import yt_dlp
@@ -29,8 +30,8 @@ class VideoDownloadManager(QObject):
 
     def __init__(self):
         super().__init__()
-        self.db_path = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-v3", "offline_videos.db")
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self.db_path = PathsManager.get_video_db_path()
+        self.download_dir = PathsManager.get_offline_videos_dir()
 
         self._path_cache = {}
         self._init_db()
@@ -55,7 +56,7 @@ class VideoDownloadManager(QObject):
         self.snooze_timer.start(10000)
 
     def _init_db(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS downloads (
@@ -92,7 +93,10 @@ class VideoDownloadManager(QObject):
         except sqlite3.OperationalError:
             pass
 
-        cursor.execute("UPDATE downloads SET status = ? WHERE status = ?", (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING))
+        cursor.execute(
+            "UPDATE downloads SET status = ? WHERE status = ?",
+            (DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)
+        )
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS yt_link_overrides (
                 item_id TEXT PRIMARY KEY,
@@ -106,26 +110,35 @@ class VideoDownloadManager(QObject):
 
     def _reload_path_cache(self):
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = PathsManager.get_db_connection(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT item_id, file_path FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
-            self._path_cache = {row[0]: row[1] for row in cursor.fetchall() if row[1] and os.path.exists(row[1])}
+            cursor.execute(
+                "SELECT item_id, file_path FROM downloads WHERE status = ?",
+                (DownloadStatus.COMPLETED,)
+            )
+            self._path_cache = {
+                row[0]: row[1] for row in cursor.fetchall()
+                if row[1] and os.path.exists(row[1])
+            }
             conn.close()
         except Exception as e:
             logger.log(f"Błąd ładowania path cache wideo: {e}")
             self._path_cache = {}
 
     def _reload_queued_to_memory(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT item_id, yt_link, title FROM downloads WHERE status = ? ORDER BY added_at ASC", (DownloadStatus.QUEUED,))
+        cursor.execute(
+            "SELECT item_id, yt_link, title FROM downloads WHERE status = ? ORDER BY added_at ASC",
+            (DownloadStatus.QUEUED,)
+        )
         for row in cursor.fetchall():
             self.download_queue.put((10, time.time(), row[0], row[1], row[2]))
         conn.close()
 
     def load_yt_link_overrides(self):
         from utils import _set_yt_link_override
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT item_id, url FROM yt_link_overrides")
         for row in cursor.fetchall():
@@ -134,7 +147,7 @@ class VideoDownloadManager(QObject):
 
     def save_yt_link_override(self, item_id, url, title=""):
         from utils import _set_yt_link_override
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO yt_link_overrides (item_id, url, title, added_at) VALUES (?, ?, ?, ?)",
@@ -146,7 +159,7 @@ class VideoDownloadManager(QObject):
 
     def delete_yt_link_override(self, item_id):
         from utils import _set_yt_link_override
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("DELETE FROM yt_link_overrides WHERE item_id = ?", (item_id,))
         conn.commit()
@@ -154,14 +167,20 @@ class VideoDownloadManager(QObject):
         _set_yt_link_override(item_id, None)
 
     def _update_db_status(self, item_id, status, file_path=None):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         if file_path:
-            cursor.execute("UPDATE downloads SET status = ?, file_path = ? WHERE item_id = ?", (status, file_path, item_id))
+            cursor.execute(
+                "UPDATE downloads SET status = ?, file_path = ? WHERE item_id = ?",
+                (status, file_path, item_id)
+            )
             if status == DownloadStatus.COMPLETED:
                 self._path_cache[item_id] = file_path
         else:
-            cursor.execute("UPDATE downloads SET status = ? WHERE item_id = ?", (status, item_id))
+            cursor.execute(
+                "UPDATE downloads SET status = ? WHERE item_id = ?",
+                (status, item_id)
+            )
 
         if status != DownloadStatus.COMPLETED:
             self._path_cache.pop(item_id, None)
@@ -184,7 +203,7 @@ class VideoDownloadManager(QObject):
         if not HAS_YTDLP or not yt_link:
             return
 
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
@@ -194,11 +213,16 @@ class VideoDownloadManager(QObject):
                 conn.close()
                 return
             else:
-                cursor.execute("UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ? WHERE item_id = ?",
-                               (DownloadStatus.QUEUED, yt_link, title, cover_id, item_id))
+                cursor.execute(
+                    "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ? WHERE item_id = ?",
+                    (DownloadStatus.QUEUED, yt_link, title, cover_id, item_id)
+                )
         else:
-            cursor.execute("INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                           (item_id, title, yt_link, DownloadStatus.QUEUED, APP_CONFIG.get("video_offline_quality", "1080p"), int(time.time()), cover_id))
+            quality = APP_CONFIG.get("video_offline_quality", "1080p")
+            cursor.execute(
+                "INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (item_id, title, yt_link, DownloadStatus.QUEUED, quality, int(time.time()), cover_id)
+            )
         conn.commit()
         conn.close()
 
@@ -218,7 +242,7 @@ class VideoDownloadManager(QObject):
                 unique_items.append(it)
                 seen_ids.add(it[0])
 
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT item_id, status, is_hidden FROM downloads")
         existing_status = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
@@ -250,9 +274,15 @@ class VideoDownloadManager(QObject):
                 added_count += 1
 
         if inserts:
-            cursor.executemany("INSERT OR IGNORE INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", inserts)
+            cursor.executemany(
+                "INSERT OR IGNORE INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                inserts
+            )
         if updates:
-            cursor.executemany("UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = ? WHERE item_id = ?", updates)
+            cursor.executemany(
+                "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = ? WHERE item_id = ?",
+                updates
+            )
 
         conn.commit()
         conn.close()
@@ -268,7 +298,7 @@ class VideoDownloadManager(QObject):
 
     def remove_download(self, item_id):
         self._path_cache.pop(item_id, None)
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT file_path, status FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
@@ -291,15 +321,18 @@ class VideoDownloadManager(QObject):
         self.queue_updated.emit()
 
     def clear_history(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("UPDATE downloads SET is_hidden = 1 WHERE status IN (?, ?)", (DownloadStatus.COMPLETED, DownloadStatus.ERROR))
+        cursor.execute(
+            "UPDATE downloads SET is_hidden = 1 WHERE status IN (?, ?)",
+            (DownloadStatus.COMPLETED, DownloadStatus.ERROR)
+        )
         conn.commit()
         conn.close()
         self.queue_updated.emit()
 
     def cancel_all(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("DELETE FROM downloads WHERE status = ?", (DownloadStatus.QUEUED,))
         if self.current_download_task:
@@ -318,7 +351,7 @@ class VideoDownloadManager(QObject):
 
     def delete_all_files(self):
         self._path_cache.clear()
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
         cursor.execute("SELECT file_path FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
         rows = cursor.fetchall()
@@ -331,7 +364,10 @@ class VideoDownloadManager(QObject):
                 except OSError:
                     pass
 
-        cursor.execute("DELETE FROM downloads WHERE status IN (?, ?)", (DownloadStatus.COMPLETED, DownloadStatus.ERROR))
+        cursor.execute(
+            "DELETE FROM downloads WHERE status IN (?, ?)",
+            (DownloadStatus.COMPLETED, DownloadStatus.ERROR)
+        )
         conn.commit()
         conn.close()
         self.queue_updated.emit()
@@ -367,17 +403,22 @@ class VideoDownloadManager(QObject):
                 self.queue_updated.emit()
 
     def get_all_downloads(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC")
+        cursor.execute(
+            "SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC"
+        )
         rows = cursor.fetchall()
         conn.close()
         return rows
 
     def get_total_download_stats(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*), SUM(file_size) FROM downloads WHERE status = ?", (DownloadStatus.COMPLETED,))
+        cursor.execute(
+            "SELECT COUNT(*), SUM(file_size) FROM downloads WHERE status = ?",
+            (DownloadStatus.COMPLETED,)
+        )
         row = cursor.fetchone()
         conn.close()
         count = row[0] if row and row[0] else 0
@@ -395,7 +436,7 @@ class VideoDownloadManager(QObject):
             except queue.Empty:
                 continue
 
-            conn = sqlite3.connect(self.db_path)
+            conn = PathsManager.get_db_connection(self.db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
             row = cursor.fetchone()
@@ -424,14 +465,21 @@ class VideoDownloadManager(QObject):
             self.queue_updated.emit()
 
     def _download_video(self, item_id, yt_link):
-        base_dir = os.path.expanduser(APP_CONFIG.get("video_offline_path", "~/.cache/navidrome-player-video-offline"))
+        configured_path = APP_CONFIG.get("video_offline_path")
+        if configured_path:
+            base_dir = os.path.expanduser(configured_path)
+        else:
+            base_dir = str(self.download_dir)
+
         os.makedirs(base_dir, exist_ok=True)
         output_template = os.path.join(base_dir, f"{item_id}.%(ext)s")
 
         quality_str = APP_CONFIG.get("video_offline_quality", "1080p")
         h_limit = 1080
-        if quality_str == "720p": h_limit = 720
-        elif quality_str == "480p": h_limit = 480
+        if quality_str == "720p":
+            h_limit = 720
+        elif quality_str == "480p":
+            h_limit = 480
 
         ydl_opts = {
             'format': f'bestvideo[height<={h_limit}][vcodec^=avc1][ext=mp4]/best[height<={h_limit}][vcodec^=avc1][ext=mp4]/best',
@@ -440,7 +488,6 @@ class VideoDownloadManager(QObject):
             'nocheckcertificate': True,
             'noplaylist': True,
         }
-        from core.paths import PathsManager
         cookies_file = PathsManager.get_cookies_file()
         if cookies_file.exists():
             ydl_opts['cookiefile'] = str(cookies_file)
@@ -471,10 +518,12 @@ class VideoDownloadManager(QObject):
                 resolution = info.get('resolution', quality_str)
 
                 self._path_cache[item_id] = filename
-                conn = sqlite3.connect(self.db_path)
+                conn = PathsManager.get_db_connection(self.db_path)
                 cursor = conn.cursor()
-                cursor.execute("UPDATE downloads SET status = ?, file_path = ?, resolution = ?, file_size = ? WHERE item_id = ?",
-                               (DownloadStatus.COMPLETED, filename, resolution, file_size, item_id))
+                cursor.execute(
+                    "UPDATE downloads SET status = ?, file_path = ?, resolution = ?, file_size = ? WHERE item_id = ?",
+                    (DownloadStatus.COMPLETED, filename, resolution, file_size, item_id)
+                )
                 conn.commit()
                 conn.close()
                 self.download_status_changed.emit(item_id, DownloadStatus.COMPLETED)

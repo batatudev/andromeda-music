@@ -33,7 +33,7 @@ class AppRouter(QObject):
 
         if page_idx == Pages.SETTINGS and self.stack.currentIndex() != Pages.SETTINGS:
             if hasattr(self.win, 'settings_view'):
-                self.win.settings_view.build_ui()
+                self.win.settings_view.sync_values()
 
         if not is_back and self.current_route:
             if self.current_route.get("page") != page_idx or self.current_route.get("data") != data:
@@ -72,14 +72,14 @@ class AppRouter(QObject):
         self.win.current_anim_page.setGraphicsEffect(self.win.page_effect)
 
         self.win.fade_anim = QPropertyAnimation(self.win.page_effect, b"opacity")
-        self.win.fade_anim.setDuration(300)
+        self.win.fade_anim.setDuration(250)
         self.win.fade_anim.setStartValue(0.0)
         self.win.fade_anim.setEndValue(1.0)
         self.win.fade_anim.setEasingCurve(QEasingCurve.OutCubic)
 
         self.win.pos_anim = QPropertyAnimation(self.win.current_anim_page, b"pos")
-        self.win.pos_anim.setDuration(300)
-        self.win.pos_anim.setStartValue(QPoint(0, 20))
+        self.win.pos_anim.setDuration(250)
+        self.win.pos_anim.setStartValue(QPoint(0, 10))
         self.win.pos_anim.setEndValue(QPoint(0, 0))
         self.win.pos_anim.setEasingCurve(QEasingCurve.OutCubic)
 

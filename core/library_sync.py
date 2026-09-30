@@ -1,11 +1,13 @@
 import os
+os.environ["QT_API"] = "pyside6"
+
 import json
 import time
-import sqlite3
 import threading
 from PySide6.QtCore import QObject, Signal
 from api_client import NavidromeClient
 from utils import logger
+from core.paths import PathsManager
 
 class LibrarySyncManager(QObject):
     sync_progress = Signal(int, int)
@@ -15,14 +17,13 @@ class LibrarySyncManager(QObject):
     def __init__(self, client: NavidromeClient):
         super().__init__()
         self.client = client
-        self.db_path = os.path.join(os.path.expanduser("~"), ".cache", "navidrome-player-v3", "library_cache.db")
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self.db_path = PathsManager.get_library_cache_db_path()
         self._memory_cache = {}
         self._init_db()
         self._is_syncing = False
 
     def _init_db(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS library (
@@ -55,7 +56,7 @@ class LibrarySyncManager(QObject):
     def _sync_worker(self):
         try:
             logger.log("Rozpoczynam synchronizację całej biblioteki (Offline-First)...")
-            conn = sqlite3.connect(self.db_path)
+            conn = PathsManager.get_db_connection(self.db_path)
             c = conn.cursor()
 
             artists = self.client.get_artists()
@@ -123,7 +124,7 @@ class LibrarySyncManager(QObject):
     def get_all_songs(self):
         if "all_songs" in self._memory_cache:
             return self._memory_cache["all_songs"]
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='song'")
         rows = c.fetchall()
@@ -135,7 +136,7 @@ class LibrarySyncManager(QObject):
     def get_all_albums(self):
         if "all_albums" in self._memory_cache:
             return self._memory_cache["all_albums"]
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='album'")
         rows = c.fetchall()
@@ -148,7 +149,7 @@ class LibrarySyncManager(QObject):
         key = f"album_songs_{album_id}"
         if key in self._memory_cache:
             return self._memory_cache[key]
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='song' AND parent_id=?", (album_id,))
         rows = c.fetchall()
@@ -160,7 +161,7 @@ class LibrarySyncManager(QObject):
     def get_all_artists(self):
         if "all_artists" in self._memory_cache:
             return self._memory_cache["all_artists"]
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='artist'")
         rows = c.fetchall()
@@ -173,7 +174,7 @@ class LibrarySyncManager(QObject):
         key = f"artist_albums_{artist_id}"
         if key in self._memory_cache:
             return self._memory_cache[key]
-        conn = sqlite3.connect(self.db_path)
+        conn = PathsManager.get_db_connection(self.db_path)
         c = conn.cursor()
         c.execute("SELECT data FROM library WHERE type='album' AND parent_id=?", (artist_id,))
         rows = c.fetchall()

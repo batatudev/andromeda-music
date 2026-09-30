@@ -2,13 +2,32 @@ import os
 os.environ["QT_API"] = "pyside6"
 
 import qtawesome as qta
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame, QMenu
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame, QApplication
+)
 from PySide6.QtCore import Qt, Signal, QSize, QPoint
 from PySide6.QtGui import QAction
 
 from config import THEME
-from ui.widgets import RoundedImage, ElidedLabel, ClickableElidedLabel, DragHandle, HoverIconButton, get_cached_icon
+from ui.widgets import (
+    RoundedImage, ElidedLabel, ClickableElidedLabel, DragHandle,
+    HoverIconButton, get_cached_icon
+)
 from core.enums import MediaType
+
+_MAIN_WINDOW_REF = None
+
+def _get_main_window():
+    global _MAIN_WINDOW_REF
+    if _MAIN_WINDOW_REF is not None:
+        return _MAIN_WINDOW_REF
+    app = QApplication.instance()
+    if app:
+        for w in app.topLevelWidgets():
+            if hasattr(w, 'engine') and hasattr(w.engine, 'video_download_manager'):
+                _MAIN_WINDOW_REF = w
+                return _MAIN_WINDOW_REF
+    return None
 
 class SongItem(QFrame):
     clicked = Signal(object)
@@ -26,7 +45,17 @@ class SongItem(QFrame):
     reset_custom_cover_clicked = Signal(object, str)
     save_image_clicked = Signal(object, str)
 
-    def __init__(self, song, active=False, is_queue=False, queue_index=-1, track_number=None, is_playlist=False, playlist_index=-1, compact_mode=False):
+    def __init__(
+        self,
+        song,
+        active=False,
+        is_queue=False,
+        queue_index=-1,
+        track_number=None,
+        is_playlist=False,
+        playlist_index=-1,
+        compact_mode=False
+    ):
         super().__init__()
         self.song = song
         self.is_queue = is_queue
@@ -54,14 +83,18 @@ class SongItem(QFrame):
 
         self.cover_overlay = QFrame(self.img_container)
         self.cover_overlay.setFixedSize(48, 48)
-        self.cover_overlay.setStyleSheet("border-radius: 6px; background-color: rgba(0,0,0,0.55); border: none;")
+        self.cover_overlay.setStyleSheet(
+            "border-radius: 6px; background-color: rgba(0,0,0,0.55); border: none;"
+        )
         self.cover_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.cover_overlay.hide()
 
         self.play_btn = QPushButton(get_cached_icon('fa5s.play', color=THEME["play_color"]), "", self.img_container)
         self.play_btn.setFixedSize(28, 28)
         self.play_btn.setIconSize(QSize(12, 12))
-        self.play_btn.setStyleSheet(f"QPushButton {{ background-color: {THEME['play_bg']}; border-radius: 14px; border: none; }} QPushButton:hover {{ background-color: {THEME['accent']}; }}")
+        self.play_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {THEME['play_bg']}; border-radius: 14px; border: none; }} QPushButton:hover {{ background-color: {THEME['accent']}; }}"
+        )
         self.play_btn.move(10, 10)
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.clicked.emit(self.song))
@@ -71,16 +104,28 @@ class SongItem(QFrame):
         v_box.setContentsMargins(15, 0, 0, 0)
 
         self.title_lbl = ElidedLabel(song.title)
-        self.title_lbl.setStyleSheet(f"font-weight: 600; font-size: 14px; color: {THEME['text_main']}; background: transparent; margin: 0px; padding: 0px;")
+        self.title_lbl.setStyleSheet(
+            f"font-weight: 600; font-size: 14px; color: {THEME['text_main']}; background: transparent; margin: 0px; padding: 0px;"
+        )
 
         h_info = QHBoxLayout()
         h_info.setSpacing(5)
         h_info.setContentsMargins(0, 0, 0, 0)
 
-        self.artist_lbl = ClickableElidedLabel(song.artist, default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="12px")
+        self.artist_lbl = ClickableElidedLabel(
+            song.artist,
+            default_color=THEME["text_muted"],
+            hover_color=THEME["text_main"],
+            font_size="12px"
+        )
         self.artist_lbl.clicked.connect(self._on_artist_click)
 
-        self.album_lbl = ClickableElidedLabel(song.album, default_color=THEME["text_muted"], hover_color=THEME["text_main"], font_size="12px")
+        self.album_lbl = ClickableElidedLabel(
+            song.album,
+            default_color=THEME["text_muted"],
+            hover_color=THEME["text_main"],
+            font_size="12px"
+        )
         self.album_lbl.clicked.connect(self._on_album_click)
 
         h_info.addWidget(self.artist_lbl)
@@ -103,7 +148,9 @@ class SongItem(QFrame):
             self.track_lbl = QLabel(str(track_number))
             self.track_lbl.setFixedSize(20, 40)
             self.track_lbl.setAlignment(Qt.AlignCenter)
-            self.track_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 13px; font-weight: bold; background: transparent;")
+            self.track_lbl.setStyleSheet(
+                f"color: {THEME['text_muted']}; font-size: 13px; font-weight: bold; background: transparent;"
+            )
             layout.addWidget(self.track_lbl)
             layout.addWidget(self.img_container)
         else:
@@ -117,7 +164,7 @@ class SongItem(QFrame):
         layout.addWidget(self.dl_status_lbl)
 
         d = song.duration_sec
-        dur_lbl = QLabel(f"{int(d//60)}:{int(d%60):02d}")
+        dur_lbl = QLabel(f"{int(d // 60)}:{int(d % 60):02d}")
         dur_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 13px; background: transparent; margin-right: 15px;")
         layout.addWidget(dur_lbl)
 
@@ -186,9 +233,11 @@ class SongItem(QFrame):
                 layout.addWidget(self.btn_add_pl)
                 layout.addWidget(self.btn_add)
 
-        self.btn_fav = HoverIconButton('fa5s.heart' if song.is_starred else 'fa5.heart',
-                                       default_color=THEME["accent"] if song.is_starred else THEME["heart_inactive"],
-                                       icon_size=14)
+        self.btn_fav = HoverIconButton(
+            'fa5s.heart' if song.is_starred else 'fa5.heart',
+            default_color=THEME["accent"] if song.is_starred else THEME["heart_inactive"],
+            icon_size=14
+        )
         self.btn_fav.setFixedSize(32, 32)
         self.btn_fav.setStyleSheet(f"{btn_base_style} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
         self.btn_fav.clicked.connect(self._on_fav)
@@ -202,21 +251,11 @@ class SongItem(QFrame):
         layout.addWidget(self.btn_more)
 
         self.set_active(active)
-        self.style().polish(self)
-
         self._update_dl_status_icon()
         self._connect_signals()
 
-    @staticmethod
-    def _find_main_window():
-        from PySide6.QtWidgets import QApplication
-        for w in QApplication.instance().topLevelWidgets():
-            if hasattr(w, 'engine') and hasattr(w.engine, 'video_download_manager'):
-                return w
-        return None
-
     def _connect_signals(self):
-        win = self._find_main_window()
+        win = _get_main_window()
         if win:
             if hasattr(win, 'offline_status_changed'):
                 win.offline_status_changed.connect(self._on_offline_status_updated)
@@ -228,7 +267,7 @@ class SongItem(QFrame):
             self.update_fav_state(is_fav)
 
     def _on_offline_status_updated(self, item_id, status):
-        if item_id == self.song.item_id:
+        if self.song and item_id == self.song.item_id:
             self._update_dl_status_icon()
 
     def _show_context_menu(self):
@@ -236,8 +275,9 @@ class SongItem(QFrame):
         SongContextMenu.show(self)
 
     def _update_dl_status_icon(self):
-        win = self._find_main_window()
-        if not win or not hasattr(win, 'engine'): return
+        win = _get_main_window()
+        if not win or not hasattr(win, 'engine'):
+            return
 
         from config import APP_CONFIG
 
@@ -249,15 +289,13 @@ class SongItem(QFrame):
 
         has_audio = False
         has_video = False
-        vid_status = None
 
+        item_id = self.song.item_id
         if hasattr(win.engine, 'audio_download_manager'):
-            has_audio = win.engine.audio_download_manager.is_downloaded(self.song.item_id)
+            has_audio = item_id in win.engine.audio_download_manager._path_cache
 
         if hasattr(win.engine, 'video_download_manager'):
-            vid_path = win.engine.video_download_manager.get_video_path(self.song.item_id)
-            if vid_path:
-                has_video = True
+            has_video = item_id in win.engine.video_download_manager._path_cache
 
         if has_audio and has_video:
             self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.check-double', color=THEME['accent']).pixmap(14, 14))
@@ -268,12 +306,6 @@ class SongItem(QFrame):
         elif has_video:
             self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.film', color=THEME['accent']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Pobrane Wideo")
-        elif vid_status in ["QUEUED", "DOWNLOADING"]:
-            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.spinner', color=THEME['text_muted']).pixmap(14, 14))
-            self.dl_status_lbl.setToolTip("Pobieranie...")
-        elif vid_status == "ERROR":
-            self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.exclamation-circle', color='#e74c3c').pixmap(14, 14))
-            self.dl_status_lbl.setToolTip("Błąd pobierania")
         else:
             self.dl_status_lbl.setPixmap(get_cached_icon('fa5s.cloud', color=THEME['border']).pixmap(14, 14))
             self.dl_status_lbl.setToolTip("Dostępne w chmurze (Online)")
@@ -289,8 +321,9 @@ class SongItem(QFrame):
             self.setEnabled(True)
 
     def set_active(self, is_active):
-        bg = THEME['accent_rgba'] if is_active else "transparent"
-        self.setStyleSheet(f"#SongItem {{ background-color: {bg}; border-radius: 8px; padding: 8px 12px; }} #SongItem:hover {{ background-color: {THEME['bg_card']}; }}")
+        self.setProperty("active", "true" if is_active else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
 
     def enterEvent(self, e):
         self.cover_overlay.show()

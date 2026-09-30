@@ -17,7 +17,6 @@ except ImportError as e:
     HAS_MPRIS = False
     logger.log(f"Brak pydbus/gi. Integracja MPRIS wyłączona. {e}")
 
-
 class MprisSignals(QObject):
     next_requested = Signal()
     prev_requested = Signal()
@@ -30,7 +29,6 @@ class MprisSignals(QObject):
     loop_status_changed = Signal(str)
     shuffle_changed = Signal(bool)
     volume_changed = Signal(float)
-
 
 class MprisPlayer:
     dbus = """
@@ -103,15 +101,15 @@ class MprisPlayer:
 
     @property
     def DesktopEntry(self):
-        return "navidrome-player"
+        return "andromeda-music"
 
     @property
     def SupportedUriSchemes(self):
-        return[]
+        return []
 
     @property
     def SupportedMimeTypes(self):
-        return[]
+        return []
 
     def Quit(self):
         pass
@@ -193,14 +191,14 @@ class MprisPlayer:
             if 0 <= self.engine.idx < len(self.engine.queue):
                 song = self.engine.queue[self.engine.idx]
                 cid = song.cover_id
-                
+
                 if cid:
                     url = self.engine.client.get_cover_art_url(cid)
                 else:
                     url = ""
-                    
+
                 dur = song.duration_sec * 1000000
-                
+
                 return {
                     "mpris:trackid": GLib.Variant('o', "/org/mpris/MediaPlayer2/Track/0"),
                     "mpris:length": GLib.Variant('x', dur),
@@ -263,23 +261,22 @@ class MprisPlayer:
     def CanControl(self):
         return True
 
-
 class MprisService:
     def __init__(self, engine):
         if not HAS_MPRIS:
             return
-            
+
         self.engine = engine
         self.signals = MprisSignals()
         self.player = MprisPlayer(engine, self.signals)
-        
+
         self.signals.next_requested.connect(self.engine.next_song, Qt.QueuedConnection)
         self.signals.prev_requested.connect(self.engine.prev_song, Qt.QueuedConnection)
         self.signals.pause_requested.connect(self.engine.player.pause, Qt.QueuedConnection)
         self.signals.play_pause_requested.connect(self.engine.play_pause, Qt.QueuedConnection)
         self.signals.stop_requested.connect(self.engine.clear_queue, Qt.QueuedConnection)
         self.signals.play_requested.connect(self.engine.player.play, Qt.QueuedConnection)
-        
+
         self.signals.seek_requested.connect(self._handle_seek, Qt.QueuedConnection)
         self.signals.set_position_requested.connect(self._handle_set_position, Qt.QueuedConnection)
         self.signals.loop_status_changed.connect(self._handle_loop, Qt.QueuedConnection)
@@ -292,7 +289,6 @@ class MprisService:
             self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
         except RuntimeError as e:
             logger.log(f"Nie można zarejestrować MPRIS (prawdopodobnie inna instancja działa): {e}")
-            # Nadal można zarejestrować z pidem
             try:
                 import os
                 self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}.instance{os.getpid()}")
@@ -303,7 +299,7 @@ class MprisService:
         self.engine.state_changed.connect(self._upd_state)
         self.engine.loop_mode_changed.connect(self._upd_loop)
         self.engine.shuffle_mode_changed.connect(self._upd_shuffle)
-        
+
         self.loop = GLib.MainLoop()
         threading.Thread(target=self.loop.run, daemon=True).start()
 
@@ -323,15 +319,15 @@ class MprisService:
             pass
 
     def _handle_loop(self, val):
-        if val in["Track", "Playlist"]:
+        if val in ["Track", "Playlist"]:
             self.engine.set_loop(True)
         else:
             self.engine.set_loop(False)
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"LoopStatus": self.player.LoopStatus},[])
+        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"LoopStatus": self.player.LoopStatus}, [])
 
     def _handle_shuffle(self, val):
         self.engine.set_shuffle(val)
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"Shuffle": self.player.Shuffle},[])
+        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"Shuffle": self.player.Shuffle}, [])
 
     def _handle_volume(self, val):
         self.engine.set_volume(int(val * 100))
@@ -340,13 +336,13 @@ class MprisService:
         GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {
             "Metadata": self.player.Metadata,
             "PlaybackStatus": self.player.PlaybackStatus
-        },[])
+        }, [])
 
     def _upd_state(self, _):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"PlaybackStatus": self.player.PlaybackStatus},[])
+        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"PlaybackStatus": self.player.PlaybackStatus}, [])
 
     def _upd_loop(self, is_looping):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"LoopStatus": self.player.LoopStatus},[])
+        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"LoopStatus": self.player.LoopStatus}, [])
 
     def _upd_shuffle(self, is_shuffled):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"Shuffle": self.player.Shuffle},[])
+        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"Shuffle": self.player.Shuffle}, [])
