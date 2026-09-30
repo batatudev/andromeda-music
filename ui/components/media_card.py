@@ -26,8 +26,8 @@ class MediaCard(QFrame):
     save_image_clicked = Signal(object, str)
     download_videos_clicked = Signal(object, str)
 
-    def __init__(self, data, type_str):
-        super().__init__()
+    def __init__(self, data, type_str, parent=None):
+        super().__init__(parent)
         self.data = data
         self.type_str = type_str
         self.setObjectName("Card")
@@ -41,7 +41,7 @@ class MediaCard(QFrame):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(8)
 
-        self.img_container = QWidget()
+        self.img_container = QWidget(self)
         self.img_container.setStyleSheet("background: transparent;")
 
         self.img = RoundedImage(size=None, radius=self.radius)
@@ -62,10 +62,10 @@ class MediaCard(QFrame):
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
 
-        self.title_lbl = ElidedLabel(data.title)
+        self.title_lbl = ElidedLabel(data.title, parent=self)
         self.title_lbl.setObjectName("CardTitle")
 
-        self.artist_lbl = ClickableElidedLabel(data.artist, font_size="13px")
+        self.artist_lbl = ClickableElidedLabel(data.artist, font_size="13px", parent=self)
         self.artist_lbl.setObjectName("CardArtist")
 
         if type_str == MediaType.ALBUM:

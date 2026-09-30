@@ -60,14 +60,14 @@ class PerformanceBenchmarkSuite:
             for i in range(50)
         ]
 
-        t_start = time.perf_counter_ns()
-        items = [SongItem(s) for s in songs]
-        t_init = (time.perf_counter_ns() - t_start) / 1_000_000.0
-        self.log_metric("Instancjonowanie 50x SongItem (__init__)", t_init, 40.0)
-
         container = QWidget()
         layout = QVBoxLayout(container)
         container.setUpdatesEnabled(True)
+
+        t_start = time.perf_counter_ns()
+        items = [SongItem(s, parent=container) for s in songs]
+        t_init = (time.perf_counter_ns() - t_start) / 1_000_000.0
+        self.log_metric("Instancjonowanie 50x SongItem (__init__)", t_init, 40.0)
 
         t_start = time.perf_counter_ns()
         for it in items:
@@ -104,7 +104,7 @@ class PerformanceBenchmarkSuite:
         flow = FlowLayout(container)
 
         t_start = time.perf_counter_ns()
-        cards = [MediaCard(a, MediaType.ALBUM) for a in albums]
+        cards = [MediaCard(a, MediaType.ALBUM, parent=container) for a in albums]
         for c in cards:
             flow.addWidget(c)
         app.processEvents()
@@ -194,7 +194,7 @@ class PerformanceBenchmarkSuite:
 
         for i in range(100):
             s = Song({"id": f"mem_{i}", "title": f"RAM Test Track {i}", "artist": "RAM Artist"})
-            item = SongItem(s)
+            item = SongItem(s, parent=container)
             layout.addWidget(item)
             items.append(item)
         app.processEvents()
@@ -212,6 +212,7 @@ class PerformanceBenchmarkSuite:
             item = layout.takeAt(0)
 
         app.processEvents()
+        app.sendPostedEvents(None, 52)
         gc.collect()
 
         snapshot_end = tracemalloc.take_snapshot()

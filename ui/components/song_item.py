@@ -16,7 +16,7 @@ from ui.widgets import (
 from core.enums import MediaType
 
 _MAIN_WINDOW_REF = None
-_LAST_TOP_LEVEL_COUNT = -1
+_SEARCH_ATTEMPTED = False
 _STATUS_PIXMAP_CACHE = {}
 
 
@@ -42,20 +42,19 @@ def _get_status_pixmap(status_key):
 
 
 def _get_main_window():
-    global _MAIN_WINDOW_REF, _LAST_TOP_LEVEL_COUNT
+    global _MAIN_WINDOW_REF, _SEARCH_ATTEMPTED
     if _MAIN_WINDOW_REF is not None:
         return _MAIN_WINDOW_REF
+    if _SEARCH_ATTEMPTED:
+        return None
     app = QApplication.instance()
     if not app:
         return None
-    top_widgets = app.topLevelWidgets()
-    if len(top_widgets) == _LAST_TOP_LEVEL_COUNT and _LAST_TOP_LEVEL_COUNT == 0:
-        return None
-    _LAST_TOP_LEVEL_COUNT = len(top_widgets)
-    for w in top_widgets:
+    for w in app.topLevelWidgets():
         if hasattr(w, 'engine') and hasattr(w.engine, 'video_download_manager'):
             _MAIN_WINDOW_REF = w
             return _MAIN_WINDOW_REF
+    _SEARCH_ATTEMPTED = True
     return None
 
 
@@ -84,9 +83,10 @@ class SongItem(QFrame):
         track_number=None,
         is_playlist=False,
         playlist_index=-1,
-        compact_mode=False
+        compact_mode=False,
+        parent=None
     ):
-        super().__init__()
+        super().__init__(parent)
         self.song = song
         self.is_queue = is_queue
         self.queue_index = queue_index
@@ -103,7 +103,7 @@ class SongItem(QFrame):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 0, 15, 0)
 
-        self.img_container = QWidget()
+        self.img_container = QWidget(self)
         self.img_container.setObjectName("SongImgContainer")
         self.img_container.setFixedSize(48, 48)
 
@@ -129,22 +129,22 @@ class SongItem(QFrame):
         v_box.setSpacing(2)
         v_box.setContentsMargins(15, 0, 0, 0)
 
-        self.title_lbl = ElidedLabel(song.title)
+        self.title_lbl = ElidedLabel(song.title, parent=self)
         self.title_lbl.setObjectName("SongTitle")
 
         h_info = QHBoxLayout()
         h_info.setSpacing(5)
         h_info.setContentsMargins(0, 0, 0, 0)
 
-        self.artist_lbl = ClickableElidedLabel(song.artist, font_size="12px")
+        self.artist_lbl = ClickableElidedLabel(song.artist, font_size="12px", parent=self)
         self.artist_lbl.setObjectName("SongArtist")
         self.artist_lbl.clicked.connect(self._on_artist_click)
 
-        self.album_lbl = ClickableElidedLabel(song.album, font_size="12px")
+        self.album_lbl = ClickableElidedLabel(song.album, font_size="12px", parent=self)
         self.album_lbl.setObjectName("SongAlbum")
         self.album_lbl.clicked.connect(self._on_album_click)
 
-        self.dot_lbl = QLabel("•")
+        self.dot_lbl = QLabel("•", parent=self)
         self.dot_lbl.setObjectName("SongDot")
 
         h_info.addWidget(self.artist_lbl)
@@ -160,7 +160,7 @@ class SongItem(QFrame):
             layout.addWidget(self.drag_handle)
             layout.addWidget(self.img_container)
         elif track_number is not None:
-            self.track_lbl = QLabel(str(track_number))
+            self.track_lbl = QLabel(str(track_number), parent=self)
             self.track_lbl.setObjectName("SongTrackNum")
             self.track_lbl.setFixedSize(20, 40)
             self.track_lbl.setAlignment(Qt.AlignCenter)
@@ -171,31 +171,31 @@ class SongItem(QFrame):
 
         layout.addLayout(v_box, 1)
 
-        self.dl_status_lbl = QLabel()
+        self.dl_status_lbl = QLabel(parent=self)
         self.dl_status_lbl.setObjectName("SongDlStatus")
         self.dl_status_lbl.setFixedSize(16, 16)
         layout.addWidget(self.dl_status_lbl)
 
         d = song.duration_sec
-        dur_lbl = QLabel(f"{int(d // 60)}:{int(d % 60):02d}")
+        dur_lbl = QLabel(f"{int(d // 60)}:{int(d % 60):02d}", parent=self)
         dur_lbl.setObjectName("SongDuration")
         layout.addWidget(dur_lbl)
 
         if not self.compact_mode:
             if self.is_queue:
-                self.btn_play_next = HoverIconButton('fa5s.angle-double-up', icon_size=14)
+                self.btn_play_next = HoverIconButton('fa5s.angle-double-up', icon_size=14, parent=self)
                 self.btn_play_next.setObjectName("SongPlayNextBtn")
                 self.btn_play_next.setFixedSize(32, 32)
                 self.btn_play_next.setToolTip("Odtwórz jako następny")
                 self.btn_play_next.clicked.connect(lambda: self.play_next_clicked.emit(self.song))
 
-                self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14)
+                self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14, parent=self)
                 self.btn_add_pl.setObjectName("SongAddPlBtn")
                 self.btn_add_pl.setFixedSize(32, 32)
                 self.btn_add_pl.setToolTip("Dodaj do playlisty")
                 self.btn_add_pl.clicked.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
 
-                self.btn_remove = HoverIconButton('fa5s.times', icon_size=14)
+                self.btn_remove = HoverIconButton('fa5s.times', icon_size=14, parent=self)
                 self.btn_remove.setObjectName("SongRemoveBtn")
                 self.btn_remove.setFixedSize(32, 32)
                 self.btn_remove.setToolTip("Usuń z kolejki")
@@ -206,19 +206,19 @@ class SongItem(QFrame):
                 layout.addWidget(self.btn_remove)
 
             elif self.is_playlist:
-                self.btn_add = HoverIconButton('fa5s.plus', icon_size=14)
+                self.btn_add = HoverIconButton('fa5s.plus', icon_size=14, parent=self)
                 self.btn_add.setObjectName("SongAddBtn")
                 self.btn_add.setFixedSize(32, 32)
                 self.btn_add.setToolTip("Dodaj do kolejki")
                 self.btn_add.clicked.connect(lambda: self.add_to_queue_clicked.emit(self.song))
 
-                self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14)
+                self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14, parent=self)
                 self.btn_add_pl.setObjectName("SongAddPlBtn")
                 self.btn_add_pl.setFixedSize(32, 32)
                 self.btn_add_pl.setToolTip("Dodaj do playlisty")
                 self.btn_add_pl.clicked.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
 
-                self.btn_remove_pl = HoverIconButton('fa5s.times', icon_size=14)
+                self.btn_remove_pl = HoverIconButton('fa5s.times', icon_size=14, parent=self)
                 self.btn_remove_pl.setObjectName("SongRemoveBtn")
                 self.btn_remove_pl.setFixedSize(32, 32)
                 self.btn_remove_pl.setToolTip("Usuń z playlisty")
@@ -229,13 +229,13 @@ class SongItem(QFrame):
                 layout.addWidget(self.btn_remove_pl)
 
             else:
-                self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14)
+                self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14, parent=self)
                 self.btn_add_pl.setObjectName("SongAddPlBtn")
                 self.btn_add_pl.setFixedSize(32, 32)
                 self.btn_add_pl.setToolTip("Dodaj do playlisty")
                 self.btn_add_pl.clicked.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
 
-                self.btn_add = HoverIconButton('fa5s.plus', icon_size=14)
+                self.btn_add = HoverIconButton('fa5s.plus', icon_size=14, parent=self)
                 self.btn_add.setObjectName("SongAddBtn")
                 self.btn_add.setFixedSize(32, 32)
                 self.btn_add.setToolTip("Dodaj do kolejki")
@@ -247,14 +247,15 @@ class SongItem(QFrame):
         self.btn_fav = HoverIconButton(
             'fa5s.heart' if song.is_starred else 'fa5.heart',
             default_color=THEME["accent"] if song.is_starred else THEME["heart_inactive"],
-            icon_size=14
+            icon_size=14,
+            parent=self
         )
         self.btn_fav.setObjectName("SongFavBtn")
         self.btn_fav.setFixedSize(32, 32)
         self.btn_fav.clicked.connect(self._on_fav)
         layout.addWidget(self.btn_fav)
 
-        self.btn_more = HoverIconButton('fa5s.ellipsis-h', icon_size=14)
+        self.btn_more = HoverIconButton('fa5s.ellipsis-h', icon_size=14, parent=self)
         self.btn_more.setObjectName("SongMoreBtn")
         self.btn_more.setFixedSize(32, 32)
         self.btn_more.setToolTip("Więcej opcji")
@@ -264,6 +265,7 @@ class SongItem(QFrame):
         self.setProperty("active", "true" if active else "false")
         self._update_dl_status_icon()
         self._connect_signals()
+        self.destroyed.connect(self._disconnect_signals)
 
     def _find_main_window(self):
         return _get_main_window()
@@ -275,6 +277,20 @@ class SongItem(QFrame):
                 win.offline_status_changed.connect(self._on_offline_status_updated)
             if hasattr(win, 'fav_updated'):
                 win.fav_updated.connect(self._on_fav_updated_signal)
+
+    def _disconnect_signals(self):
+        win = _get_main_window()
+        if win:
+            if hasattr(win, 'offline_status_changed'):
+                try:
+                    win.offline_status_changed.disconnect(self._on_offline_status_updated)
+                except (RuntimeError, TypeError):
+                    pass
+            if hasattr(win, 'fav_updated'):
+                try:
+                    win.fav_updated.disconnect(self._on_fav_updated_signal)
+                except (RuntimeError, TypeError):
+                    pass
 
     def _on_fav_updated_signal(self, song_id, is_fav):
         if self.song and self.song.item_id == song_id:

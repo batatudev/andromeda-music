@@ -10,8 +10,8 @@ from config import THEME
 
 
 class RoundedImage(QWidget):
-    def __init__(self, size=None, radius=8):
-        super().__init__()
+    def __init__(self, size=None, radius=8, parent=None):
+        super().__init__(parent)
         self.radius = radius
         self.pixmap_cache = None
         self.prepared_pixmap = None

@@ -43,8 +43,8 @@ class ElidedLabel(QLabel):
 class ClickableLabel(QLabel):
     clicked = Signal()
 
-    def __init__(self, text="", default_color=None, hover_color=None, font_weight="normal", font_size="12px"):
-        super().__init__(text)
+    def __init__(self, text="", default_color=None, hover_color=None, font_weight="normal", font_size="12px", parent=None):
+        super().__init__(text, parent)
         self.default_color = default_color
         self.hover_color = hover_color
         self.font_weight = font_weight
@@ -79,8 +79,8 @@ class ClickableLabel(QLabel):
 
 
 class ClickableElidedLabel(ClickableLabel):
-    def __init__(self, text="", default_color=None, hover_color=None, font_weight="normal", font_size="12px"):
-        super().__init__("", default_color, hover_color, font_weight, font_size)
+    def __init__(self, text="", default_color=None, hover_color=None, font_weight="normal", font_size="12px", parent=None):
+        super().__init__("", default_color, hover_color, font_weight, font_size, parent=parent)
         self._full_text = text
         super().setText(text)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)

@@ -24,8 +24,8 @@ def get_cached_icon(icon_name, color=None):
 
 
 class HoverIconButton(QPushButton):
-    def __init__(self, icon_name, default_color=None, hover_color="white", icon_size=16, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, icon_name, default_color=None, hover_color="white", icon_size=16, parent=None, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
         self.icon_name = icon_name
         self.default_color = default_color if default_color is not None else THEME.get("text_muted", "#888888")
         self.hover_color = hover_color
