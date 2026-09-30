@@ -1,20 +1,16 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_artists.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w widoku wykonawców
-
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 
 from core.enums import MediaType
 from ui.widgets import FlowLayout
 from ui.components import MediaCard
 from core.i18n import tr
-
 from views.library_base import LibraryScrollArea
+
 
 class ArtistsView(LibraryScrollArea):
     def __init__(self, main_window):
@@ -23,12 +19,21 @@ class ArtistsView(LibraryScrollArea):
         self.artist_flow = None
         self.offset = 0
         self.is_loading = False
+        self._is_loaded = False
+
+    def invalidate_cache(self):
+        self._is_loaded = False
+        self.offset = 0
 
     def _on_scroll(self, val):
-        if not self.is_loading and val > self.verticalScrollBar().maximum() - 200:
+        if not self.is_loading and val > self.verticalScrollBar().maximum() - 250:
             self._load_more()
 
-    def load(self):
+    def load(self, force=False):
+        if not force and self._is_loaded:
+            return
+
+        self._is_loaded = True
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         title_txt = tr("artists.title", "Wszyscy Artyści")
@@ -48,29 +53,42 @@ class ArtistsView(LibraryScrollArea):
         def fetch():
             if not self.main_window.all_artists_data:
                 self.main_window.all_artists_data = self.main_window.repo.get_artists()
-            return self.main_window.all_artists_data[self.offset : self.offset + 30]
+            return self.main_window.all_artists_data[self.offset: self.offset + 30]
 
         def on_ready(paczka):
             if paczka:
-                self.content_widget.setUpdatesEnabled(False)
-                for a in paczka:
-                    c = MediaCard(a, MediaType.ARTIST)
-                    c.clicked.connect(self.main_window._show_details)
-                    c.play_clicked.connect(
-                        lambda d, t: self.main_window.engine.play_list(
-                            self.main_window.repo.get_top_songs_for_artist(d.title), 0
-                        )
-                    )
-                    c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
-                    c.download_videos_clicked.connect(self.main_window._handle_download_videos)
-                    c.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
-                    c.reset_custom_image_clicked.connect(self.main_window._reset_custom_artist_image)
-                    c.save_image_clicked.connect(self.main_window._save_image_to_file)
-                    self.artist_flow.addWidget(c)
-                    if a.cover_id:
-                        self.main_window.loader.load(self.main_window.client.get_cover_art_url(a.cover_id), c)
-                    self.offset += 1
-                self.content_widget.setUpdatesEnabled(True)
-            self.is_loading = False
+                first_chunk = paczka[:10]
+                remaining = paczka[10:]
+                self._render_chunk(first_chunk, remaining)
+            else:
+                self.is_loading = False
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
+
+    def _render_chunk(self, chunk, remaining):
+        self.content_widget.setUpdatesEnabled(False)
+        for a in chunk:
+            c = MediaCard(a, MediaType.ARTIST, parent=self.content_widget)
+            c.clicked.connect(self.main_window._show_details)
+            c.play_clicked.connect(
+                lambda d, t: self.main_window.engine.play_list(
+                    self.main_window.repo.get_top_songs_for_artist(d.title), 0
+                )
+            )
+            c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
+            c.download_videos_clicked.connect(self.main_window._handle_download_videos)
+            c.set_custom_image_clicked.connect(self.main_window._set_custom_artist_image)
+            c.reset_custom_image_clicked.connect(self.main_window._reset_custom_artist_image)
+            c.save_image_clicked.connect(self.main_window._save_image_to_file)
+            self.artist_flow.addWidget(c)
+            if a.cover_id:
+                self.main_window.loader.load(self.main_window.client.get_cover_art_url(a.cover_id), c)
+            self.offset += 1
+        self.content_widget.setUpdatesEnabled(True)
+
+        if remaining:
+            next_chunk = remaining[:10]
+            rest = remaining[10:]
+            QTimer.singleShot(0, lambda: self._render_chunk(next_chunk, rest))
+        else:
+            self.is_loading = False
