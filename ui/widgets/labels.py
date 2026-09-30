@@ -8,19 +8,24 @@ from config import THEME
 
 class ElidedLabel(QLabel):
     def __init__(self, text="", parent=None):
-        super().__init__(text, parent)
+        super().__init__("", parent)
         self._full_text = text
+        super().setText(text)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
     def setText(self, text):
         self._full_text = text
-        super().setText(self._elided_text())
+        if self.width() > 0:
+            super().setText(self._elided_text())
+        else:
+            super().setText(text)
 
     def text(self):
         return self._full_text
 
     def resizeEvent(self, event):
-        super().setText(self._elided_text())
+        if self.width() > 0:
+            super().setText(self._elided_text())
         super().resizeEvent(event)
 
     def _elided_text(self):
@@ -75,19 +80,24 @@ class ClickableLabel(QLabel):
 
 class ClickableElidedLabel(ClickableLabel):
     def __init__(self, text="", default_color=None, hover_color=None, font_weight="normal", font_size="12px"):
-        super().__init__(text, default_color, hover_color, font_weight, font_size)
+        super().__init__("", default_color, hover_color, font_weight, font_size)
         self._full_text = text
+        super().setText(text)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
     def setText(self, text):
         self._full_text = text
-        super().setText(self._elided_text())
+        if self.width() > 0:
+            super().setText(self._elided_text())
+        else:
+            super().setText(text)
 
     def text(self):
         return self._full_text
 
     def resizeEvent(self, event):
-        super().setText(self._elided_text())
+        if self.width() > 0:
+            super().setText(self._elided_text())
         super().resizeEvent(event)
 
     def _elided_text(self):

@@ -16,6 +16,7 @@ from ui.widgets import (
 from core.enums import MediaType
 
 _MAIN_WINDOW_REF = None
+_LAST_TOP_LEVEL_COUNT = -1
 _STATUS_PIXMAP_CACHE = {}
 
 
@@ -41,13 +42,17 @@ def _get_status_pixmap(status_key):
 
 
 def _get_main_window():
-    global _MAIN_WINDOW_REF
+    global _MAIN_WINDOW_REF, _LAST_TOP_LEVEL_COUNT
     if _MAIN_WINDOW_REF is not None:
         return _MAIN_WINDOW_REF
     app = QApplication.instance()
     if not app:
         return None
-    for w in app.topLevelWidgets():
+    top_widgets = app.topLevelWidgets()
+    if len(top_widgets) == _LAST_TOP_LEVEL_COUNT and _LAST_TOP_LEVEL_COUNT == 0:
+        return None
+    _LAST_TOP_LEVEL_COUNT = len(top_widgets)
+    for w in top_widgets:
         if hasattr(w, 'engine') and hasattr(w.engine, 'video_download_manager'):
             _MAIN_WINDOW_REF = w
             return _MAIN_WINDOW_REF
@@ -99,8 +104,8 @@ class SongItem(QFrame):
         layout.setContentsMargins(12, 0, 15, 0)
 
         self.img_container = QWidget()
+        self.img_container.setObjectName("SongImgContainer")
         self.img_container.setFixedSize(48, 48)
-        self.img_container.setStyleSheet("background: transparent;")
 
         self.img = RoundedImage(size=48, radius=6)
         self.img.setParent(self.img_container)

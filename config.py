@@ -190,6 +190,7 @@ def get_app_style():
     #SongItem:hover {{ background-color: {THEME.get('bg_card', '#111111')}; }}
     #SongItem QLabel {{ background: transparent; border: none; }}
     #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(29, 185, 84, 0.1)')}; }}
+    #SongImgContainer {{ background: transparent; }}
     #SongTitle {{ font-weight: 600; font-size: 14px; color: {THEME.get('text_main', '#ffffff')}; background: transparent; margin: 0px; padding: 0px; }}
     #SongArtist, #SongAlbum {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
     #SongArtist:hover, #SongAlbum:hover {{ color: {THEME.get('text_main', '#ffffff')}; text-decoration: underline; }}
