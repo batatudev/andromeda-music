@@ -45,7 +45,7 @@ class AppRouter(QObject):
         self.win.current_page_task_id += 1
         self.current_route = {"page": page_idx, "data": data, "type": type_str}
 
-        page_widget = self.pages[page_idx]
+        page_widget = self.win.get_or_create_page(page_idx)
         target_widget = None
 
         if hasattr(page_widget, 'load'):

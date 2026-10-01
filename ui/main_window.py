@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/main_window.py
-# OPIS ZMIAN: Dodano brakujący import SongItem usuwający NameError w _handle_now_playing_queue_drop
-
 import sys
 import time
 
@@ -12,7 +8,7 @@ import qtawesome as qta
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QStackedWidget
+    QStackedWidget, QScrollArea
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QThreadPool
 from PySide6.QtMultimedia import QMediaPlayer
@@ -54,6 +50,7 @@ try:
 except ImportError:
     HAS_MPRIS_MODULE = False
 
+
 class MainWindow(QMainWindow):
     async_signal = Signal(object, object, object)
     fav_updated = Signal(str, bool)
@@ -73,11 +70,9 @@ class MainWindow(QMainWindow):
         self.network_monitor = NetworkMonitor(APP_CONFIG.get("url", "http://localhost"))
         self.network_monitor.start()
 
+        self.mpris = None
         if HAS_MPRIS_MODULE:
-            try:
-                self.mpris = MprisService(self.engine)
-            except Exception as e:
-                logger.log(f"Nie udało się załadować MPRIS: {e}")
+            QTimer.singleShot(300, self._init_mpris)
 
         self.threadpool = QThreadPool()
         self.async_signal.connect(self._handle_async)
@@ -139,6 +134,54 @@ class MainWindow(QMainWindow):
         self.telemetry = TelemetryService(self)
 
         QTimer.singleShot(200, self._start_app)
+        QTimer.singleShot(1500, self._ensure_video_output)
+
+    def _init_mpris(self):
+        try:
+            self.mpris = MprisService(self.engine)
+        except Exception as e:
+            logger.log(f"Nie udało się załadować MPRIS: {e}")
+
+    def _ensure_video_output(self):
+        if not getattr(self, '_video_output_initialized', False):
+            self._video_output_initialized = True
+            if hasattr(self, 'now_playing_view') and hasattr(self.now_playing_view, 'video_widget'):
+                self.engine.video_player.setVideoOutput(self.now_playing_view.video_widget.video_item)
+
+    @property
+    def settings_view(self):
+        p = self.get_or_create_page(Pages.SETTINGS)
+        if isinstance(p, QScrollArea):
+            return p.widget()
+        return p
+
+    @property
+    def downloads_view(self):
+        p = self.get_or_create_page(Pages.DOWNLOADS)
+        if isinstance(p, QScrollArea):
+            return p.widget()
+        return p
+
+    @property
+    def dev_view(self):
+        p = self.get_or_create_page(Pages.DEV_MODE)
+        if isinstance(p, QScrollArea):
+            return p.widget()
+        return p
+
+    def get_or_create_page(self, page_idx):
+        if self.pages[page_idx] is not None:
+            return self.pages[page_idx]
+        factory = self.page_factories.get(page_idx)
+        if not factory:
+            return self.stack.widget(page_idx)
+        w = factory()
+        old_dummy = self.stack.widget(page_idx)
+        self.stack.removeWidget(old_dummy)
+        old_dummy.deleteLater()
+        self.stack.insertWidget(page_idx, w)
+        self.pages[page_idx] = w
+        return w
 
     def show_toast(self, message: str, title: str = "Powiadomienie", icon_str: str = "fa5s.info-circle", icon_color: str = None, duration: int = 5000):
         if getattr(self, '_active_toast', None):
@@ -296,9 +339,7 @@ class MainWindow(QMainWindow):
 
         self.now_playing_view = NowPlayingWidget()
         self.now_playing_view.queue_content.drop_occurred.connect(self._handle_now_playing_queue_drop)
-        self.settings_view = SettingsView(self)
-        self.dev_view = DevModeView(self)
-        self.downloads_view = DownloadsView(self)
+        self._video_output_initialized = False
 
         def make_scrollable(view_widget):
             s = SmoothScrollArea()
@@ -308,7 +349,7 @@ class MainWindow(QMainWindow):
             s.setWidget(view_widget)
             return s
 
-        page_factories = {
+        self.page_factories = {
             Pages.HOME: lambda: HomeView(self),
             Pages.FAVS: lambda: FavsView(self),
             Pages.QUEUE: lambda: QWidget(),
@@ -316,21 +357,24 @@ class MainWindow(QMainWindow):
             Pages.DETAILS: lambda: DetailsView(self),
             Pages.TRACKS: lambda: TracksView(self),
             Pages.ARTISTS: lambda: ArtistsView(self),
-            Pages.SETTINGS: lambda: make_scrollable(self.settings_view),
+            Pages.SETTINGS: lambda: make_scrollable(SettingsView(self)),
             Pages.NOW_PLAYING: lambda: self.now_playing_view,
-            Pages.DEV_MODE: lambda: make_scrollable(self.dev_view),
+            Pages.DEV_MODE: lambda: make_scrollable(DevModeView(self)),
             Pages.SEARCH: lambda: SearchView(self),
-            Pages.DOWNLOADS: lambda: make_scrollable(self.downloads_view)
+            Pages.DOWNLOADS: lambda: make_scrollable(DownloadsView(self))
         }
 
         for pid in Pages:
-            w = page_factories[pid]()
-            self.pages[pid] = w
-            self.stack.addWidget(w)
+            if pid == Pages.HOME:
+                w = self.page_factories[pid]()
+                self.pages[pid] = w
+                self.stack.addWidget(w)
+            else:
+                dummy = QWidget()
+                self.stack.addWidget(dummy)
 
         self.router.setup(self.stack, self.pages)
 
-        self.engine.video_player.setVideoOutput(self.now_playing_view.video_widget.video_item)
         content.addWidget(self.sidebar)
         content.addWidget(self.stack)
         root.addLayout(content)
@@ -390,10 +434,17 @@ class MainWindow(QMainWindow):
         if not self._is_fetching and getattr(self.router, 'current_route', None):
             self.current_page_task_id += 1
             idx = self.router.current_route["page"]
+            target = self.get_or_create_page(idx)
+            if hasattr(target, 'invalidate_cache'):
+                target.invalidate_cache()
+            elif isinstance(target, QScrollArea) and hasattr(target.widget(), 'invalidate_cache'):
+                target.widget().invalidate_cache()
+
             if idx == Pages.DETAILS:
-                self.pages[idx].load(self.router.current_route["data"], self.router.current_route["type"])
+                target.load(self.router.current_route["data"], self.router.current_route["type"], force=True)
             elif idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
-                self.pages[idx].load()
+                actual = target.widget() if isinstance(target, QScrollArea) else target
+                actual.load(force=True)
 
     def _handle_add_to_queue(self, data, type_str):
         if self._is_fetching:
@@ -456,6 +507,7 @@ class MainWindow(QMainWindow):
                 self.router.show_details({"id": song.get('artistId'), "name": song.artist}, MediaType.ARTIST)
 
     def _show_video_layer(self):
+        self._ensure_video_output()
         should_show = self.player_bar.btn_video_toggle.isChecked()
         if not should_show and APP_CONFIG.get("video_smart_auto_play", False):
             if self.engine.queue and self.engine.idx >= 0:
@@ -507,6 +559,7 @@ class MainWindow(QMainWindow):
         is_video = self.player_bar.btn_video_toggle.isChecked()
         self.player_bar.set_video_active(is_video)
         if is_video:
+            self._ensure_video_output()
             if self.engine.queue and self.engine.idx >= 0:
                 song = self.engine.queue[self.engine.idx]
                 offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
