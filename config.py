@@ -181,18 +181,27 @@ def get_app_style():
 
     #Card {{ background-color: {THEME.get('bg_card', '#111111')}; border-radius: 12px; border: none; }}
     #Card:hover {{ background-color: {THEME.get('hover_card', '#181818')}; }}
+
+    #ArtistCard {{ background-color: transparent; border: none; }}
+    #ArtistCard:hover {{ background-color: transparent; border: none; }}
+
     #CardTitle {{ font-weight: bold; font-size: 15px; margin-top: 8px; background: transparent; color: {THEME.get('text_main', '#ffffff')}; }}
+    #ArtistCard #CardTitle {{ text-align: center; }}
     #CardArtist {{ font-size: 13px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
+    
     #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
-    #Card[mediaType="artist"] #CardOverlay {{ border-radius: 95px; }}
+    #CardOverlayArtist {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 500px; }}
+    
     #CardImgContainer, #SongImgContainer, #LibraryContentWidget, #DetailsContentWidget {{ background: transparent; border: none; }}
 
-    #CardPlayBtn, QPushButton#CardPlayBtn, #Card QPushButton#CardPlayBtn {{
+    #CardPlayBtn, QPushButton#CardPlayBtn, #Card QPushButton#CardPlayBtn, #ArtistCard QPushButton#CardPlayBtn {{
         background-color: {THEME.get('play_bg', 'white')};
         border-radius: 23px;
         border: none;
+        padding: 0px;
+        margin: 0px;
     }}
-    #CardPlayBtn:hover, QPushButton#CardPlayBtn:hover, #Card QPushButton#CardPlayBtn:hover {{
+    #CardPlayBtn:hover, QPushButton#CardPlayBtn:hover, #Card QPushButton#CardPlayBtn:hover, #ArtistCard QPushButton#CardPlayBtn:hover {{
         background-color: {THEME.get('accent', '#1db954')};
     }}
 
@@ -215,6 +224,8 @@ def get_app_style():
         background-color: {THEME.get('play_bg', 'white')};
         border-radius: 14px;
         border: none;
+        padding: 0px;
+        margin: 0px;
     }}
     #SongPlayBtn:hover, QPushButton#SongPlayBtn:hover, #SongItem QPushButton#SongPlayBtn:hover {{
         background-color: {THEME.get('accent', '#1db954')};

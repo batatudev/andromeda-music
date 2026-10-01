@@ -29,7 +29,12 @@ class MediaCard(QFrame):
         super().__init__(parent)
         self.data = data
         self.type_str = type_str
-        self.setObjectName("Card")
+
+        if type_str == MediaType.ARTIST:
+            self.setObjectName("ArtistCard")
+        else:
+            self.setObjectName("Card")
+
         self.setProperty("mediaType", "artist" if type_str == MediaType.ARTIST else "album")
         self.setMinimumSize(160, 240)
         self.setMaximumSize(300, 400)
@@ -47,7 +52,11 @@ class MediaCard(QFrame):
         self.img.setParent(self.img_container)
 
         self.overlay = QFrame(self.img_container)
-        self.overlay.setObjectName("CardOverlay")
+        if type_str == MediaType.ARTIST:
+            self.overlay.setObjectName("CardOverlayArtist")
+        else:
+            self.overlay.setObjectName("CardOverlay")
+
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.overlay.hide()
 

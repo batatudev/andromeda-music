@@ -9,7 +9,6 @@ from PySide6.QtGui import QPainter, QPainterPath, QPixmap
 from config import THEME
 from ui.widgets.buttons import get_cached_icon
 
-
 class RoundedImage(QWidget):
     def __init__(self, size=None, radius=8, parent=None):
         super().__init__(parent)
@@ -119,15 +118,24 @@ class RoundedImage(QWidget):
         if not self.prepared_pixmap:
             return
 
+        w = self.width()
+        h = self.height()
+        if w <= 0 or h <= 0:
+            return
+
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.SmoothPixmapTransform)
         p.setOpacity(self._opacity)
 
+        clip_path = QPainterPath()
+        clip_path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
+        p.setClipPath(clip_path)
+
         if self._zoom != 1.0:
-            p.translate(self.width() / 2, self.height() / 2)
+            p.translate(w / 2, h / 2)
             p.scale(self._zoom, self._zoom)
-            p.translate(-self.width() / 2, -self.height() / 2)
+            p.translate(-w / 2, -h / 2)
 
         p.drawPixmap(0, 0, self.prepared_pixmap)
         p.end()
