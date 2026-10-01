@@ -19,7 +19,6 @@ _MAIN_WINDOW_REF = None
 _SEARCH_ATTEMPTED = False
 _STATUS_PIXMAP_CACHE = {}
 
-
 def _get_status_pixmap(status_key):
     global _STATUS_PIXMAP_CACHE
     if status_key in _STATUS_PIXMAP_CACHE:
@@ -40,7 +39,6 @@ def _get_status_pixmap(status_key):
     _STATUS_PIXMAP_CACHE[status_key] = pix
     return pix
 
-
 def _get_main_window():
     global _MAIN_WINDOW_REF, _SEARCH_ATTEMPTED
     if _MAIN_WINDOW_REF is not None:
@@ -56,7 +54,6 @@ def _get_main_window():
             return _MAIN_WINDOW_REF
     _SEARCH_ATTEMPTED = True
     return None
-
 
 class SongItem(QFrame):
     clicked = Signal(object)
@@ -122,6 +119,10 @@ class SongItem(QFrame):
         self.play_btn.setFixedSize(28, 28)
         self.play_btn.setIconSize(QSize(12, 12))
         self.play_btn.move(10, 10)
+        self.play_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 14px; border: none; }} "
+            f"QPushButton:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}"
+        )
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.clicked.emit(self.song))
 

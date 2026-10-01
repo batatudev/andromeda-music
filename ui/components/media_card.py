@@ -13,7 +13,6 @@ from ui.widgets import RoundedImage, ClickableElidedLabel, ElidedLabel, get_cach
 from core.enums import MediaType
 from core.i18n import tr
 
-
 class MediaCard(QFrame):
     clicked = Signal(object, str)
     play_clicked = Signal(object, str)
@@ -42,7 +41,7 @@ class MediaCard(QFrame):
         layout.setSpacing(8)
 
         self.img_container = QWidget(self)
-        self.img_container.setStyleSheet("background: transparent;")
+        self.img_container.setObjectName("CardImgContainer")
 
         self.img = RoundedImage(size=None, radius=self.radius)
         self.img.setParent(self.img_container)
@@ -59,6 +58,10 @@ class MediaCard(QFrame):
         self.play_btn.setFixedSize(46, 46)
         self.play_btn.setIconSize(QSize(20, 20))
         self.play_btn.setCursor(Qt.PointingHandCursor)
+        self.play_btn.setStyleSheet(
+            f"QPushButton {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 23px; border: none; }} "
+            f"QPushButton:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}"
+        )
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
 

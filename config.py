@@ -11,7 +11,6 @@ from core.paths import PathsManager
 APP_NAME = "Andromeda Music"
 APP_ICON_PATH = "assets/logo.png"
 
-
 class Pages(IntEnum):
     HOME = 0
     FAVS = 1
@@ -25,7 +24,6 @@ class Pages(IntEnum):
     DEV_MODE = 9
     SEARCH = 10
     DOWNLOADS = 11
-
 
 APP_CONFIG = {
     "url": "",
@@ -51,7 +49,6 @@ APP_CONFIG = {
     "audio_auto_dl_playlists": [],
     "hide_undownloaded_offline": False
 }
-
 
 def load_config():
     cfg = configparser.ConfigParser()
@@ -95,7 +92,6 @@ def load_config():
         APP_CONFIG["audio_auto_dl_playlists"] = [p.strip() for p in a_dl_pl.split(",") if p.strip()]
         APP_CONFIG["hide_undownloaded_offline"] = cfg["AudioOffline"].getboolean("hide_undownloaded_offline", fallback=False)
 
-
 def save_config():
     cfg = configparser.ConfigParser()
     cfg["Navidrome"] = {
@@ -136,10 +132,8 @@ def save_config():
     with open(config_path, "w") as f:
         cfg.write(f)
 
-
 THEME = {}
 load_config()
-
 
 def get_app_style():
     return f"""
@@ -169,8 +163,14 @@ def get_app_style():
 
     #PlayerBar {{ background-color: {THEME.get('bg_sidebar', '#000000')}; border-top: 1px solid {THEME.get('border', '#121212')}; padding: 5px; }}
 
-    #PlayPauseBtn, #CardPlayBtn {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 23px; border: none; }}
-    #PlayPauseBtn:hover, #CardPlayBtn:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}
+    #PlayPauseBtn {{
+        background-color: {THEME.get('play_bg', 'white')};
+        border-radius: 23px;
+        border: none;
+    }}
+    #PlayPauseBtn:hover {{
+        background-color: {THEME.get('accent', '#1db954')};
+    }}
 
     #ControlBtn {{ background: transparent; border: none; border-radius: 18px; }}
     #ControlBtn:hover {{ background: {THEME.get('btn_hover_bg', 'rgba(255,255,255,0.1)')}; }}
@@ -185,12 +185,24 @@ def get_app_style():
     #CardArtist {{ font-size: 13px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
     #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
     #Card[mediaType="artist"] #CardOverlay {{ border-radius: 95px; }}
+    #CardImgContainer {{ background: transparent; border: none; }}
+
+    #CardPlayBtn, QPushButton#CardPlayBtn, #Card QPushButton#CardPlayBtn {{
+        background-color: {THEME.get('play_bg', 'white')};
+        border-radius: 23px;
+        border: none;
+        padding: 0px;
+        margin: 0px;
+    }}
+    #CardPlayBtn:hover, QPushButton#CardPlayBtn:hover, #Card QPushButton#CardPlayBtn:hover {{
+        background-color: {THEME.get('accent', '#1db954')};
+    }}
 
     #SongItem {{ background-color: transparent; border-radius: 8px; padding: 0px 8px; }}
     #SongItem:hover {{ background-color: {THEME.get('bg_card', '#111111')}; }}
     #SongItem QLabel {{ background: transparent; border: none; }}
     #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(29, 185, 84, 0.1)')}; }}
-    #SongImgContainer {{ background: transparent; }}
+    #SongImgContainer {{ background: transparent; border: none; }}
     #SongTitle {{ font-weight: 600; font-size: 14px; color: {THEME.get('text_main', '#ffffff')}; background: transparent; margin: 0px; padding: 0px; }}
     #SongArtist, #SongAlbum {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
     #SongArtist:hover, #SongAlbum:hover {{ color: {THEME.get('text_main', '#ffffff')}; text-decoration: underline; }}
@@ -201,8 +213,17 @@ def get_app_style():
 
     #SongItem QPushButton {{ background: transparent; border: none; border-radius: 16px; }}
     #SongItem QPushButton:hover {{ background: {THEME.get('btn_hover_bg', 'rgba(255,255,255,0.1)')}; }}
-    #SongPlayBtn {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 14px; border: none; }}
-    #SongPlayBtn:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}
+
+    #SongPlayBtn, QPushButton#SongPlayBtn, #SongItem QPushButton#SongPlayBtn {{
+        background-color: {THEME.get('play_bg', 'white')};
+        border-radius: 14px;
+        border: none;
+        padding: 0px;
+        margin: 0px;
+    }}
+    #SongPlayBtn:hover, QPushButton#SongPlayBtn:hover, #SongItem QPushButton#SongPlayBtn:hover {{
+        background-color: {THEME.get('accent', '#1db954')};
+    }}
 
     #SongPlayNextBtn:hover {{ background: {THEME.get('btn_play_next_hover', 'rgba(52,152,219,0.2)')}; }}
     #SongAddPlBtn:hover {{ background: {THEME.get('btn_add_pl_hover', 'rgba(46,204,113,0.2)')}; }}

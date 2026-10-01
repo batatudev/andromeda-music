@@ -15,7 +15,6 @@ from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer, SmoothScrollArea
 from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
 
-
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
         super().__init__()
@@ -25,7 +24,7 @@ class LibraryScrollArea(SmoothScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setStyleSheet("background: transparent; border: none;")
         self.content_widget = QWidget()
-        self.content_widget.setStyleSheet("background: transparent;")
+        self.content_widget.setObjectName("LibraryContentWidget")
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(30, 30, 30, 30)
         self.content_layout.setSpacing(15)
