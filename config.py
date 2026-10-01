@@ -185,14 +185,12 @@ def get_app_style():
     #CardArtist {{ font-size: 13px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
     #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
     #Card[mediaType="artist"] #CardOverlay {{ border-radius: 95px; }}
-    #CardImgContainer {{ background: transparent; border: none; }}
+    #CardImgContainer, #SongImgContainer, #LibraryContentWidget, #DetailsContentWidget {{ background: transparent; border: none; }}
 
     #CardPlayBtn, QPushButton#CardPlayBtn, #Card QPushButton#CardPlayBtn {{
         background-color: {THEME.get('play_bg', 'white')};
         border-radius: 23px;
         border: none;
-        padding: 0px;
-        margin: 0px;
     }}
     #CardPlayBtn:hover, QPushButton#CardPlayBtn:hover, #Card QPushButton#CardPlayBtn:hover {{
         background-color: {THEME.get('accent', '#1db954')};
@@ -202,7 +200,6 @@ def get_app_style():
     #SongItem:hover {{ background-color: {THEME.get('bg_card', '#111111')}; }}
     #SongItem QLabel {{ background: transparent; border: none; }}
     #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(29, 185, 84, 0.1)')}; }}
-    #SongImgContainer {{ background: transparent; border: none; }}
     #SongTitle {{ font-weight: 600; font-size: 14px; color: {THEME.get('text_main', '#ffffff')}; background: transparent; margin: 0px; padding: 0px; }}
     #SongArtist, #SongAlbum {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
     #SongArtist:hover, #SongAlbum:hover {{ color: {THEME.get('text_main', '#ffffff')}; text-decoration: underline; }}
@@ -218,8 +215,6 @@ def get_app_style():
         background-color: {THEME.get('play_bg', 'white')};
         border-radius: 14px;
         border: none;
-        padding: 0px;
-        margin: 0px;
     }}
     #SongPlayBtn:hover, QPushButton#SongPlayBtn:hover, #SongItem QPushButton#SongPlayBtn:hover {{
         background-color: {THEME.get('accent', '#1db954')};

@@ -18,14 +18,13 @@ from ui.components import SongItem, MediaCard, MediaHeader
 from core.i18n import tr
 from views.library_base import LibraryScrollArea
 
-
 class DetailsView(LibraryScrollArea):
     def __init__(self, main_window):
         super().__init__(main_window)
 
         self.content_widget.deleteLater()
         self.content_widget = DragDropContainer()
-        self.content_widget.setStyleSheet("background: transparent;")
+        self.content_widget.setObjectName("DetailsContentWidget")
         self.content_widget.drop_occurred.connect(self._handle_playlist_drop)
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(30, 30, 30, 30)

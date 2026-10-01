@@ -22,7 +22,6 @@ class LibraryScrollArea(SmoothScrollArea):
         self._is_loaded = False
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setStyleSheet("background: transparent; border: none;")
         self.content_widget = QWidget()
         self.content_widget.setObjectName("LibraryContentWidget")
         self.content_layout = QVBoxLayout(self.content_widget)

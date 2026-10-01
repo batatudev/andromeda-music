@@ -50,7 +50,6 @@ try:
 except ImportError:
     HAS_MPRIS_MODULE = False
 
-
 class MainWindow(QMainWindow):
     async_signal = Signal(object, object, object)
     fav_updated = Signal(str, bool)
@@ -435,16 +434,22 @@ class MainWindow(QMainWindow):
             self.current_page_task_id += 1
             idx = self.router.current_route["page"]
             target = self.get_or_create_page(idx)
-            if hasattr(target, 'invalidate_cache'):
-                target.invalidate_cache()
-            elif isinstance(target, QScrollArea) and hasattr(target.widget(), 'invalidate_cache'):
-                target.widget().invalidate_cache()
+
+            if hasattr(target, 'load'):
+                actual = target
+            elif isinstance(target, QScrollArea) and hasattr(target.widget(), 'load'):
+                actual = target.widget()
+            else:
+                actual = target
+
+            if hasattr(actual, 'invalidate_cache'):
+                actual.invalidate_cache()
 
             if idx == Pages.DETAILS:
-                target.load(self.router.current_route["data"], self.router.current_route["type"], force=True)
+                actual.load(self.router.current_route["data"], self.router.current_route["type"], force=True)
             elif idx in [Pages.HOME, Pages.FAVS, Pages.ALBUMS, Pages.TRACKS, Pages.ARTISTS, Pages.SEARCH, Pages.DOWNLOADS]:
-                actual = target.widget() if isinstance(target, QScrollArea) else target
-                actual.load(force=True)
+                if hasattr(actual, 'load'):
+                    actual.load(force=True)
 
     def _handle_add_to_queue(self, data, type_str):
         if self._is_fetching:

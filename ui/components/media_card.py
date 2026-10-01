@@ -58,10 +58,6 @@ class MediaCard(QFrame):
         self.play_btn.setFixedSize(46, 46)
         self.play_btn.setIconSize(QSize(20, 20))
         self.play_btn.setCursor(Qt.PointingHandCursor)
-        self.play_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 23px; border: none; }} "
-            f"QPushButton:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}"
-        )
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.data, self.type_str))
 

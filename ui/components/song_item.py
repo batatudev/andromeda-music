@@ -119,10 +119,6 @@ class SongItem(QFrame):
         self.play_btn.setFixedSize(28, 28)
         self.play_btn.setIconSize(QSize(12, 12))
         self.play_btn.move(10, 10)
-        self.play_btn.setStyleSheet(
-            f"QPushButton {{ background-color: {THEME.get('play_bg', 'white')}; border-radius: 14px; border: none; }} "
-            f"QPushButton:hover {{ background-color: {THEME.get('accent', '#1db954')}; }}"
-        )
         self.play_btn.hide()
         self.play_btn.clicked.connect(lambda: self.clicked.emit(self.song))
 
