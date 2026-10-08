@@ -175,7 +175,8 @@ def get_app_style():
     #ControlBtn {{ background: transparent; border: none; border-radius: 18px; }}
     #ControlBtn:hover {{ background: {THEME.get('btn_hover_bg', 'rgba(255,255,255,0.1)')}; }}
 
-    #HeroSection, #QueueHeader {{ border-radius: 15px; margin-bottom: 25px; }}
+    #HeroSection {{ margin-bottom: 25px; border-radius: 0px; }}
+    #QueueHeader {{ border-radius: 15px; margin-bottom: 25px; }}
     #HeroTitle {{ font-size: 42px; font-weight: bold; background: transparent; border: none; }}
     #HeroSubtitle {{ font-size: 12px; color: {THEME.get('accent', '#1db954')}; font-weight: bold; letter-spacing: 2px; background: transparent; }}
 
@@ -188,11 +189,21 @@ def get_app_style():
     #CardTitle {{ font-weight: bold; font-size: 15px; margin-top: 8px; background: transparent; color: {THEME.get('text_main', '#ffffff')}; }}
     #ArtistCard #CardTitle {{ text-align: center; }}
     #CardArtist {{ font-size: 13px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
-    
+
     #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
     #CardOverlayArtist {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 500px; }}
-    
+
     #CardImgContainer, #SongImgContainer, #LibraryContentWidget, #DetailsContentWidget {{ background: transparent; border: none; }}
+
+    #NowPlayingQueueFrame {{
+        background-color: rgba({THEME.get('bg_main_rgb', '5,5,5')}, 100);
+        border-radius: 12px;
+        border: 1px solid {THEME.get('border', '#121212')};
+    }}
+    #NowPlayingUiContainer, #NowPlayingMediaContainer, #NowPlayingArtWrapper, #NowPlayingQueueContent, #NowPlayingRightSpacer {{
+        background: transparent;
+        border: none;
+    }}
 
     #CardPlayBtn, QPushButton#CardPlayBtn, #Card QPushButton#CardPlayBtn, #ArtistCard QPushButton#CardPlayBtn {{
         background-color: {THEME.get('play_bg', 'white')};
@@ -220,14 +231,28 @@ def get_app_style():
     #SongItem QPushButton {{ background: transparent; border: none; border-radius: 16px; }}
     #SongItem QPushButton:hover {{ background: {THEME.get('btn_hover_bg', 'rgba(255,255,255,0.1)')}; }}
 
-    #SongPlayBtn, QPushButton#SongPlayBtn, #SongItem QPushButton#SongPlayBtn {{
+    #SongPlayBtn,
+    QPushButton#SongPlayBtn,
+    #SongItem #SongPlayBtn,
+    #SongItem QPushButton#SongPlayBtn,
+    #SongImgContainer #SongPlayBtn,
+    #SongImgContainer QPushButton#SongPlayBtn,
+    #NowPlayingQueueFrame #SongPlayBtn,
+    #NowPlayingQueueFrame QPushButton#SongPlayBtn {{
         background-color: {THEME.get('play_bg', 'white')};
         border-radius: 14px;
         border: none;
         padding: 0px;
         margin: 0px;
     }}
-    #SongPlayBtn:hover, QPushButton#SongPlayBtn:hover, #SongItem QPushButton#SongPlayBtn:hover {{
+    #SongPlayBtn:hover,
+    QPushButton#SongPlayBtn:hover,
+    #SongItem #SongPlayBtn:hover,
+    #SongItem QPushButton#SongPlayBtn:hover,
+    #SongImgContainer #SongPlayBtn:hover,
+    #SongImgContainer QPushButton#SongPlayBtn:hover,
+    #NowPlayingQueueFrame #SongPlayBtn:hover,
+    #NowPlayingQueueFrame QPushButton#SongPlayBtn:hover {{
         background-color: {THEME.get('accent', '#1db954')};
     }}
 

@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_now_playing.py
-# OPIS ZMIAN: Wywołanie hide() przed deleteLater() przy aktualizacji kolejki dla płynności Drag & Drop
-
 import qtawesome as qta
 
 from PySide6.QtWidgets import (
@@ -96,7 +92,7 @@ class NowPlayingWidget(QFrame):
         self._crossfade_target_mode = None
 
         self.ui_container = QWidget(self)
-        self.ui_container.setStyleSheet("background: transparent;")
+        self.ui_container.setObjectName("NowPlayingUiContainer")
 
         self.bg_container.lower()
         self.overlay.raise_()
@@ -110,15 +106,15 @@ class NowPlayingWidget(QFrame):
         self.left_layout.setAlignment(Qt.AlignCenter)
 
         self.media_container = QWidget()
+        self.media_container.setObjectName("NowPlayingMediaContainer")
         self.media_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.media_container.setMinimumSize(400, 300)
-        self.media_container.setStyleSheet("background: transparent;")
 
         self.media_layout = QVBoxLayout(self.media_container)
         self.media_layout.setContentsMargins(0, 0, 0, 0)
 
         self.art_wrapper = QWidget()
-        self.art_wrapper.setStyleSheet("background: transparent;")
+        self.art_wrapper.setObjectName("NowPlayingArtWrapper")
         self.art_layout = QVBoxLayout(self.art_wrapper)
         self.art_layout.setAlignment(Qt.AlignCenter)
         self.img = RoundedImage(size=350, radius=15)
@@ -150,10 +146,6 @@ class NowPlayingWidget(QFrame):
 
         self.queue_frame = QFrame()
         self.queue_frame.setObjectName("NowPlayingQueueFrame")
-        self.queue_frame.setStyleSheet(
-            f"#NowPlayingQueueFrame {{ background-color: rgba({THEME['bg_main_rgb']}, 100); "
-            f"border-radius: 12px; border: 1px solid {THEME['border']}; }}"
-        )
 
         qf_layout = QVBoxLayout(self.queue_frame)
         qf_layout.setContentsMargins(15, 15, 15, 15)
@@ -189,12 +181,13 @@ class NowPlayingWidget(QFrame):
         qf_layout.addLayout(header_layout)
 
         self.queue_scroll = SmoothScrollArea()
+        self.queue_scroll.setObjectName("NowPlayingQueueScroll")
         self.queue_scroll.setWidgetResizable(True)
         self.queue_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.queue_scroll.setStyleSheet("background: transparent; border: none;")
         self.queue_scroll.viewport().setAttribute(Qt.WA_TranslucentBackground, True)
 
         self.queue_content = DragDropContainer()
+        self.queue_content.setObjectName("NowPlayingQueueContent")
         self.queue_layout = QVBoxLayout(self.queue_content)
         self.queue_layout.setAlignment(Qt.AlignTop)
         self.queue_layout.setContentsMargins(0, 10, 0, 10)
@@ -206,6 +199,8 @@ class NowPlayingWidget(QFrame):
         self.main_layout.addWidget(self.queue_frame, 2)
 
         self.right_spacer = QWidget()
+        self.right_spacer.setObjectName("NowPlayingRightSpacer")
+        self.right_spacer.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.right_spacer.setFixedWidth(0)
         self.main_layout.addWidget(self.right_spacer)
 

@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/components/hero_section.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() dla nagłówka strony głównej
-
 import qtawesome as qta
 import time
 from PySide6.QtWidgets import (
@@ -32,7 +28,7 @@ class HeroSection(QFrame):
             f"background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
             f"stop:0 rgba({THEME['bg_main_rgb']},100), "
             f"stop:0.5 rgba({THEME['bg_main_rgb']},180), "
-            f"stop:1 {THEME['bg_main']}); border-radius: 15px;"
+            f"stop:1 {THEME['bg_main']});"
         )
 
         l = QHBoxLayout(self)
