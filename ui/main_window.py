@@ -18,6 +18,7 @@ from config import APP_CONFIG, APP_NAME, save_config, THEME, get_app_style, Page
 from utils import Worker, AsyncImageLoader, logger, telemetry_recorder, NetworkMonitor
 from core.enums import EngineState, TelemetryEvent, MediaType
 from core.i18n import tr
+from core.system_health import SystemHealthChecker
 
 from ui.widgets import HoverIconButton, SmoothScrollArea, ToastNotification
 from ui.dialogs import PlaylistDialog
@@ -226,6 +227,7 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def _start_app(self):
+        SystemHealthChecker.perform_startup_check(self)
         self.sidebar_ctrl.load_playlists()
         self.router.navigate(Pages.HOME)
 
