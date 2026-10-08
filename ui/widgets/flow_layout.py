@@ -8,7 +8,7 @@ class FlowLayout(QLayout):
     def __init__(self, parent=None, margin=0, spacing=25):
         super().__init__(parent)
         self.setContentsMargins(margin, margin, margin, margin)
-        self._item_list =[]
+        self._item_list = []
         self._spacing = spacing
 
     def __del__(self):
@@ -66,43 +66,44 @@ class FlowLayout(QLayout):
     def _do_layout(self, rect, test_only):
         left, top, right, bottom = self.getContentsMargins()
         effective_rect = rect.adjusted(left, top, -right, -bottom)
-        
+
         if not self._item_list:
             return 0
-            
+
         space_x = self._spacing
         space_y = self._spacing
-        
+
         base_w = 210
         columns = max(1, (effective_rect.width() + space_x) // (base_w + space_x))
         item_w = (effective_rect.width() - (columns - 1) * space_x) // columns
-        
+
         max_w = max([item.maximumSize().width() for item in self._item_list])
         if 0 < max_w < 16777215:
             item_w = min(item_w, max_w)
-            
+
         x = effective_rect.x()
         y = effective_rect.y()
         line_height = 0
         col_idx = 0
-        
+
         for item in self._item_list:
-            if item.widget() and hasattr(item.widget(), 'type_str'):
+            w = item.widget()
+            if w and hasattr(w, 'type_str'):
                 item_h = item_w + 70
             else:
                 item_h = item.sizeHint().height()
-                
+
             if not test_only:
                 item.setGeometry(QRect(QPoint(x, y), QSize(item_w, item_h)))
-                
+
             x += item_w + space_x
             line_height = max(line_height, item_h)
             col_idx += 1
-            
+
             if col_idx >= columns:
                 x = effective_rect.x()
                 y += line_height + space_y
                 line_height = 0
                 col_idx = 0
-                
+
         return y + line_height - rect.y() + bottom
