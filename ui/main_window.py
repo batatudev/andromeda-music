@@ -154,20 +154,6 @@ class MainWindow(QMainWindow):
             return p.widget()
         return p
 
-    @property
-    def downloads_view(self):
-        p = self.get_or_create_page(Pages.DOWNLOADS)
-        if isinstance(p, QScrollArea):
-            return p.widget()
-        return p
-
-    @property
-    def dev_view(self):
-        p = self.get_or_create_page(Pages.DEV_MODE)
-        if isinstance(p, QScrollArea):
-            return p.widget()
-        return p
-
     def get_or_create_page(self, page_idx):
         if self.pages[page_idx] is not None:
             return self.pages[page_idx]
@@ -204,13 +190,39 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         save_config()
-        logger.flush()
-        telemetry_recorder.flush()
-        self.watchdog.stop()
-        self.telemetry.stop()
+
+        if hasattr(self, 'engine'):
+            if hasattr(self.engine, 'audio_download_manager'):
+                self.engine.audio_download_manager.stop()
+            if hasattr(self.engine, 'video_download_manager'):
+                self.engine.video_download_manager.stop()
+            if hasattr(self.engine, 'sync_timeout_timer') and self.engine.sync_timeout_timer.isActive():
+                self.engine.sync_timeout_timer.stop()
+            if hasattr(self.engine, 'sync_timer') and self.engine.sync_timer.isActive():
+                self.engine.sync_timer.stop()
+            if hasattr(self.engine, 'player'):
+                self.engine.player.stop()
+            if hasattr(self.engine, 'video_player'):
+                self.engine.video_player.stop()
+
+        if hasattr(self, 'repo') and hasattr(self.repo, 'library_sync'):
+            self.repo.library_sync.stop()
+
+        if hasattr(self, 'watchdog'):
+            self.watchdog.stop()
+
+        if hasattr(self, 'telemetry'):
+            self.telemetry.stop()
+
         if hasattr(self, 'network_monitor'):
             self.network_monitor.stop()
-            self.network_monitor.join(timeout=1.0)
+            self.network_monitor.join(timeout=0.5)
+
+        if hasattr(self, 'threadpool'):
+            self.threadpool.waitForDone(600)
+
+        logger.flush()
+        telemetry_recorder.flush()
         super().closeEvent(event)
 
     def _start_app(self):

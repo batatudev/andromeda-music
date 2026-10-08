@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: engine/base_download_manager.py
-# OPIS ZMIAN: Rozszerzenie sygnału download_progress o ciąg statystyk pobierania (rozmiar i prędkość)
-
 import time
 import sqlite3
 import threading
@@ -45,6 +41,7 @@ class BaseDownloadManager(QObject):
         self.snooze_until = 0
         self.current_download_task = None
         self.cancel_current_event = threading.Event()
+        self._is_running = True
 
         self._init_db()
         self._reload_path_cache()
@@ -56,6 +53,13 @@ class BaseDownloadManager(QObject):
         self.snooze_timer = QTimer(self)
         self.snooze_timer.timeout.connect(self._check_snooze)
         self.snooze_timer.start(10000)
+
+    def stop(self):
+        """Bezpiecznie zatrzymuje wątek roboczy i anuluje bieżące transfery."""
+        self._is_running = False
+        self.cancel_current_event.set()
+        if hasattr(self, 'snooze_timer') and self.snooze_timer.isActive():
+            self.snooze_timer.stop()
 
     def _init_db(self):
         raise NotImplementedError
@@ -112,6 +116,8 @@ class BaseDownloadManager(QObject):
         self.queue_updated.emit()
 
     def _check_snooze(self):
+        if not self._is_running:
+            return
         if self.is_snoozed and self.snooze_until > 0 and time.time() > self.snooze_until:
             self.is_snoozed = False
             self.snooze_until = 0
@@ -119,35 +125,39 @@ class BaseDownloadManager(QObject):
             self.queue_updated.emit()
 
     def _update_status(self, item_id: str, status: str, file_path: str = None, size: int = None, resolution: str = None):
-        conn = PathsManager.get_db_connection(self.db_path)
-        cursor = conn.cursor()
+        try:
+            conn = PathsManager.get_db_connection(self.db_path)
+            cursor = conn.cursor()
 
-        query_parts = ["status = ?"]
-        params = [status]
+            query_parts = ["status = ?"]
+            params = [status]
 
-        if file_path is not None:
-            query_parts.append("file_path = ?")
-            params.append(file_path)
-        if size is not None:
-            query_parts.append("file_size = ?")
-            params.append(size)
-        if resolution is not None:
-            query_parts.append("resolution = ?")
-            params.append(resolution)
+            if file_path is not None:
+                query_parts.append("file_path = ?")
+                params.append(file_path)
+            if size is not None:
+                query_parts.append("file_size = ?")
+                params.append(size)
+            if resolution is not None:
+                query_parts.append("resolution = ?")
+                params.append(resolution)
 
-        params.append(item_id)
-        sql = f"UPDATE downloads SET {', '.join(query_parts)} WHERE item_id = ?"
-        cursor.execute(sql, tuple(params))
+            params.append(item_id)
+            sql = f"UPDATE downloads SET {', '.join(query_parts)} WHERE item_id = ?"
+            cursor.execute(sql, tuple(params))
 
-        if status == DownloadStatus.COMPLETED and file_path:
-            self._path_cache[item_id] = file_path
-        elif status != DownloadStatus.COMPLETED:
-            self._path_cache.pop(item_id, None)
+            if status == DownloadStatus.COMPLETED and file_path:
+                self._path_cache[item_id] = file_path
+            elif status != DownloadStatus.COMPLETED:
+                self._path_cache.pop(item_id, None)
 
-        conn.commit()
-        conn.close()
-        self.download_status_changed.emit(item_id, status)
-        self.queue_updated.emit()
+            conn.commit()
+            conn.close()
+            if self._is_running:
+                self.download_status_changed.emit(item_id, status)
+                self.queue_updated.emit()
+        except Exception as e:
+            logger.log(f"Błąd aktualizacji statusu ({self.manager_name}): {e}")
 
     def get_all_downloads(self):
         conn = PathsManager.get_db_connection(self.db_path)

@@ -1,12 +1,9 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: engine/video_download_manager.py
-# OPIS ZMIAN: Precyzyjne wyliczanie postępu i prędkości pobierania wideo bez parsowania znaków ANSI
-
 import time
 import sqlite3
+import queue
 from config import APP_CONFIG
 from utils import logger
 from core.paths import PathsManager
@@ -226,15 +223,19 @@ class VideoDownloadManager(BaseDownloadManager):
             self.queue_updated.emit()
 
     def _worker_loop(self):
-        while True:
+        while self._is_running:
             if self.is_snoozed:
-                time.sleep(5)
+                time.sleep(1)
                 continue
 
             try:
-                priority, timestamp, item_id, yt_link, title = self.download_queue.get(timeout=2)
-            except Exception:
+                priority, timestamp, item_id, yt_link, title = self.download_queue.get(timeout=1.0)
+            except queue.Empty:
                 continue
+
+            if not self._is_running:
+                self.download_queue.task_done()
+                break
 
             conn = PathsManager.get_db_connection(self.db_path)
             cursor = conn.cursor()
@@ -254,15 +255,17 @@ class VideoDownloadManager(BaseDownloadManager):
                 self._download_video(item_id, yt_link)
             except Exception as e:
                 logger.log(f"Video Download Error ({item_id}): {e}")
-                if not self.cancel_current_event.is_set():
-                    self._update_status(item_id, DownloadStatus.ERROR)
-                else:
-                    self._update_status(item_id, DownloadStatus.QUEUED)
-                    self.download_queue.put((10, time.time(), item_id, yt_link, title))
+                if self._is_running:
+                    if not self.cancel_current_event.is_set():
+                        self._update_status(item_id, DownloadStatus.ERROR)
+                    else:
+                        self._update_status(item_id, DownloadStatus.QUEUED)
+                        self.download_queue.put((10, time.time(), item_id, yt_link, title))
 
             self.current_download_task = None
             self.download_queue.task_done()
-            self.queue_updated.emit()
+            if self._is_running:
+                self.queue_updated.emit()
 
     def _download_video(self, item_id: str, yt_link: str):
         configured_path = APP_CONFIG.get("video_offline_path")
@@ -295,11 +298,11 @@ class VideoDownloadManager(BaseDownloadManager):
             ydl_opts['cookiesfrombrowser'] = ('firefox', )
 
         def my_hook(d):
-            if self.cancel_current_event.is_set():
+            if not self._is_running or self.cancel_current_event.is_set():
                 raise ValueError("Download Cancelled")
             if d.get('status') == 'downloading':
                 current_time = time.time()
-                if current_time - getattr(self, '_last_progress_emit', 0) > 0.2:
+                if current_time - getattr(self, '_last_progress_emit', 0) > 0.2 and self._is_running:
                     downloaded = d.get('downloaded_bytes', 0) or 0
                     total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
                     speed = d.get('speed') or 0
@@ -328,13 +331,26 @@ class VideoDownloadManager(BaseDownloadManager):
 
         ydl_opts['progress_hooks'] = [my_hook]
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(yt_link, download=True)
-            filename = ydl.prepare_filename(info)
-            if os.path.exists(filename):
-                file_size = os.path.getsize(filename)
-                resolution = info.get('resolution', quality_str)
-                self._update_status(item_id, DownloadStatus.COMPLETED, file_path=filename, size=file_size, resolution=resolution)
-                logger.log(f"Pobrano wideo offline dla: {item_id} ({resolution}, {file_size} bajtów)")
-            else:
-                raise Exception("Plik nie został znaleziony po pobraniu")
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(yt_link, download=True)
+                filename = ydl.prepare_filename(info)
+                if os.path.exists(filename):
+                    file_size = os.path.getsize(filename)
+                    resolution = info.get('resolution', quality_str)
+                    self._update_status(item_id, DownloadStatus.COMPLETED, file_path=filename, size=file_size, resolution=resolution)
+                    logger.log(f"Pobrano wideo offline dla: {item_id} ({resolution}, {file_size} bajtów)")
+                else:
+                    raise Exception("Plik nie został znaleziony po pobraniu")
+        except Exception as e:
+            if not self._is_running or self.cancel_current_event.is_set():
+                try:
+                    for f in os.listdir(base_dir):
+                        if f.startswith(item_id) and f.endswith(".part"):
+                            try:
+                                os.remove(os.path.join(base_dir, f))
+                            except OSError:
+                                pass
+                except Exception:
+                    pass
+            raise e

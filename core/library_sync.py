@@ -9,7 +9,6 @@ from api_client import NavidromeClient
 from utils import logger
 from core.paths import PathsManager
 
-
 class LibrarySyncManager(QObject):
     sync_progress = Signal(int, int)
     sync_completed = Signal()
@@ -22,6 +21,7 @@ class LibrarySyncManager(QObject):
         self._memory_cache = {}
         self._init_db()
         self._is_syncing = False
+        self._is_running = True
 
     def _init_db(self):
         conn = PathsManager.get_db_connection(self.db_path)
@@ -45,12 +45,17 @@ class LibrarySyncManager(QObject):
         conn.commit()
         conn.close()
 
+    def stop(self):
+        """Bezpiecznie przerywa trwającą synchronizację biblioteki."""
+        self._is_running = False
+
     def clear_memory_cache(self):
         self._memory_cache.clear()
 
     def start_sync(self):
         if self._is_syncing:
             return
+        self._is_running = True
         self._is_syncing = True
         threading.Thread(target=self._sync_worker, daemon=True).start()
 
@@ -61,6 +66,11 @@ class LibrarySyncManager(QObject):
             c = conn.cursor()
 
             artists = self.client.get_artists()
+            if not self._is_running:
+                conn.close()
+                self._is_syncing = False
+                return
+
             artist_records = [
                 ("artist", art.item_id, "", art.title, json.dumps(dict(art)))
                 for art in artists
@@ -76,7 +86,7 @@ class LibrarySyncManager(QObject):
             limit = 500
             total_songs = 0
 
-            while True:
+            while self._is_running:
                 params = self.client._get_auth_params()
                 params['query'] = ''
                 params['songCount'] = limit
@@ -85,6 +95,9 @@ class LibrarySyncManager(QObject):
                 params['albumOffset'] = offset
 
                 res = self.client._make_request("search3", params).get('searchResult3', {})
+
+                if not self._is_running:
+                    break
 
                 songs_data = res.get('song', [])
                 albums_data = res.get('album', [])
@@ -132,6 +145,12 @@ class LibrarySyncManager(QObject):
                     break
                 offset += limit
 
+            if not self._is_running:
+                conn.close()
+                self._is_syncing = False
+                logger.log("Przerwano synchronizację biblioteki (zamykanie aplikacji).")
+                return
+
             c.execute("INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?, ?)", ("last_sync", str(time.time())))
             conn.commit()
             conn.close()
@@ -144,7 +163,8 @@ class LibrarySyncManager(QObject):
         except Exception as e:
             self._is_syncing = False
             logger.log(f"Błąd synchronizacji: {e}")
-            self.sync_error.emit(str(e))
+            if self._is_running:
+                self.sync_error.emit(str(e))
 
     def get_all_songs(self):
         if "all_songs" in self._memory_cache:

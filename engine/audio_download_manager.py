@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: engine/audio_download_manager.py
-# OPIS ZMIAN: Płynne wyliczanie prędkości pobierania audio w locie oraz emisja pełnych statystyk
-
 import time
 import sqlite3
 import queue
@@ -149,15 +145,19 @@ class AudioDownloadManager(BaseDownloadManager):
             self.queue_updated.emit()
 
     def _worker_loop(self):
-        while True:
+        while self._is_running:
             if self.is_snoozed:
-                time.sleep(2)
+                time.sleep(1)
                 continue
 
             try:
-                priority, added_ts, item_id, title = self.download_queue.get(timeout=2)
+                priority, added_ts, item_id, title = self.download_queue.get(timeout=1.0)
             except queue.Empty:
                 continue
+
+            if not self._is_running:
+                self.download_queue.task_done()
+                break
 
             conn = PathsManager.get_db_connection(self.db_path)
             cursor = conn.cursor()
@@ -177,15 +177,17 @@ class AudioDownloadManager(BaseDownloadManager):
                 self._download_audio(item_id)
             except Exception as e:
                 logger.log(f"Błąd pobierania audio {item_id}: {e}")
-                if not self.cancel_current_event.is_set():
-                    self._update_status(item_id, DownloadStatus.ERROR)
-                else:
-                    self._update_status(item_id, DownloadStatus.QUEUED)
-                    self.download_queue.put((10, time.time(), item_id, title))
+                if self._is_running:
+                    if not self.cancel_current_event.is_set():
+                        self._update_status(item_id, DownloadStatus.ERROR)
+                    else:
+                        self._update_status(item_id, DownloadStatus.QUEUED)
+                        self.download_queue.put((10, time.time(), item_id, title))
 
             self.current_download_task = None
             self.download_queue.task_done()
-            self.queue_updated.emit()
+            if self._is_running:
+                self.queue_updated.emit()
 
     def _download_audio(self, item_id: str):
         stream_url = self.api_client.get_stream_url(item_id)
@@ -195,50 +197,62 @@ class AudioDownloadManager(BaseDownloadManager):
         temp_file = os.path.join(self.music_dir, f"{item_id}.tmp")
         final_file = os.path.join(self.music_dir, f"{item_id}.mp3")
 
-        response = requests.get(stream_url, stream=True, timeout=10)
-        response.raise_for_status()
+        try:
+            response = requests.get(stream_url, stream=True, timeout=10)
+            response.raise_for_status()
 
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
-        last_emit_time = time.time()
-        last_downloaded = 0
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded = 0
+            last_emit_time = time.time()
+            last_downloaded = 0
 
-        with open(temp_file, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=16384):
-                if self.cancel_current_event.is_set():
-                    raise Exception("Anulowano przez użytkownika")
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    current_time = time.time()
-                    time_diff = current_time - last_emit_time
-                    if time_diff > 0.2:
-                        bytes_diff = downloaded - last_downloaded
-                        speed = bytes_diff / time_diff if time_diff > 0 else 0
+            with open(temp_file, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=16384):
+                    if not self._is_running or self.cancel_current_event.is_set():
+                        raise Exception("Przerwano pobieranie (anulowanie lub zamknięcie aplikacji)")
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        current_time = time.time()
+                        time_diff = current_time - last_emit_time
+                        if time_diff > 0.2 and self._is_running:
+                            bytes_diff = downloaded - last_downloaded
+                            speed = bytes_diff / time_diff if time_diff > 0 else 0
 
-                        if speed > 1024 * 1024:
-                            speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
-                        elif speed > 1024:
-                            speed_str = f"{speed / 1024:.0f} KB/s"
-                        else:
-                            speed_str = f"{speed:.0f} B/s"
+                            if speed > 1024 * 1024:
+                                speed_str = f"{speed / (1024 * 1024):.1f} MB/s"
+                            elif speed > 1024:
+                                speed_str = f"{speed / 1024:.0f} KB/s"
+                            else:
+                                speed_str = f"{speed:.0f} B/s"
 
-                        dl_mb = downloaded / (1024 * 1024)
-                        if total_size > 0:
-                            pct = (downloaded / total_size) * 100.0
-                            tot_mb = total_size / (1024 * 1024)
-                            stats_str = f"{dl_mb:.1f} MB / {tot_mb:.1f} MB • {speed_str}"
-                        else:
-                            pct = 0.0
-                            stats_str = f"{dl_mb:.1f} MB • {speed_str}"
+                            dl_mb = downloaded / (1024 * 1024)
+                            if total_size > 0:
+                                pct = (downloaded / total_size) * 100.0
+                                tot_mb = total_size / (1024 * 1024)
+                                stats_str = f"{dl_mb:.1f} MB / {tot_mb:.1f} MB • {speed_str}"
+                            else:
+                                pct = 0.0
+                                stats_str = f"{dl_mb:.1f} MB • {speed_str}"
 
-                        self.download_progress.emit(item_id, pct, stats_str)
-                        last_emit_time = current_time
-                        last_downloaded = downloaded
+                            self.download_progress.emit(item_id, pct, stats_str)
+                            last_emit_time = current_time
+                            last_downloaded = downloaded
 
-        os.rename(temp_file, final_file)
-        self._update_status(item_id, DownloadStatus.COMPLETED, final_file, downloaded)
-        logger.log(f"Pobrano audio: {item_id}")
+            if not self._is_running or self.cancel_current_event.is_set():
+                raise Exception("Pobieranie przerwane przed zakończeniem")
+
+            os.rename(temp_file, final_file)
+            self._update_status(item_id, DownloadStatus.COMPLETED, final_file, downloaded)
+            logger.log(f"Pobrano audio: {item_id}")
+
+        except Exception as e:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except OSError:
+                    pass
+            raise e
 
     def download_all_from_library(self):
         from core.library_sync import LibrarySyncManager
