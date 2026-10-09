@@ -1,17 +1,12 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/settings/tab_server.py
-# OPIS ZMIAN: Oczyszczenie etykiet i pełne wdrożenie i18n przez tr()
-
 import sys
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QLineEdit, QPushButton
+    QLineEdit, QPushButton, QSizePolicy
 )
-from PySide6.QtCore import Qt, QCoreApplication, QTimer
+from PySide6.QtCore import Qt, QCoreApplication
 
 from config import APP_CONFIG, save_config, THEME
 from api_client import NavidromeClient
@@ -29,9 +24,10 @@ class TabServer(QWidget):
         server_group = QFrame()
         server_group.setObjectName("SettingsCard")
         server_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 24px; border: 1px solid {THEME['border']}; }}"
         )
         server_layout = QVBoxLayout(server_group)
+        server_layout.setSpacing(14)
 
         lbl_s_title = QLabel(tr("settings.server.header", "Serwer Navidrome"))
         lbl_s_title.setStyleSheet(
@@ -41,27 +37,28 @@ class TabServer(QWidget):
 
         input_style = (
             f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; "
-            f"border: 1px solid {THEME['border']}; border-radius: 5px; padding: 8px; height: 18px;"
+            f"border: 1px solid {THEME['border']}; border-radius: 6px; padding: 8px 12px; height: 22px; font-size: 13px;"
         )
 
         self.inp_url = QLineEdit(APP_CONFIG["url"])
         self.inp_url.setStyleSheet(input_style)
-        self.inp_url.setFixedWidth(350)
         self.inp_user = QLineEdit(APP_CONFIG["username"])
         self.inp_user.setStyleSheet(input_style)
-        self.inp_user.setFixedWidth(350)
         self.inp_pwd = QLineEdit(APP_CONFIG["password"])
         self.inp_pwd.setEchoMode(QLineEdit.Password)
         self.inp_pwd.setStyleSheet(input_style)
-        self.inp_pwd.setFixedWidth(350)
 
         def add_row(parent_layout, text, widget):
             r = QHBoxLayout()
+            r.setSpacing(15)
             lbl = QLabel(text)
-            lbl.setFixedWidth(190)
-            lbl.setFixedHeight(34)
-            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
-            lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; margin-right: 10px; background: transparent;")
+            lbl.setFixedWidth(160)
+            lbl.setFixedHeight(36)
+            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
+            widget.setMinimumWidth(260)
+            widget.setMaximumWidth(520)
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             r.addWidget(lbl)
             r.addWidget(widget)
             r.addStretch()
@@ -73,24 +70,25 @@ class TabServer(QWidget):
 
         btn_test = QPushButton(tr("settings.server.test", "Testuj połączenie"))
         btn_test.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px; border-radius: 5px;"
+            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px 18px; border-radius: 6px; font-weight: bold; border: none;"
         )
         btn_test.setCursor(Qt.PointingHandCursor)
-        btn_test.setFixedWidth(150)
         btn_test.clicked.connect(self._test_connection)
 
         self.lbl_status = QLabel("")
-        self.lbl_status.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent;")
+        self.lbl_status.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent; font-weight: bold;")
 
         btn_save_server = QPushButton(tr("settings.save_restart", "Zapisz i restartuj"))
         btn_save_server.setStyleSheet(
-            f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 15px; border-radius: 5px;"
+            f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
         )
         btn_save_server.setCursor(Qt.PointingHandCursor)
         btn_save_server.clicked.connect(self._save_and_restart)
 
         status_lay = QHBoxLayout()
-        status_lay.addSpacing(200)
+        status_lay.setContentsMargins(0, 10, 0, 0)
+        status_lay.setSpacing(15)
+        status_lay.addSpacing(175)
         status_lay.addWidget(btn_test)
         status_lay.addWidget(self.lbl_status)
         status_lay.addStretch()
@@ -110,10 +108,10 @@ class TabServer(QWidget):
 
         if ok:
             self.lbl_status.setText(tr("settings.server.success", "Połączono pomyślnie!"))
-            self.lbl_status.setStyleSheet("color: #1db954; background: transparent;")
+            self.lbl_status.setStyleSheet("color: #1db954; background: transparent; font-weight: bold;")
         else:
             self.lbl_status.setText(tr("settings.server.error", "Błąd połączenia."))
-            self.lbl_status.setStyleSheet("color: #e74c3c; background: transparent;")
+            self.lbl_status.setStyleSheet("color: #e74c3c; background: transparent; font-weight: bold;")
 
     def _save_and_restart(self):
         APP_CONFIG["url"] = self.inp_url.text()

@@ -1,14 +1,9 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_settings.py
-# OPIS ZMIAN: Wdrożenie i18n przez tr() w głównym nagłówku oraz nazwach zakładek
-
 import sys
-
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QPushButton, QSizePolicy
 )
 from PySide6.QtCore import Qt
 
@@ -30,18 +25,20 @@ class SettingsView(QWidget):
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(30, 30, 30, 30)
-        self.main_layout.setSpacing(15)
+        self.main_layout.setSpacing(20)
 
         self._init_layout()
         self.sync_values()
 
     def _init_layout(self):
         center_widget = QWidget()
-        center_widget.setMaximumWidth(800)
-        center_widget.setMinimumWidth(600)
+        center_widget.setMaximumWidth(880)
+        center_widget.setMinimumWidth(480)
+        center_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
         center_lay = QVBoxLayout(center_widget)
         center_lay.setContentsMargins(0, 0, 0, 0)
-        center_lay.setSpacing(20)
+        center_lay.setSpacing(18)
 
         header_lay = QHBoxLayout()
         lbl_title = QLabel(tr("settings.title", "Ustawienia"))
@@ -54,13 +51,13 @@ class SettingsView(QWidget):
         lbl_version.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 12px; background: transparent;")
         header_lay.addStretch()
         header_lay.addWidget(lbl_version)
-
         center_lay.addLayout(header_lay)
 
         tab_bar_lay = QHBoxLayout()
         tab_bar_lay.setSpacing(10)
 
         self.stacked_widget = QStackedWidget()
+        self.stacked_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.tab_server = TabServer(self)
         self.tab_theme = TabTheme(self)
@@ -87,7 +84,7 @@ class SettingsView(QWidget):
                 QPushButton {{
                     background-color: {THEME['bg_card']};
                     color: {THEME['text_main']};
-                    padding: 8px 16px;
+                    padding: 8px 18px;
                     border-radius: 15px;
                     font-weight: bold;
                     border: 1px solid transparent;
@@ -111,6 +108,7 @@ class SettingsView(QWidget):
         center_lay.addWidget(self.stacked_widget)
 
         wrap_lay = QHBoxLayout()
+        wrap_lay.setContentsMargins(0, 0, 0, 0)
         wrap_lay.addStretch()
         wrap_lay.addWidget(center_widget)
         wrap_lay.addStretch()

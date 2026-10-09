@@ -1,15 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/settings/tab_video.py
-# OPIS ZMIAN: Oczyszczenie etykiet z dopisków w nawiasach oraz pełne wdrożenie i18n przez tr()
-
 import sys
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QComboBox, QPushButton, QSlider
+    QComboBox, QPushButton, QSlider, QSizePolicy
 )
 from PySide6.QtCore import Qt, QTimer
 
@@ -28,32 +23,32 @@ class TabVideo(QWidget):
         video_group = QFrame()
         video_group.setObjectName("SettingsCard")
         video_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 24px; border: 1px solid {THEME['border']}; }}"
         )
         video_layout = QVBoxLayout(video_group)
+        video_layout.setSpacing(14)
 
         lbl_v_title = QLabel(tr("settings.video.header", "Teledyski"))
         lbl_v_title.setStyleSheet(
-            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 5px; background: transparent;"
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 2px; background: transparent;"
         )
         video_layout.addWidget(lbl_v_title)
 
         lbl_v_hint = QLabel(tr("settings.video.hint", "Ustawienia rozdzielczości będą aktywne od następnego utworu."))
         lbl_v_hint.setStyleSheet(
-            f"color: {THEME['text_muted']}; font-size: 12px; margin-bottom: 15px; background: transparent;"
+            f"color: {THEME['text_muted']}; font-size: 12px; margin-bottom: 10px; background: transparent;"
         )
         video_layout.addWidget(lbl_v_hint)
 
         input_style = (
             f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; "
-            f"border: 1px solid {THEME['border']}; border-radius: 5px; padding: 8px; height: 18px;"
+            f"border: 1px solid {THEME['border']}; border-radius: 6px; padding: 8px 12px; height: 20px; font-size: 13px;"
         )
 
         self.combo_res = QComboBox()
         self.combo_res.addItems(["1080p", "720p", "480p", "240p"])
         self.combo_res.setCurrentText(APP_CONFIG.get("video_resolution", "1080p"))
         self.combo_res.setStyleSheet(input_style)
-        self.combo_res.setFixedWidth(350)
 
         self.combo_auto_res = QComboBox()
         self.combo_auto_res.addItems([
@@ -62,24 +57,23 @@ class TabVideo(QWidget):
         ])
         self.combo_auto_res.setCurrentIndex(1 if APP_CONFIG.get("video_auto_res", True) else 0)
         self.combo_auto_res.setStyleSheet(input_style)
-        self.combo_auto_res.setFixedWidth(350)
 
         self.combo_min_res = QComboBox()
         self.combo_min_res.addItems(["1080p", "720p", "480p", "240p"])
         self.combo_min_res.setCurrentText(APP_CONFIG.get("video_min_res", "480p"))
         self.combo_min_res.setStyleSheet(input_style)
-        self.combo_min_res.setFixedWidth(350)
 
         def add_row(parent_layout, text, widget):
             r = QHBoxLayout()
+            r.setSpacing(15)
             lbl = QLabel(text)
-            lbl.setFixedWidth(190)
-            lbl.setFixedHeight(34)
-            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
-            lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; margin-right: 10px; background: transparent;")
+            lbl.setFixedWidth(200)
+            lbl.setFixedHeight(36)
+            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             r.addWidget(lbl)
             r.addWidget(widget)
-            r.addStretch()
             parent_layout.addLayout(r)
 
         add_row(video_layout, tr("settings.video.res", "Domyślna rozdzielczość:"), self.combo_res)
@@ -98,22 +92,24 @@ class TabVideo(QWidget):
         def add_slider(parent_layout, label_text, config_key, is_percent=False):
             lay = QHBoxLayout()
             lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(15)
 
             lbl = QLabel(label_text)
-            lbl.setFixedWidth(190)
-            lbl.setFixedHeight(34)
-            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
-            lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; margin-right: 10px; background: transparent;")
+            lbl.setFixedWidth(200)
+            lbl.setFixedHeight(36)
+            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
 
             slider = QSlider(Qt.Horizontal)
             slider.setRange(0, 100)
-            slider.setFixedWidth(300)
+            slider.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             slider.setValue(APP_CONFIG.get(config_key, 0))
             slider.setStyleSheet(slider_style)
 
             val_lbl = QLabel(f"{slider.value()}%" if is_percent else f"{slider.value()}")
-            val_lbl.setFixedWidth(50)
-            val_lbl.setStyleSheet(f"color: {THEME['text_main']}; font-weight: bold; margin-left: 10px; background: transparent;")
+            val_lbl.setFixedWidth(45)
+            val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            val_lbl.setStyleSheet(f"color: {THEME['text_main']}; font-weight: bold; background: transparent;")
 
             def on_change(v, l=val_lbl, k=config_key, perc=is_percent):
                 l.setText(f"{v}%" if perc else f"{v}")
@@ -126,13 +122,12 @@ class TabVideo(QWidget):
             lay.addWidget(lbl)
             lay.addWidget(slider)
             lay.addWidget(val_lbl)
-            lay.addStretch()
 
             parent_layout.addLayout(lay)
 
         lbl_v_dyn = QLabel(tr("settings.video.profile_dynamic", "Teledysk (Wideo)"))
         lbl_v_dyn.setStyleSheet(
-            f"font-weight: bold; color: {THEME['accent']}; margin-top: 10px; margin-bottom: 5px; background: transparent;"
+            f"font-weight: bold; font-size: 15px; color: {THEME['accent']}; margin-top: 10px; margin-bottom: 2px; background: transparent;"
         )
         video_layout.addWidget(lbl_v_dyn)
 
@@ -141,7 +136,7 @@ class TabVideo(QWidget):
 
         lbl_v_stat = QLabel(tr("settings.video.profile_static", "Tło statyczne (Okładka)"))
         lbl_v_stat.setStyleSheet(
-            f"font-weight: bold; color: {THEME['accent']}; margin-top: 15px; margin-bottom: 5px; background: transparent;"
+            f"font-weight: bold; font-size: 15px; color: {THEME['accent']}; margin-top: 15px; margin-bottom: 2px; background: transparent;"
         )
         video_layout.addWidget(lbl_v_stat)
 
@@ -153,12 +148,13 @@ class TabVideo(QWidget):
 
         btn_save_video = QPushButton(tr("settings.save", "Zapisz"))
         btn_save_video.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 15px; border-radius: 5px;"
+            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 24px; border-radius: 6px; border: none;"
         )
         btn_save_video.setCursor(Qt.PointingHandCursor)
         btn_save_video.clicked.connect(self._save_v_conf)
 
         save_v_lay = QHBoxLayout()
+        save_v_lay.setContentsMargins(0, 15, 0, 0)
         save_v_lay.addStretch()
         save_v_lay.addWidget(self.lbl_v_status)
         save_v_lay.addWidget(btn_save_video)
