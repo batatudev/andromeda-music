@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/components/download_item.py
-# OPIS ZMIAN: Wyświetlanie prędkości i rozmiaru na żywo w status_lbl oraz płynny pasek postępu
-
 import qtawesome as qta
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QProgressBar
 from config import THEME
@@ -14,6 +10,7 @@ from core.i18n import tr
 class DownloadItemWidget(QFrame):
     """
     Wiersz reprezentujący pojedyncze zadanie w menedżerze pobierania.
+    Gwarantuje stałą wysokość 70px i widoczność wszystkich kontrolek.
     """
     def __init__(
         self,
@@ -50,7 +47,7 @@ class DownloadItemWidget(QFrame):
 
         title_lay = QHBoxLayout()
         title_lay.setContentsMargins(0, 0, 0, 0)
-        title_lay.setSpacing(5)
+        title_lay.setSpacing(6)
 
         icon_lbl = QLabel()
         icon_lbl.setPixmap(qta.icon(icon_str, color=icon_color).pixmap(12, 12))
@@ -79,7 +76,7 @@ class DownloadItemWidget(QFrame):
         layout.addStretch()
 
         self.progress = QProgressBar()
-        self.progress.setFixedWidth(160)
+        self.progress.setFixedWidth(140)
         self.progress.setFixedHeight(8)
         self.progress.setTextVisible(False)
         self.progress.setRange(0, 100)
@@ -90,7 +87,7 @@ class DownloadItemWidget(QFrame):
         self.progress.setVisible(status == "DOWNLOADING")
         layout.addWidget(self.progress)
 
-        self.btn_remove = HoverIconButton('fa5s.times', icon_size=14)
+        self.btn_remove = HoverIconButton('fa5s.times', icon_size=14, parent=self)
         self.btn_remove.setFixedSize(32, 32)
         self.btn_remove.setStyleSheet(
             f"QPushButton {{ background: transparent; border: none; border-radius: 16px; }} "

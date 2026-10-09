@@ -1,14 +1,10 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_downloads.py
-# OPIS ZMIAN: Przekazywanie statystyk prędkości i rozmiaru z sygnału download_progress do widżetu zadania
-
 import qtawesome as qta
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea,
-    QPushButton, QToolButton, QMenu, QMessageBox
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QToolButton, QMenu
 )
 from PySide6.QtCore import Qt
 from config import THEME, APP_CONFIG
@@ -19,6 +15,7 @@ from core.i18n import tr
 class DownloadsView(QWidget):
     """
     Główny widok Menadżera Pobrań (audio i wideo).
+    W pełni responsywny, z poprawnym pionowym przewijaniem.
     """
     def __init__(self, main_window):
         super().__init__()
@@ -30,10 +27,18 @@ class DownloadsView(QWidget):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
-        header_lay = QHBoxLayout()
-        title_lay = QVBoxLayout()
+        header_vbox = QVBoxLayout()
+        header_vbox.setSpacing(14)
+
+        title_box = QVBoxLayout()
+        title_box.setSpacing(4)
+
         title_lbl = QLabel(tr("downloads.title", "Pobrane"))
         title_lbl.setStyleSheet(f"font-size: 28px; font-weight: bold; color: {THEME['text_main']};")
+        title_box.addWidget(title_lbl)
+
+        info_lay = QHBoxLayout()
+        info_lay.setSpacing(20)
 
         self.total_size_lbl = QLabel(f"{tr('downloads.storage', 'Zajęte miejsce:')} 0 MB")
         self.total_size_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_muted']};")
@@ -43,14 +48,11 @@ class DownloadsView(QWidget):
         )
         self.stats_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_main']}; font-weight: bold;")
 
-        title_lay.addWidget(title_lbl)
-        info_lay = QHBoxLayout()
         info_lay.addWidget(self.total_size_lbl)
-        info_lay.addSpacing(20)
         info_lay.addWidget(self.stats_lbl)
-        title_lay.addLayout(info_lay)
-        header_lay.addLayout(title_lay)
-        header_lay.addStretch()
+        info_lay.addStretch()
+        title_box.addLayout(info_lay)
+        header_vbox.addLayout(title_box)
 
         btn_style = (
             f"QToolButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
@@ -92,7 +94,6 @@ class DownloadsView(QWidget):
             lambda: self.main_window.start_bulk_download("all", media_type="video")
         )
         self.btn_dl_video.setMenu(v_menu)
-        header_lay.addWidget(self.btn_dl_video)
 
         # MENU POBIERZ AUDIO
         self.btn_dl_audio = QToolButton()
@@ -119,7 +120,6 @@ class DownloadsView(QWidget):
             lambda: self.main_window.start_bulk_download("all", media_type="audio")
         )
         self.btn_dl_audio.setMenu(a_menu)
-        header_lay.addWidget(self.btn_dl_audio)
 
         # MENU ZARZĄDZAJ
         self.btn_manage = QToolButton()
@@ -143,31 +143,40 @@ class DownloadsView(QWidget):
             lambda: (self.v_mgr.delete_all_files(), self.a_mgr.delete_all_files())
         )
         self.btn_manage.setMenu(manage_menu)
-        header_lay.addWidget(self.btn_manage)
+
+        btn_action_style = (
+            f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
+            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
+            f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+        )
 
         # WSTRZYMANIE AUDIO
         self.btn_snooze_audio = QPushButton(tr("downloads.pause_audio", "Wstrzymaj audio"))
-        self.btn_snooze_audio.setStyleSheet(
-            f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
-            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
-            f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
-        )
+        self.btn_snooze_audio.setStyleSheet(btn_action_style)
         self.btn_snooze_audio.setCursor(Qt.PointingHandCursor)
         self.btn_snooze_audio.clicked.connect(self._toggle_snooze_audio)
-        header_lay.addWidget(self.btn_snooze_audio)
 
         # WSTRZYMANIE WIDEO
         self.btn_snooze = QPushButton(tr("downloads.pause_video", "Wstrzymaj wideo"))
-        self.btn_snooze.setStyleSheet(
-            f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
-            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
-            f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
-        )
+        self.btn_snooze.setStyleSheet(btn_action_style)
         self.btn_snooze.setCursor(Qt.PointingHandCursor)
         self.btn_snooze.clicked.connect(self._toggle_snooze)
-        header_lay.addWidget(self.btn_snooze)
 
-        layout.addLayout(header_lay)
+        # PASEK AKCJI
+        actions_bar = QHBoxLayout()
+        actions_bar.setContentsMargins(0, 0, 0, 0)
+        actions_bar.setSpacing(10)
+
+        actions_bar.addWidget(self.btn_dl_video)
+        actions_bar.addWidget(self.btn_dl_audio)
+        actions_bar.addWidget(self.btn_manage)
+        actions_bar.addSpacing(10)
+        actions_bar.addWidget(self.btn_snooze_audio)
+        actions_bar.addWidget(self.btn_snooze)
+        actions_bar.addStretch()
+
+        header_vbox.addLayout(actions_bar)
+        layout.addLayout(header_vbox)
 
         self.items_layout = QVBoxLayout()
         self.items_layout.setSpacing(20)
@@ -219,7 +228,7 @@ class DownloadsView(QWidget):
             return res.get('playlists', {}).get('playlist', [])
 
         def on_ready(playlists):
-            from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QScrollArea, QWidget, QPushButton
+            from PySide6.QtWidgets import QDialog, QVBoxLayout, QScrollArea
             dlg = QDialog(self)
             typ_txt = tr("downloads.section_video", "Wideo") if media_type == "video" else tr("downloads.section_audio", "Audio")
             dlg.setWindowTitle(f"{tr('downloads.playlist', 'Pobierz z playlisty')} ({typ_txt})")
