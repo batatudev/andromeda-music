@@ -1,21 +1,25 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+import shutil
 import qtawesome as qta
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QToolButton, QMenu
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
+    QPushButton, QToolButton, QMenu, QProgressBar, QSizePolicy
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices
+
 from config import THEME, APP_CONFIG
-from ui.widgets import CollapsibleSection
 from ui.components import DownloadItemWidget
+from core.paths import PathsManager
 from core.i18n import tr
 
 class DownloadsView(QWidget):
     """
-    Główny widok Menadżera Pobrań (audio i wideo).
-    W pełni responsywny, z poprawnym pionowym przewijaniem.
+    Nowoczesne Centrum Transferów i Magazynu Pobrań w stylu Zenith Video Player.
+    Zawiera graficzną kartę dysku, filtry stanów (pigułki z licznikami),
+    priorytet dla aktywnych transferów oraz paginację ukończonych pozycji.
     """
     def __init__(self, main_window):
         super().__init__()
@@ -23,44 +27,78 @@ class DownloadsView(QWidget):
         self.v_mgr = main_window.engine.video_download_manager
         self.a_mgr = main_window.engine.audio_download_manager
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
+        self.current_status_filter = "all"
+        self.current_source_filter = "all"
+        self.completed_limit = 15
 
-        header_vbox = QVBoxLayout()
-        header_vbox.setSpacing(14)
+        self.filter_buttons = {}
+        self.item_widgets = {}
+        self.raw_tasks = []
+        self._pending_reload = False
 
-        title_box = QVBoxLayout()
-        title_box.setSpacing(4)
+        self._init_ui()
+        self._connect_signals()
+        self.load(force=True)
 
-        title_lbl = QLabel(tr("downloads.title", "Pobrane"))
-        title_lbl.setStyleSheet(f"font-size: 28px; font-weight: bold; color: {THEME['text_main']};")
-        title_box.addWidget(title_lbl)
+    def _init_ui(self):
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(30, 30, 30, 30)
+        self.main_layout.setSpacing(20)
 
-        info_lay = QHBoxLayout()
-        info_lay.setSpacing(20)
+        # 1. KARTA MAGAZYNU I PAMIĘCI MASOWEJ (STYL ZENITH)
+        self.storage_card = QFrame()
+        self.storage_card.setObjectName("StorageCard")
+        storage_vbox = QVBoxLayout(self.storage_card)
+        storage_vbox.setContentsMargins(20, 16, 20, 18)
+        storage_vbox.setSpacing(12)
 
-        self.total_size_lbl = QLabel(f"{tr('downloads.storage', 'Zajęte miejsce:')} 0 MB")
-        self.total_size_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_muted']};")
+        storage_head = QHBoxLayout()
+        storage_head.setSpacing(10)
 
-        self.stats_lbl = QLabel(
-            f"{tr('downloads.stats_audio', 'Audio:')} 0 | {tr('downloads.stats_video', 'Wideo:')} 0"
+        icon_disk = QLabel()
+        icon_disk.setPixmap(qta.icon('fa5s.hdd', color=THEME.get('accent', '#1db954')).pixmap(18, 18))
+        storage_title = QLabel("Zarządzanie pamięcią masową i magazynem offline")
+        storage_title.setStyleSheet(f"font-weight: bold; font-size: 16px; color: {THEME['text_main']};")
+
+        storage_head.addWidget(icon_disk)
+        storage_head.addWidget(storage_title)
+        storage_head.addStretch()
+
+        self.btn_open_folder = QPushButton("Otwórz folder offline")
+        self.btn_open_folder.setIcon(qta.icon('fa5s.folder-open', color=THEME['text_main']))
+        self.btn_open_folder.setCursor(Qt.PointingHandCursor)
+        self.btn_open_folder.setStyleSheet(
+            f"QPushButton {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; "
+            f"padding: 6px 14px; border-radius: 6px; font-weight: bold; border: none; }} "
+            f"QPushButton:hover {{ background-color: {THEME['nav_hover']}; }}"
         )
-        self.stats_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_main']}; font-weight: bold;")
+        self.btn_open_folder.clicked.connect(self._open_downloads_dir)
+        storage_head.addWidget(self.btn_open_folder)
 
-        info_lay.addWidget(self.total_size_lbl)
-        info_lay.addWidget(self.stats_lbl)
-        info_lay.addStretch()
-        title_box.addLayout(info_lay)
-        header_vbox.addLayout(title_box)
+        storage_vbox.addLayout(storage_head)
 
-        btn_style = (
-            f"QToolButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
-            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
-            f"QToolButton:hover {{ background-color: {THEME['hover_card']}; }} "
+        # PASEK POSTĘPU DYSKU I STATYSTYKI
+        self.storage_bar = QProgressBar()
+        self.storage_bar.setObjectName("StorageBar")
+        self.storage_bar.setFixedHeight(8)
+        self.storage_bar.setTextVisible(False)
+        self.storage_bar.setRange(0, 100)
+        storage_vbox.addWidget(self.storage_bar)
+
+        self.storage_stats_lbl = QLabel("Obliczanie rozmiaru pamięci...")
+        self.storage_stats_lbl.setStyleSheet(f"font-size: 13px; color: {THEME['text_muted']};")
+        storage_vbox.addWidget(self.storage_stats_lbl)
+
+        # PRZYCISKI AKCJI ZARZĄDZANIA W KARTACH
+        actions_bar = QHBoxLayout()
+        actions_bar.setSpacing(10)
+
+        tool_style = (
+            f"QToolButton {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; "
+            f"padding: 7px 14px; border-radius: 6px; font-weight: bold; border: none; }} "
+            f"QToolButton:hover {{ background-color: {THEME['nav_hover']}; }} "
             f"QToolButton::menu-indicator {{ image: none; }}"
         )
-
         menu_style = (
             f"QMenu {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
             f"border: 1px solid {THEME['border']}; border-radius: 6px; padding: 4px; }} "
@@ -69,39 +107,11 @@ class DownloadsView(QWidget):
             f"QMenu::separator {{ height: 1px; background: {THEME['border']}; margin: 4px 10px; }}"
         )
 
-        # MENU POBIERZ WIDEO
-        self.btn_dl_video = QToolButton()
-        self.btn_dl_video.setText(tr("downloads.btn_video", "Pobierz wideo..."))
-        self.btn_dl_video.setPopupMode(QToolButton.InstantPopup)
-        self.btn_dl_video.setCursor(Qt.PointingHandCursor)
-        self.btn_dl_video.setStyleSheet(btn_style)
-
-        v_menu = QMenu(self)
-        v_menu.setStyleSheet(menu_style)
-        v_menu.addAction(
-            qta.icon('fa5s.heart', color='#e74c3c'),
-            tr("downloads.favs", "Pobierz polubione"),
-            lambda: self.main_window.start_bulk_download("favorites", media_type="video")
-        )
-        v_menu.addAction(
-            qta.icon('fa5s.list', color='#e74c3c'),
-            tr("downloads.playlist", "Pobierz z playlisty"),
-            lambda: self._show_playlist_picker("video")
-        )
-        v_menu.addAction(
-            qta.icon('fa5s.database', color='#e74c3c'),
-            tr("downloads.library", "Pobierz całą bibliotekę"),
-            lambda: self.main_window.start_bulk_download("all", media_type="video")
-        )
-        self.btn_dl_video.setMenu(v_menu)
-
-        # MENU POBIERZ AUDIO
         self.btn_dl_audio = QToolButton()
         self.btn_dl_audio.setText(tr("downloads.btn_audio", "Pobierz audio..."))
         self.btn_dl_audio.setPopupMode(QToolButton.InstantPopup)
         self.btn_dl_audio.setCursor(Qt.PointingHandCursor)
-        self.btn_dl_audio.setStyleSheet(btn_style)
-
+        self.btn_dl_audio.setStyleSheet(tool_style)
         a_menu = QMenu(self)
         a_menu.setStyleSheet(menu_style)
         a_menu.addAction(
@@ -121,18 +131,40 @@ class DownloadsView(QWidget):
         )
         self.btn_dl_audio.setMenu(a_menu)
 
-        # MENU ZARZĄDZAJ
+        self.btn_dl_video = QToolButton()
+        self.btn_dl_video.setText(tr("downloads.btn_video", "Pobierz wideo..."))
+        self.btn_dl_video.setPopupMode(QToolButton.InstantPopup)
+        self.btn_dl_video.setCursor(Qt.PointingHandCursor)
+        self.btn_dl_video.setStyleSheet(tool_style)
+        v_menu = QMenu(self)
+        v_menu.setStyleSheet(menu_style)
+        v_menu.addAction(
+            qta.icon('fa5s.heart', color='#e74c3c'),
+            tr("downloads.favs", "Pobierz polubione"),
+            lambda: self.main_window.start_bulk_download("favorites", media_type="video")
+        )
+        v_menu.addAction(
+            qta.icon('fa5s.list', color='#e74c3c'),
+            tr("downloads.playlist", "Pobierz z playlisty"),
+            lambda: self._show_playlist_picker("video")
+        )
+        v_menu.addAction(
+            qta.icon('fa5s.database', color='#e74c3c'),
+            tr("downloads.library", "Pobierz całą bibliotekę"),
+            lambda: self.main_window.start_bulk_download("all", media_type="video")
+        )
+        self.btn_dl_video.setMenu(v_menu)
+
         self.btn_manage = QToolButton()
         self.btn_manage.setText(tr("downloads.btn_manage", "Zarządzaj"))
         self.btn_manage.setPopupMode(QToolButton.InstantPopup)
         self.btn_manage.setCursor(Qt.PointingHandCursor)
-        self.btn_manage.setStyleSheet(btn_style)
-
+        self.btn_manage.setStyleSheet(tool_style)
         manage_menu = QMenu(self)
         manage_menu.setStyleSheet(menu_style)
         manage_menu.addAction(
             tr("downloads.clear_history", "Wyczyść historię"),
-            lambda: (self.v_mgr.clear_history(), self.a_mgr.clear_history())
+            self._clear_completed_history
         )
         manage_menu.addAction(
             tr("downloads.cancel_pending", "Anuluj oczekujące pobierania"),
@@ -145,55 +177,118 @@ class DownloadsView(QWidget):
         self.btn_manage.setMenu(manage_menu)
 
         btn_action_style = (
-            f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
-            f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
-            f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+            f"QPushButton {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; "
+            f"padding: 7px 14px; border-radius: 6px; font-weight: bold; border: none; }} "
+            f"QPushButton:hover {{ background-color: {THEME['nav_hover']}; }}"
         )
 
-        # WSTRZYMANIE AUDIO
         self.btn_snooze_audio = QPushButton(tr("downloads.pause_audio", "Wstrzymaj audio"))
         self.btn_snooze_audio.setStyleSheet(btn_action_style)
         self.btn_snooze_audio.setCursor(Qt.PointingHandCursor)
         self.btn_snooze_audio.clicked.connect(self._toggle_snooze_audio)
 
-        # WSTRZYMANIE WIDEO
         self.btn_snooze = QPushButton(tr("downloads.pause_video", "Wstrzymaj wideo"))
         self.btn_snooze.setStyleSheet(btn_action_style)
         self.btn_snooze.setCursor(Qt.PointingHandCursor)
         self.btn_snooze.clicked.connect(self._toggle_snooze)
 
-        # PASEK AKCJI
-        actions_bar = QHBoxLayout()
-        actions_bar.setContentsMargins(0, 0, 0, 0)
-        actions_bar.setSpacing(10)
-
-        actions_bar.addWidget(self.btn_dl_video)
         actions_bar.addWidget(self.btn_dl_audio)
+        actions_bar.addWidget(self.btn_dl_video)
         actions_bar.addWidget(self.btn_manage)
         actions_bar.addSpacing(10)
         actions_bar.addWidget(self.btn_snooze_audio)
         actions_bar.addWidget(self.btn_snooze)
         actions_bar.addStretch()
 
-        header_vbox.addLayout(actions_bar)
-        layout.addLayout(header_vbox)
+        storage_vbox.addLayout(actions_bar)
+        self.main_layout.addWidget(self.storage_card)
 
-        self.items_layout = QVBoxLayout()
-        self.items_layout.setSpacing(20)
-        self.items_layout.setAlignment(Qt.AlignTop)
+        # 2. SEKCJA KOLEJKI I STATUSÓW (PIGUŁKI W STYLU ZENITH)
+        queue_header_lay = QHBoxLayout()
+        queue_header_lay.setContentsMargins(0, 10, 0, 0)
+        queue_title = QLabel("Kolejka i status transferów")
+        queue_title.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {THEME['text_main']};")
+        queue_header_lay.addWidget(queue_title)
+        queue_header_lay.addStretch()
 
-        self.audio_section = CollapsibleSection(tr("downloads.section_audio", "Muzyka (Audio)"))
-        self.video_section = CollapsibleSection(tr("downloads.section_video", "Teledyski (Wideo)"))
+        self.btn_clear_completed = QPushButton("Wyczyść ukończone")
+        self.btn_clear_completed.setIcon(qta.icon('fa5s.trash-alt', color=THEME['text_muted']))
+        self.btn_clear_completed.setCursor(Qt.PointingHandCursor)
+        self.btn_clear_completed.setStyleSheet(
+            f"QPushButton {{ background: transparent; color: {THEME['text_muted']}; border: none; font-size: 13px; font-weight: bold; }} "
+            f"QPushButton:hover {{ color: {THEME['text_main']}; }}"
+        )
+        self.btn_clear_completed.clicked.connect(self._clear_completed_history)
+        queue_header_lay.addWidget(self.btn_clear_completed)
 
-        self.items_layout.addWidget(self.audio_section)
-        self.items_layout.addWidget(self.video_section)
+        self.main_layout.addLayout(queue_header_lay)
 
-        layout.addLayout(self.items_layout)
-        layout.addStretch()
+        # BELKA PIGUŁEK FILTRÓW
+        pills_bar = QHBoxLayout()
+        pills_bar.setSpacing(8)
 
-        self.item_widgets = {}
-        self._pending_reload = False
+        self.pills_data = [
+            ("all", "Wszystkie"),
+            ("downloading", "W trakcie"),
+            ("queued", "W kolejce"),
+            ("completed", "Ukończone"),
+            ("error", "Błędy")
+        ]
 
+        for key, label in self.pills_data:
+            btn = QPushButton(f"{label} (0)")
+            btn.setObjectName("FilterPill")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setProperty("active", "true" if key == "all" else "false")
+            btn.clicked.connect(lambda ch=False, k=key: self._set_status_filter(k))
+            pills_bar.addWidget(btn)
+            self.filter_buttons[key] = btn
+
+        pills_bar.addStretch()
+
+        # PRZEŁĄCZNIK ŹRÓDŁA (AUDIO / WIDEO / WSZYSTKO)
+        self.btn_source_all = QPushButton("Wszystko")
+        self.btn_source_all.setObjectName("FilterPill")
+        self.btn_source_all.setProperty("active", "true")
+        self.btn_source_all.setCursor(Qt.PointingHandCursor)
+        self.btn_source_all.clicked.connect(lambda: self._set_source_filter("all"))
+
+        self.btn_source_audio = QPushButton("Tylko Audio")
+        self.btn_source_audio.setObjectName("FilterPill")
+        self.btn_source_audio.setProperty("active", "false")
+        self.btn_source_audio.setCursor(Qt.PointingHandCursor)
+        self.btn_source_audio.clicked.connect(lambda: self._set_source_filter("audio"))
+
+        self.btn_source_video = QPushButton("Tylko Wideo")
+        self.btn_source_video.setObjectName("FilterPill")
+        self.btn_source_video.setProperty("active", "false")
+        self.btn_source_video.setCursor(Qt.PointingHandCursor)
+        self.btn_source_video.clicked.connect(lambda: self._set_source_filter("video"))
+
+        pills_bar.addWidget(self.btn_source_all)
+        pills_bar.addWidget(self.btn_source_audio)
+        pills_bar.addWidget(self.btn_source_video)
+
+        self.main_layout.addLayout(pills_bar)
+
+        # 3. KONTENER LISTY ELEMENTÓW
+        self.list_container = QWidget()
+        self.list_layout = QVBoxLayout(self.list_container)
+        self.list_layout.setContentsMargins(0, 0, 0, 0)
+        self.list_layout.setSpacing(10)
+        self.main_layout.addWidget(self.list_container)
+
+        # PRZYCISK ZAŁADUJ WIĘCEJ (PAGINACJA UKOŃCZONYCH)
+        self.btn_load_more = QPushButton("Załaduj więcej")
+        self.btn_load_more.setObjectName("LoadMoreBtn")
+        self.btn_load_more.setCursor(Qt.PointingHandCursor)
+        self.btn_load_more.clicked.connect(self._load_more_completed)
+        self.btn_load_more.hide()
+        self.main_layout.addWidget(self.btn_load_more)
+
+        self.main_layout.addStretch()
+
+    def _connect_signals(self):
         self.v_mgr.queue_updated.connect(self.load)
         self.v_mgr.download_status_changed.connect(self._on_video_status_changed)
         self.v_mgr.download_progress.connect(self._on_video_progress)
@@ -202,24 +297,51 @@ class DownloadsView(QWidget):
         self.a_mgr.download_status_changed.connect(self._on_audio_status_changed)
         self.a_mgr.download_progress.connect(self._on_audio_progress)
 
-        self.load(force=True)
+    def _open_downloads_dir(self):
+        dest_dir = PathsManager.get_data_dir()
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest_dir)))
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        if getattr(self, '_pending_reload', False):
-            self.load(force=True)
+    def _set_status_filter(self, status_key):
+        self.current_status_filter = status_key
+        for k, btn in self.filter_buttons.items():
+            is_act = (k == status_key)
+            btn.setProperty("active", "true" if is_act else "false")
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+        self._rebuild_list()
+
+    def _set_source_filter(self, source_key):
+        self.current_source_filter = source_key
+        self.btn_source_all.setProperty("active", "true" if source_key == "all" else "false")
+        self.btn_source_audio.setProperty("active", "true" if source_key == "audio" else "false")
+        self.btn_source_video.setProperty("active", "true" if source_key == "video" else "false")
+        for b in [self.btn_source_all, self.btn_source_audio, self.btn_source_video]:
+            b.style().unpolish(b)
+            b.style().polish(b)
+        self._rebuild_list()
+
+    def _load_more_completed(self):
+        self.completed_limit += 20
+        self._rebuild_list()
+
+    def _clear_completed_history(self):
+        self.v_mgr.clear_history()
+        self.a_mgr.clear_history()
+        self.load(force=True)
 
     def _toggle_snooze_audio(self):
         if self.a_mgr.is_snoozed:
             self.a_mgr.set_snooze(0)
         else:
             self.a_mgr.set_snooze(-1)
+        self.load(force=True)
 
     def _toggle_snooze(self):
         if self.v_mgr.is_snoozed:
             self.v_mgr.set_snooze(0)
         else:
             self.v_mgr.set_snooze(-1)
+        self.load(force=True)
 
     def _show_playlist_picker(self, media_type):
         def fetch():
@@ -260,8 +382,8 @@ class DownloadsView(QWidget):
             v.addStretch()
             scroll.setWidget(content)
             layout.addWidget(scroll)
-
             dlg.exec()
+
         self.main_window.run_async(fetch, on_ready)
 
     def _start_pl_bulk(self, dlg, pid, pname, media_type):
@@ -273,96 +395,226 @@ class DownloadsView(QWidget):
             self._pending_reload = True
             return
         self._pending_reload = False
+
         if self.a_mgr.is_snoozed:
             self.btn_snooze_audio.setText(tr("downloads.resume_audio", "Wznów audio"))
             self.btn_snooze_audio.setStyleSheet(
                 f"QPushButton {{ background-color: {THEME['accent']}; color: white; "
-                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}"
+                f"padding: 7px 14px; border-radius: 6px; font-weight: bold; border: none; }}"
             )
         else:
             self.btn_snooze_audio.setText(tr("downloads.pause_audio", "Wstrzymaj audio"))
             self.btn_snooze_audio.setStyleSheet(
-                f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
-                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
-                f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+                f"QPushButton {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; "
+                f"padding: 7px 14px; border-radius: 6px; font-weight: bold; border: none; }} "
+                f"QPushButton:hover {{ background-color: {THEME['nav_hover']}; }}"
             )
 
         if self.v_mgr.is_snoozed:
             self.btn_snooze.setText(tr("downloads.resume_video", "Wznów wideo"))
             self.btn_snooze.setStyleSheet(
                 f"QPushButton {{ background-color: {THEME['accent']}; color: white; "
-                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; }}"
+                f"padding: 7px 14px; border-radius: 6px; font-weight: bold; border: none; }}"
             )
         else:
             self.btn_snooze.setText(tr("downloads.pause_video", "Wstrzymaj wideo"))
             self.btn_snooze.setStyleSheet(
-                f"QPushButton {{ background-color: {THEME['bg_card']}; color: {THEME['text_main']}; "
-                f"padding: 8px 15px; border-radius: 6px; font-weight: bold; border: 1px solid {THEME['border']}; }} "
-                f"QPushButton:hover {{ background-color: {THEME['hover_card']}; }}"
+                f"QPushButton {{ background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; "
+                f"padding: 7px 14px; border-radius: 6px; font-weight: bold; border: none; }} "
+                f"QPushButton:hover {{ background-color: {THEME['nav_hover']}; }}"
             )
-
-        self.audio_section.clear()
-        self.video_section.clear()
-        self.item_widgets.clear()
 
         v_rows = self.v_mgr.get_all_downloads()
         a_rows = self.a_mgr.get_all_downloads()
-
         v_dls, v_sz = self.v_mgr.get_total_download_stats()
         a_dls, a_sz = self.a_mgr.get_total_download_stats()
 
-        storage_lbl = tr("downloads.storage", "Zajęte miejsce:")
-        total_sz = v_sz + a_sz
-        if total_sz > 1024 * 1024 * 1024:
-            self.total_size_lbl.setText(f"{storage_lbl} {total_sz / (1024**3):.2f} GB")
-        elif total_sz > 0:
-            self.total_size_lbl.setText(f"{storage_lbl} {total_sz / (1024**2):.1f} MB")
-        else:
-            self.total_size_lbl.setText(f"{storage_lbl} 0 MB")
+        # OBLICZANIE FIZYCZNEGO DYSKU (NVMe OFFLINE)
+        try:
+            total_b, used_b, free_b = shutil.disk_usage(str(PathsManager.get_data_dir()))
+            total_gb = total_b / (1024 ** 3)
+            used_gb = used_b / (1024 ** 3)
+            free_gb = free_b / (1024 ** 3)
+            pct = int((used_b / total_b) * 100) if total_b > 0 else 0
+            self.storage_bar.setValue(pct)
+        except Exception:
+            used_gb = 0
+            total_gb = 1
+            free_gb = 0
+            pct = 0
 
-        self.stats_lbl.setText(
-            f"{tr('downloads.stats_audio', 'Audio:')} {a_dls} | {tr('downloads.stats_video', 'Wideo:')} {v_dls}"
+        a_mb = a_sz / (1024 * 1024)
+        v_mb = v_sz / (1024 * 1024)
+
+        stats_txt = (
+            f"<b>Muzyka Audio:</b> {a_dls} utworów ({a_mb:.1f} MB) &nbsp;&bull;&nbsp; "
+            f"<b>Teledyski Wideo:</b> {v_dls} filmów ({v_mb:.1f} MB) &nbsp;&bull;&nbsp; "
+            f"<b>Dysk urządzenia:</b> {used_gb:.1f} GB / {total_gb:.1f} GB ({pct}%) &bull; <b>{free_gb:.1f} GB wolne</b>"
         )
+        self.storage_stats_lbl.setText(stats_txt)
 
-        def sort_rows(rows, is_video):
-            return sorted(rows, key=lambda x: 0 if x[2] == "DOWNLOADING" else (1 if x[2] == "QUEUED" else 2))
+        # PARSOWANIE ZADAŃ WRAZ ZE ZNACZNIKIEM added_at
+        tasks = []
+        for r in a_rows:
+            i_id = r[0]
+            t_str = r[1]
+            st = r[2]
+            fsz = r[3] if len(r) > 3 else None
+            added_ts = r[4] if len(r) > 4 and r[4] else 0
+            tasks.append({
+                'id': i_id,
+                'title': t_str,
+                'status': st,
+                'media_type': 'audio',
+                'cover_id': i_id,
+                'resolution': None,
+                'file_size': fsz,
+                'added_at': int(added_ts)
+            })
 
-        sorted_v = sort_rows(v_rows, True)
-        if not sorted_v:
-            lbl = QLabel(tr("downloads.no_videos", "Brak pobranych teledysków."))
-            lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
-            self.video_section.addWidget(lbl)
+        for r in v_rows:
+            i_id = r[0]
+            t_str = r[1]
+            st = r[2]
+            cid = r[3] if len(r) > 3 else None
+            res = r[4] if len(r) > 4 else None
+            fsz = r[5] if len(r) > 5 else None
+            added_ts = r[6] if len(r) > 6 and r[6] else 0
+            tasks.append({
+                'id': i_id,
+                'title': t_str,
+                'status': st,
+                'media_type': 'video',
+                'cover_id': cid,
+                'resolution': res,
+                'file_size': fsz,
+                'added_at': int(added_ts)
+            })
+
+        self.raw_tasks = tasks
+        self._update_pill_counts()
+        self._rebuild_list()
+
+    def _update_pill_counts(self):
+        counts = {
+            'all': len(self.raw_tasks),
+            'downloading': 0,
+            'queued': 0,
+            'completed': 0,
+            'error': 0
+        }
+
+        for t in self.raw_tasks:
+            st = t['status']
+            if st == "DOWNLOADING":
+                counts['downloading'] += 1
+            elif st == "QUEUED":
+                counts['queued'] += 1
+            elif st == "COMPLETED":
+                counts['completed'] += 1
+            elif st == "ERROR":
+                counts['error'] += 1
+
+        for key, btn in self.filter_buttons.items():
+            base_label = dict(self.pills_data).get(key, key)
+            c = counts.get(key, 0)
+            btn.setText(f"{base_label} ({c})")
+            if key == "error":
+                btn.setProperty("has_error", "true" if c > 0 else "false")
+                btn.style().unpolish(btn)
+                btn.style().polish(btn)
+
+    def _rebuild_list(self):
+        while self.list_layout.count():
+            item = self.list_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.hide()
+                w.setParent(None)
+                w.deleteLater()
+
+        self.item_widgets.clear()
+
+        # 1. FILTROWANIE PO ŹRÓDLE
+        filtered = self.raw_tasks
+        if self.current_source_filter != "all":
+            filtered = [t for t in filtered if t['media_type'] == self.current_source_filter]
+
+        # 2. FILTROWANIE PO STATUSIE
+        if self.current_status_filter == "downloading":
+            filtered = [t for t in filtered if t['status'] == "DOWNLOADING"]
+        elif self.current_status_filter == "queued":
+            filtered = [t for t in filtered if t['status'] == "QUEUED"]
+        elif self.current_status_filter == "completed":
+            filtered = [t for t in filtered if t['status'] == "COMPLETED"]
+        elif self.current_status_filter == "error":
+            filtered = [t for t in filtered if t['status'] == "ERROR"]
+
+        if not filtered:
+            empty_lbl = QLabel("Brak zadań w wybranej kategorii.")
+            empty_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px; margin: 30px 0;")
+            empty_lbl.setAlignment(Qt.AlignCenter)
+            self.list_layout.addWidget(empty_lbl)
+            self.btn_load_more.hide()
+            return
+
+        # 3. SORTOWANIE CHRONOLOGICZNE AUDIO I WIDEO (NAJNOWSZE NA GÓRZE)
+        def sort_key(t):
+            st = t['status']
+            if st == "DOWNLOADING":
+                prio = 0
+            elif st == "QUEUED":
+                prio = 1
+            elif st == "ERROR":
+                prio = 2
+            else:
+                prio = 3
+            return (prio, -t['added_at'])
+
+        sorted_tasks = sorted(filtered, key=sort_key)
+
+        # 4. PAGINACJA UKOŃCZONYCH (ZAPOBIEGANIE TASIEMCOWI)
+        active_tasks = [t for t in sorted_tasks if t['status'] != "COMPLETED"]
+        completed_tasks = [t for t in sorted_tasks if t['status'] == "COMPLETED"]
+
+        visible_completed = completed_tasks[:self.completed_limit]
+        final_tasks = active_tasks + visible_completed
+
+        for t in final_tasks:
+            i_id = t['id']
+            t_str = t['title']
+            st = t['status']
+            m_type = t['media_type']
+            cid = t['cover_id']
+            res = t['resolution']
+            fsz = t['file_size']
+
+            def make_remove_cb(target_id=i_id, target_type=m_type):
+                if target_type == 'video':
+                    return lambda ch: self.v_mgr.remove_download(target_id)
+                return lambda ch: self.a_mgr.remove_download(target_id)
+
+            w = DownloadItemWidget(i_id, t_str, st, m_type, make_remove_cb(), cid, res, fsz)
+            if cid or i_id:
+                self.main_window.loader.load(self.main_window.client.get_cover_art_url(cid or i_id), w.img)
+
+            self.list_layout.addWidget(w)
+            self.item_widgets[f"{m_type}_{i_id}"] = w
+
+        # CZYSTY NAPIS PRZYCISKU ZAŁADUJ WIĘCEJ
+        total_completed = len(completed_tasks)
+        if total_completed > self.completed_limit:
+            self.btn_load_more.setText(
+                f"Załaduj więcej • Wyświetlono {len(visible_completed)} z {total_completed} ukończonych"
+            )
+            self.btn_load_more.show()
         else:
-            for r in sorted_v:
-                i_id = r[0]
-                t_str = r[1]
-                st = r[2]
-                cid = r[3] if len(r) > 3 else None
-                res = r[4] if len(r) > 4 else None
-                fsz = r[5] if len(r) > 5 else None
+            self.btn_load_more.hide()
 
-                w = DownloadItemWidget(i_id, t_str, st, 'video', lambda ch, x=i_id: self.v_mgr.remove_download(x), cid, res, fsz)
-                if cid or i_id:
-                    self.main_window.loader.load(self.main_window.client.get_cover_art_url(cid or i_id), w.img)
-                self.video_section.addWidget(w)
-                self.item_widgets[f"video_{i_id}"] = w
-
-        sorted_a = sort_rows(a_rows, False)
-        if not sorted_a:
-            lbl = QLabel(tr("downloads.no_audio", "Brak pobranej muzyki."))
-            lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 14px;")
-            self.audio_section.addWidget(lbl)
-        else:
-            for r in sorted_a:
-                i_id = r[0]
-                t_str = r[1]
-                st = r[2]
-                fsz = r[3] if len(r) > 3 else None
-
-                w = DownloadItemWidget(i_id, t_str, st, 'audio', lambda ch, x=i_id: self.a_mgr.remove_download(x), i_id, None, fsz)
-                self.main_window.loader.load(self.main_window.client.get_cover_art_url(i_id), w.img)
-                self.audio_section.addWidget(w)
-                self.item_widgets[f"audio_{i_id}"] = w
+    def showEvent(self, event):
+        super().showEvent(event)
+        if getattr(self, '_pending_reload', False):
+            self.load(force=True)
 
     def _on_video_status_changed(self, item_id, status):
         key = f"video_{item_id}"
@@ -371,6 +623,9 @@ class DownloadsView(QWidget):
                 self.load()
             else:
                 self.item_widgets[key].update_status(status)
+                self._update_pill_counts()
+        else:
+            self.load()
 
     def _on_video_progress(self, item_id, pct, stats_str=""):
         key = f"video_{item_id}"
@@ -384,6 +639,9 @@ class DownloadsView(QWidget):
                 self.load()
             else:
                 self.item_widgets[key].update_status(status)
+                self._update_pill_counts()
+        else:
+            self.load()
 
     def _on_audio_progress(self, item_id, pct, stats_str=""):
         key = f"audio_{item_id}"

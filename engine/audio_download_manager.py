@@ -65,16 +65,20 @@ class AudioDownloadManager(BaseDownloadManager):
     def add_to_queue(self, item_id: str, title: str, high_priority: bool = False):
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
+        cursor.execute("SELECT status, is_hidden FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
 
         if row and row[0] in [DownloadStatus.COMPLETED, DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING]:
+            if row[0] == DownloadStatus.COMPLETED and row[1] == 1:
+                cursor.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (item_id,))
+                conn.commit()
+                self.queue_updated.emit()
             conn.close()
             return
 
         priority = 1 if high_priority else 10
         cursor.execute(
-            "INSERT OR REPLACE INTO downloads (item_id, title, status, added_at) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO downloads (item_id, title, status, added_at, is_hidden) VALUES (?, ?, ?, ?, 0)",
             (item_id, title, DownloadStatus.QUEUED, int(time.time()))
         )
         conn.commit()
@@ -111,11 +115,10 @@ class AudioDownloadManager(BaseDownloadManager):
             if status_info:
                 status, is_hidden = status_info
                 if status in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                    if is_hidden:
-                        updates.append((status, 0, item_id))
-                        added_count += 1
+                    # Ukończone pliki pozostają w swoim obecnym stanie (nie odznaczamy is_hidden w tle!)
+                    continue
                 else:
-                    updates.append((DownloadStatus.QUEUED, 0, item_id))
+                    updates.append((DownloadStatus.QUEUED, 0, added_at, item_id))
                     added_count += 1
             else:
                 inserts.append((item_id, title, DownloadStatus.QUEUED, added_at, 0))
@@ -128,7 +131,7 @@ class AudioDownloadManager(BaseDownloadManager):
             )
         if updates:
             cursor.executemany(
-                "UPDATE downloads SET status = ?, is_hidden = ? WHERE item_id = ?",
+                "UPDATE downloads SET status = ?, is_hidden = ?, added_at = ? WHERE item_id = ?",
                 updates
             )
 

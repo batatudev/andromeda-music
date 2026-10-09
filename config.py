@@ -261,6 +261,64 @@ def get_app_style():
     #SongAddBtn:hover {{ background: {THEME.get('btn_add_hover', 'rgba(230,126,34,0.2)')}; }}
     #SongRemoveBtn:hover {{ background: {THEME.get('btn_remove_hover', 'rgba(231,76,60,0.2)')}; }}
 
+    #StorageCard {{
+        background-color: {THEME.get('bg_card', '#111111')};
+        border-radius: 12px;
+        border: 1px solid {THEME.get('border', '#121212')};
+    }}
+    QProgressBar#StorageBar {{
+        background-color: {THEME.get('nav_bg', '#222222')};
+        border-radius: 4px;
+        border: none;
+        height: 6px;
+    }}
+    QProgressBar#StorageBar::chunk {{
+        background-color: {THEME.get('accent', '#1db954')};
+        border-radius: 4px;
+    }}
+
+    QPushButton#FilterPill {{
+        background-color: {THEME.get('bg_card', '#111111')};
+        color: {THEME.get('text_muted', '#888888')};
+        border: 1px solid {THEME.get('border', '#121212')};
+        border-radius: 16px;
+        padding: 6px 16px;
+        font-size: 13px;
+        font-weight: 600;
+    }}
+    QPushButton#FilterPill:hover {{
+        background-color: {THEME.get('nav_bg', '#222222')};
+        color: {THEME.get('text_main', '#ffffff')};
+    }}
+    QPushButton#FilterPill[active="true"] {{
+        background-color: {THEME.get('accent', '#1db954')};
+        color: white;
+        border-color: {THEME.get('accent', '#1db954')};
+    }}
+    QPushButton#FilterPill[has_error="true"] {{
+        color: #e74c3c;
+        border-color: #e74c3c;
+    }}
+    QPushButton#FilterPill[has_error="true"][active="true"] {{
+        background-color: #e74c3c;
+        color: white;
+    }}
+
+    QPushButton#LoadMoreBtn {{
+        background-color: {THEME.get('bg_card', '#111111')};
+        color: {THEME.get('text_muted', '#888888')};
+        border: 1px dashed {THEME.get('border', '#121212')};
+        border-radius: 8px;
+        padding: 12px;
+        font-weight: bold;
+        font-size: 13px;
+    }}
+    QPushButton#LoadMoreBtn:hover {{
+        background-color: {THEME.get('nav_bg', '#222222')};
+        color: {THEME.get('text_main', '#ffffff')};
+        border-style: solid;
+    }}
+
     ClickableLabel, ClickableElidedLabel {{
         color: {THEME.get('text_muted', '#888888')};
         background: transparent;

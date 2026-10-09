@@ -131,22 +131,26 @@ class VideoDownloadManager(BaseDownloadManager):
 
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT status FROM downloads WHERE item_id = ?", (item_id,))
+        cursor.execute("SELECT status, is_hidden FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
 
         if row:
             if row[0] in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
+                if row[0] == DownloadStatus.COMPLETED and row[1] == 1:
+                    cursor.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (item_id,))
+                    conn.commit()
+                    self.queue_updated.emit()
                 conn.close()
                 return
             else:
                 cursor.execute(
-                    "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ? WHERE item_id = ?",
-                    (DownloadStatus.QUEUED, yt_link, title, cover_id, item_id)
+                    "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = 0, added_at = ? WHERE item_id = ?",
+                    (DownloadStatus.QUEUED, yt_link, title, cover_id, int(time.time()), item_id)
                 )
         else:
             quality = APP_CONFIG.get("video_offline_quality", "1080p")
             cursor.execute(
-                "INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO downloads (item_id, title, yt_link, status, quality, added_at, cover_id, is_hidden) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
                 (item_id, title, yt_link, DownloadStatus.QUEUED, quality, int(time.time()), cover_id)
             )
         conn.commit()
@@ -188,12 +192,10 @@ class VideoDownloadManager(BaseDownloadManager):
             if status_info:
                 status, is_hidden = status_info
                 if status in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                    if is_hidden:
-                        updates.append((status, yt_link, title, cover_id, 0, item_id))
-                        added_count += 1
+                    # Ukończone pliki pozostają w swoim obecnym stanie (nie odznaczamy is_hidden w tle!)
                     continue
                 else:
-                    updates.append((DownloadStatus.QUEUED, yt_link, title, cover_id, 0, item_id))
+                    updates.append((DownloadStatus.QUEUED, yt_link, title, cover_id, 0, added_at, item_id))
                     added_count += 1
             else:
                 inserts.append((item_id, title, yt_link, DownloadStatus.QUEUED, quality, added_at, cover_id, 0))
@@ -206,7 +208,7 @@ class VideoDownloadManager(BaseDownloadManager):
             )
         if updates:
             cursor.executemany(
-                "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = ? WHERE item_id = ?",
+                "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = ?, added_at = ? WHERE item_id = ?",
                 updates
             )
 

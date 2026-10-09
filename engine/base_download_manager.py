@@ -167,11 +167,11 @@ class BaseDownloadManager(QObject):
 
         if "cover_id" in columns and "resolution" in columns:
             cursor.execute(
-                "SELECT item_id, title, status, cover_id, resolution, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC"
+                "SELECT item_id, title, status, cover_id, resolution, file_size, added_at FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC"
             )
         else:
             cursor.execute(
-                "SELECT item_id, title, status, file_size FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC"
+                "SELECT item_id, title, status, file_size, added_at FROM downloads WHERE is_hidden = 0 OR is_hidden IS NULL ORDER BY added_at DESC"
             )
         rows = cursor.fetchall()
         conn.close()
