@@ -22,6 +22,7 @@ class SettingsView(QWidget):
         self.main_window = main_window
         self._initial_settings = {}
         self.buttons = []
+        self.center_widget = None
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(30, 30, 30, 30)
@@ -30,13 +31,22 @@ class SettingsView(QWidget):
         self._init_layout()
         self.sync_values()
 
-    def _init_layout(self):
-        center_widget = QWidget()
-        center_widget.setMaximumWidth(880)
-        center_widget.setMinimumWidth(480)
-        center_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._recalculate_width()
 
-        center_lay = QVBoxLayout(center_widget)
+    def _recalculate_width(self):
+        if self.center_widget is not None:
+            avail_w = self.width() - 60
+            if avail_w > 100:
+                target_w = min(940, max(360, avail_w))
+                self.center_widget.setFixedWidth(target_w)
+
+    def _init_layout(self):
+        self.center_widget = QWidget()
+        self.center_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+
+        center_lay = QVBoxLayout(self.center_widget)
         center_lay.setContentsMargins(0, 0, 0, 0)
         center_lay.setSpacing(18)
 
@@ -110,11 +120,13 @@ class SettingsView(QWidget):
         wrap_lay = QHBoxLayout()
         wrap_lay.setContentsMargins(0, 0, 0, 0)
         wrap_lay.addStretch()
-        wrap_lay.addWidget(center_widget)
+        wrap_lay.addWidget(self.center_widget)
         wrap_lay.addStretch()
 
         self.main_layout.addLayout(wrap_lay)
         self.main_layout.addStretch()
+
+        self._recalculate_width()
 
     def _save_initial_state(self):
         self._initial_settings = {

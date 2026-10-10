@@ -24,14 +24,14 @@ class TabServer(QWidget):
         server_group = QFrame()
         server_group.setObjectName("SettingsCard")
         server_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 24px; border: 1px solid {THEME['border']}; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 50px; border: 1px solid {THEME['border']}; }}"
         )
         server_layout = QVBoxLayout(server_group)
         server_layout.setSpacing(14)
 
         lbl_s_title = QLabel(tr("settings.server.header", "Serwer Navidrome"))
         lbl_s_title.setStyleSheet(
-            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;"
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 8px; background: transparent;"
         )
         server_layout.addWidget(lbl_s_title)
 
@@ -50,18 +50,15 @@ class TabServer(QWidget):
 
         def add_row(parent_layout, text, widget):
             r = QHBoxLayout()
-            r.setSpacing(15)
+            r.setSpacing(20)
             lbl = QLabel(text)
-            lbl.setFixedWidth(160)
+            lbl.setFixedWidth(180)
             lbl.setFixedHeight(36)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
-            widget.setMinimumWidth(260)
-            widget.setMaximumWidth(520)
             widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             r.addWidget(lbl)
             r.addWidget(widget)
-            r.addStretch()
             parent_layout.addLayout(r)
 
         add_row(server_layout, tr("settings.server.url", "Adres URL:"), self.inp_url)
@@ -69,9 +66,19 @@ class TabServer(QWidget):
         add_row(server_layout, tr("settings.server.pass", "Hasło:"), self.inp_pwd)
 
         btn_test = QPushButton(tr("settings.server.test", "Testuj połączenie"))
-        btn_test.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px 18px; border-radius: 6px; font-weight: bold; border: none;"
-        )
+        btn_test.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                padding: 8px 18px;
+                border-radius: 6px;
+                font-weight: bold;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['nav_hover']};
+            }}
+        """)
         btn_test.setCursor(Qt.PointingHandCursor)
         btn_test.clicked.connect(self._test_connection)
 
@@ -79,16 +86,26 @@ class TabServer(QWidget):
         self.lbl_status.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent; font-weight: bold;")
 
         btn_save_server = QPushButton(tr("settings.save_restart", "Zapisz i restartuj"))
-        btn_save_server.setStyleSheet(
-            f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
-        )
+        btn_save_server.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['accent']};
+                color: white;
+                font-weight: bold;
+                padding: 8px 22px;
+                border-radius: 6px;
+                border: none;
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
+            }}
+        """)
         btn_save_server.setCursor(Qt.PointingHandCursor)
         btn_save_server.clicked.connect(self._save_and_restart)
 
         status_lay = QHBoxLayout()
-        status_lay.setContentsMargins(0, 10, 0, 0)
+        status_lay.setContentsMargins(0, 15, 0, 0)
         status_lay.setSpacing(15)
-        status_lay.addSpacing(175)
+        status_lay.addSpacing(200)
         status_lay.addWidget(btn_test)
         status_lay.addWidget(self.lbl_status)
         status_lay.addStretch()
