@@ -21,14 +21,14 @@ class TabOffline(QWidget):
         offline_group = QFrame()
         offline_group.setObjectName("SettingsCard")
         offline_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 24px; border: 1px solid {THEME['border']}; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 85px; border: 1px solid {THEME['border']}; }}"
         )
         offline_layout = QVBoxLayout(offline_group)
         offline_layout.setSpacing(14)
 
         lbl_o_title = QLabel(tr("settings.offline.header", "Ustawienia pobierania"))
         lbl_o_title.setStyleSheet(
-            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;"
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 8px; background: transparent;"
         )
         offline_layout.addWidget(lbl_o_title)
 
@@ -59,9 +59,20 @@ class TabOffline(QWidget):
         self.combo_auto_favs.setStyleSheet(input_style)
 
         self.btn_auto_pl = QPushButton(tr("settings.offline.select_playlists", "Wybierz playlisty..."))
-        self.btn_auto_pl.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px 14px; border-radius: 6px; font-weight: bold; border: none;"
-        )
+        self.btn_auto_pl.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-weight: bold;
+                border: none;
+                height: 22px;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['nav_hover']};
+            }}
+        """)
         self.btn_auto_pl.setCursor(Qt.PointingHandCursor)
         self.btn_auto_pl.clicked.connect(lambda: self._show_playlists_sync_dialog("video"))
 
@@ -74,9 +85,20 @@ class TabOffline(QWidget):
         self.combo_audio_auto_favs.setStyleSheet(input_style)
 
         self.btn_audio_auto_pl = QPushButton(tr("settings.offline.select_playlists", "Wybierz playlisty..."))
-        self.btn_audio_auto_pl.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 8px 14px; border-radius: 6px; font-weight: bold; border: none;"
-        )
+        self.btn_audio_auto_pl.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-weight: bold;
+                border: none;
+                height: 22px;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['nav_hover']};
+            }}
+        """)
         self.btn_audio_auto_pl.setCursor(Qt.PointingHandCursor)
         self.btn_audio_auto_pl.clicked.connect(lambda: self._show_playlists_sync_dialog("audio"))
 
@@ -96,18 +118,15 @@ class TabOffline(QWidget):
 
         def add_row(parent_layout, text, widget):
             r = QHBoxLayout()
-            r.setSpacing(15)
+            r.setSpacing(20)
             lbl = QLabel(text)
-            lbl.setFixedWidth(250)
+            lbl.setFixedWidth(230)
             lbl.setFixedHeight(36)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
-            widget.setMinimumWidth(260)
-            widget.setMaximumWidth(520)
             widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             r.addWidget(lbl)
             r.addWidget(widget)
-            r.addStretch()
             parent_layout.addLayout(r)
 
         add_row(offline_layout, tr("settings.offline.auto_play", "Autoodtwarzanie wideo:"), self.combo_smart_auto)
@@ -120,12 +139,22 @@ class TabOffline(QWidget):
 
         audio_actions_layout = QHBoxLayout()
         audio_actions_layout.setContentsMargins(0, 5, 0, 0)
-        audio_actions_layout.addSpacing(265)
+        audio_actions_layout.addSpacing(250)
 
         btn_sync = QPushButton(tr("settings.offline.sync_meta", "Synchronizuj metadane"))
-        btn_sync.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 18px; border-radius: 6px; border: none;"
-        )
+        btn_sync.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                font-weight: bold;
+                padding: 8px 18px;
+                border-radius: 6px;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['nav_hover']};
+            }}
+        """)
         btn_sync.setCursor(Qt.PointingHandCursor)
         btn_sync.clicked.connect(self._sync_library)
         audio_actions_layout.addWidget(btn_sync)
@@ -133,9 +162,19 @@ class TabOffline(QWidget):
         offline_layout.addLayout(audio_actions_layout)
 
         btn_save_offline = QPushButton(tr("settings.save", "Zapisz"))
-        btn_save_offline.setStyleSheet(
-            f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
-        )
+        btn_save_offline.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                font-weight: bold;
+                padding: 8px 24px;
+                border-radius: 6px;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['nav_hover']};
+            }}
+        """)
         btn_save_offline.setCursor(Qt.PointingHandCursor)
         btn_save_offline.clicked.connect(self._save_o_conf)
 
@@ -143,7 +182,7 @@ class TabOffline(QWidget):
         self.lbl_o_status.setStyleSheet(f"color: {THEME['accent']}; font-weight: bold; background: transparent;")
 
         save_o_lay = QHBoxLayout()
-        save_o_lay.setContentsMargins(0, 10, 0, 0)
+        save_o_lay.setContentsMargins(0, 15, 0, 0)
         save_o_lay.addStretch()
         save_o_lay.addWidget(self.lbl_o_status)
         save_o_lay.addWidget(btn_save_offline)
@@ -168,7 +207,7 @@ class TabOffline(QWidget):
     def _on_sync_error(self, error_msg):
         err_prefix = tr("settings.offline.sync_error", "Błąd synchronizacji:")
         self.lbl_o_status.setText(f"{err_prefix} {error_msg}")
-        self.lbl_o_status.setStyleSheet(f"color: #e74c3c; font-weight: bold; background: transparent;")
+        self.lbl_o_status.setStyleSheet("color: #e74c3c; font-weight: bold; background: transparent;")
 
     def _sync_library(self):
         win = self.main_window

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 
-from config import APP_CONFIG, save_config, THEME
+from config import APP_CONFIG, save_config, THEME, get_combo_arrow_path
 from core.i18n import tr
 
 class TabVideo(QWidget):
@@ -23,7 +23,7 @@ class TabVideo(QWidget):
         video_group = QFrame()
         video_group.setObjectName("SettingsCard")
         video_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 50px; border: 1px solid {THEME['border']}; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 85px; border: 1px solid {THEME['border']}; }}"
         )
         video_layout = QVBoxLayout(video_group)
         video_layout.setSpacing(14)
@@ -40,10 +40,47 @@ class TabVideo(QWidget):
         )
         video_layout.addWidget(lbl_v_hint)
 
-        input_style = (
-            f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; "
-            f"border: 1px solid {THEME['border']}; border-radius: 6px; padding: 8px 12px; height: 20px; font-size: 13px;"
-        )
+        arrow_normal = get_combo_arrow_path(False)
+        arrow_hover = get_combo_arrow_path(True)
+
+        input_style = f"""
+            QComboBox {{
+                background-color: {THEME['bg_main']};
+                color: {THEME['text_main']};
+                border: 1px solid {THEME['border']};
+                border-radius: 6px;
+                padding: 8px 36px 8px 12px;
+                height: 20px;
+                font-size: 13px;
+            }}
+            QComboBox:hover {{
+                border-color: {THEME['nav_hover']};
+            }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border: none;
+                margin-right: 12px;
+            }}
+            QComboBox::down-arrow {{
+                image: url("{arrow_normal}");
+                width: 12px;
+                height: 8px;
+            }}
+            QComboBox::down-arrow:hover {{
+                image: url("{arrow_hover}");
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {THEME['bg_card']};
+                color: {THEME['text_main']};
+                border: 1px solid {THEME['border']};
+                selection-background-color: {THEME['nav_bg']};
+                selection-color: {THEME['text_main']};
+                border-radius: 6px;
+                padding: 4px;
+            }}
+        """
 
         self.combo_res = QComboBox()
         self.combo_res.addItems(["1080p", "720p", "480p", "240p"])
@@ -67,7 +104,7 @@ class TabVideo(QWidget):
             r = QHBoxLayout()
             r.setSpacing(20)
             lbl = QLabel(text)
-            lbl.setFixedWidth(200)
+            lbl.setFixedWidth(220)
             lbl.setFixedHeight(36)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
@@ -95,7 +132,7 @@ class TabVideo(QWidget):
             lay.setSpacing(20)
 
             lbl = QLabel(label_text)
-            lbl.setFixedWidth(200)
+            lbl.setFixedWidth(220)
             lbl.setFixedHeight(36)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")

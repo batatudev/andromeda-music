@@ -39,7 +39,7 @@ class SettingsView(QWidget):
         if self.center_widget is not None:
             avail_w = self.width() - 60
             if avail_w > 100:
-                target_w = min(940, max(360, avail_w))
+                target_w = min(780, max(360, avail_w))
                 self.center_widget.setFixedWidth(target_w)
 
     def _init_layout(self):

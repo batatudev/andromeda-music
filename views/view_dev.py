@@ -1,8 +1,9 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+import sys
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QPushButton, QSizePolicy
 )
 from PySide6.QtCore import Qt
 
@@ -14,27 +15,52 @@ class DevModeView(QWidget):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
+        self.buttons = []
+        self.center_widget = None
 
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(35, 30, 35, 30)
+        self.main_layout.setContentsMargins(30, 30, 30, 30)
         self.main_layout.setSpacing(20)
+
+        self._init_layout()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._recalculate_width()
+
+    def _recalculate_width(self):
+        if self.center_widget is not None:
+            avail_w = self.width() - 60
+            if avail_w > 100:
+                target_w = min(780, max(360, avail_w))
+                self.center_widget.setFixedWidth(target_w)
+
+    def _init_layout(self):
+        self.center_widget = QWidget()
+        self.center_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+
+        center_lay = QVBoxLayout(self.center_widget)
+        center_lay.setContentsMargins(0, 0, 0, 0)
+        center_lay.setSpacing(18)
 
         header_lay = QHBoxLayout()
         lbl_title = QLabel("Tryb Dewelopera")
-        lbl_title.setStyleSheet(f"font-size: 32px; font-weight: bold; color: {THEME['text_main']}; background: transparent;")
+        lbl_title.setStyleSheet(
+            f"font-size: 32px; font-weight: bold; color: {THEME['text_main']}; background: transparent;"
+        )
         header_lay.addWidget(lbl_title)
 
         lbl_version = QLabel("Andromeda Music")
         lbl_version.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 12px; background: transparent;")
         header_lay.addStretch()
         header_lay.addWidget(lbl_version)
-        self.main_layout.addLayout(header_lay)
+        center_lay.addLayout(header_lay)
 
         tab_bar_lay = QHBoxLayout()
         tab_bar_lay.setSpacing(10)
 
-        self.buttons = []
         self.stacked_widget = QStackedWidget()
+        self.stacked_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         tabs_info = [
             ("Telemetria", TabTelemetry),
@@ -66,7 +92,7 @@ class DevModeView(QWidget):
                 }}
             """)
 
-            btn.clicked.connect(lambda checked, index=i: self._switch_tab(index))
+            btn.clicked.connect(lambda checked=False, index=i: self._switch_tab(index))
             tab_bar_lay.addWidget(btn)
             self.buttons.append(btn)
 
@@ -74,9 +100,19 @@ class DevModeView(QWidget):
             self.stacked_widget.addWidget(tab_widget)
 
         tab_bar_lay.addStretch()
-        self.main_layout.addLayout(tab_bar_lay)
-        self.main_layout.addWidget(self.stacked_widget)
+        center_lay.addLayout(tab_bar_lay)
+        center_lay.addWidget(self.stacked_widget)
+
+        wrap_lay = QHBoxLayout()
+        wrap_lay.setContentsMargins(0, 0, 0, 0)
+        wrap_lay.addStretch()
+        wrap_lay.addWidget(self.center_widget)
+        wrap_lay.addStretch()
+
+        self.main_layout.addLayout(wrap_lay)
         self.main_layout.addStretch()
+
+        self._recalculate_width()
 
     def _switch_tab(self, index):
         for i, btn in enumerate(self.buttons):

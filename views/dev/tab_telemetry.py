@@ -1,4 +1,6 @@
 import os
+os.environ["QT_API"] = "pyside6"
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QPushButton, QSizePolicy
@@ -18,20 +20,41 @@ class TabTelemetry(QWidget):
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(20)
+        self.layout.setSpacing(16)
+
+        card_style = (
+            f"#DevCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; "
+            f"padding: 24px 30px; border: 1px solid {THEME['border']}; }}"
+        )
 
         live_group = QFrame()
-        live_group.setStyleSheet(f"background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px;")
+        live_group.setObjectName("DevCard")
+        live_group.setStyleSheet(card_style)
         live_layout = QVBoxLayout(live_group)
+        live_layout.setSpacing(12)
 
         live_title = QLabel("Panel Diagnostyczny")
-        live_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
+        live_title.setStyleSheet(
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
+        )
         live_layout.addWidget(live_title)
 
         btn_open_telemetry = QPushButton("Otwórz okno telemetrii")
-        btn_open_telemetry.setMinimumWidth(250)
+        btn_open_telemetry.setMinimumWidth(240)
         btn_open_telemetry.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        btn_open_telemetry.setStyleSheet(f"background-color: {THEME['accent']}; color: white; padding: 10px 20px; border-radius: 5px; font-weight: bold;")
+        btn_open_telemetry.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['accent']};
+                color: white;
+                padding: 9px 20px;
+                border-radius: 6px;
+                font-weight: bold;
+                border: none;
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
+            }}
+        """)
         btn_open_telemetry.setCursor(Qt.PointingHandCursor)
         btn_open_telemetry.clicked.connect(self._open_telemetry)
         live_layout.addWidget(btn_open_telemetry)
@@ -39,22 +62,40 @@ class TabTelemetry(QWidget):
         self.layout.addWidget(live_group)
 
         rec_group = QFrame()
-        rec_group.setStyleSheet(f"background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px;")
+        rec_group.setObjectName("DevCard")
+        rec_group.setStyleSheet(card_style)
         rec_layout = QVBoxLayout(rec_group)
+        rec_layout.setSpacing(12)
 
         rec_title = QLabel("Dane telemetryczne")
-        rec_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
+        rec_title.setStyleSheet(
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
+        )
         rec_layout.addWidget(rec_title)
 
         btn_export = QPushButton("Eksportuj telemetrię na Pulpit (.csv)")
-        btn_export.setMinimumWidth(280)
+        btn_export.setMinimumWidth(260)
         btn_export.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        btn_export.setStyleSheet(f"background-color: {THEME['nav_bg']}; color: {THEME['text_main']}; padding: 10px 20px; border-radius: 5px; font-weight: bold;")
+        btn_export.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: {THEME['text_main']};
+                padding: 9px 20px;
+                border-radius: 6px;
+                font-weight: bold;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME['nav_hover']};
+            }}
+        """)
         btn_export.setCursor(Qt.PointingHandCursor)
         btn_export.clicked.connect(self._export_telemetry)
 
         self.export_status_lbl = QLabel("")
-        self.export_status_lbl.setStyleSheet(f"color: {THEME['accent']}; font-size: 13px; margin-left: 15px; font-weight: bold; background: transparent;")
+        self.export_status_lbl.setStyleSheet(
+            f"color: {THEME['accent']}; font-size: 13px; margin-left: 15px; font-weight: bold; background: transparent;"
+        )
 
         rec_h = QHBoxLayout()
         rec_h.addWidget(btn_export)
@@ -65,11 +106,15 @@ class TabTelemetry(QWidget):
         self.layout.addWidget(rec_group)
 
         sys_group = QFrame()
-        sys_group.setStyleSheet(f"background-color: {THEME['bg_card']}; border-radius: 10px; padding: 20px;")
+        sys_group.setObjectName("DevCard")
+        sys_group.setStyleSheet(card_style)
         sys_layout = QVBoxLayout(sys_group)
+        sys_layout.setSpacing(12)
 
         sys_title = QLabel("Środowisko Uruchomieniowe")
-        sys_title.setStyleSheet(f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;")
+        sys_title.setStyleSheet(
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
+        )
         sys_layout.addWidget(sys_title)
 
         info_txt = f"""

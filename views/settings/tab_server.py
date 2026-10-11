@@ -24,7 +24,7 @@ class TabServer(QWidget):
         server_group = QFrame()
         server_group.setObjectName("SettingsCard")
         server_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 50px; border: 1px solid {THEME['border']}; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 85px; border: 1px solid {THEME['border']}; }}"
         )
         server_layout = QVBoxLayout(server_group)
         server_layout.setSpacing(14)
@@ -52,7 +52,7 @@ class TabServer(QWidget):
             r = QHBoxLayout()
             r.setSpacing(20)
             lbl = QLabel(text)
-            lbl.setFixedWidth(180)
+            lbl.setFixedWidth(200)
             lbl.setFixedHeight(36)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
@@ -81,9 +81,11 @@ class TabServer(QWidget):
         """)
         btn_test.setCursor(Qt.PointingHandCursor)
         btn_test.clicked.connect(self._test_connection)
+        btn_test.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self.lbl_status = QLabel("")
         self.lbl_status.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent; font-weight: bold;")
+        self.lbl_status.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
 
         btn_save_server = QPushButton(tr("settings.save_restart", "Zapisz i restartuj"))
         btn_save_server.setStyleSheet(f"""
@@ -101,14 +103,14 @@ class TabServer(QWidget):
         """)
         btn_save_server.setCursor(Qt.PointingHandCursor)
         btn_save_server.clicked.connect(self._save_and_restart)
+        btn_save_server.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         status_lay = QHBoxLayout()
         status_lay.setContentsMargins(0, 15, 0, 0)
         status_lay.setSpacing(15)
-        status_lay.addSpacing(200)
-        status_lay.addWidget(btn_test)
         status_lay.addWidget(self.lbl_status)
         status_lay.addStretch()
+        status_lay.addWidget(btn_test)
         status_lay.addWidget(btn_save_server)
         server_layout.addLayout(status_lay)
 

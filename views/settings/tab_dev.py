@@ -21,14 +21,14 @@ class TabDev(QWidget):
         dev_group = QFrame()
         dev_group.setObjectName("SettingsCard")
         dev_group.setStyleSheet(
-            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 10px; padding: 24px; }}"
+            f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 85px; border: 1px solid {THEME['border']}; }}"
         )
         dev_layout = QVBoxLayout(dev_group)
         dev_layout.setSpacing(14)
 
         lbl_d_title = QLabel("Opcje dla programistów")
         lbl_d_title.setStyleSheet(
-            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 10px; background: transparent;"
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 8px; background: transparent;"
         )
         dev_layout.addWidget(lbl_d_title)
 
@@ -44,32 +44,38 @@ class TabDev(QWidget):
 
         def add_row(parent_layout, text, widget):
             r = QHBoxLayout()
-            r.setSpacing(15)
+            r.setSpacing(20)
             lbl = QLabel(text)
-            lbl.setMinimumWidth(140)
-            lbl.setMaximumWidth(200)
+            lbl.setFixedWidth(200)
             lbl.setFixedHeight(36)
-            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
+            lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
-            widget.setMinimumWidth(240)
-            widget.setMaximumWidth(460)
             widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             r.addWidget(lbl)
             r.addWidget(widget)
-            r.addStretch()
             parent_layout.addLayout(r)
 
         add_row(dev_layout, "Dev mode:", self.combo_dev)
 
         btn_save_dev = QPushButton("Zapisz i Restartuj")
-        btn_save_dev.setStyleSheet(
-            f"background-color: {THEME['accent']}; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px;"
-        )
+        btn_save_dev.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {THEME['accent']};
+                color: white;
+                font-weight: bold;
+                padding: 8px 22px;
+                border-radius: 6px;
+                border: none;
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
+            }}
+        """)
         btn_save_dev.setCursor(Qt.PointingHandCursor)
         btn_save_dev.clicked.connect(self._save_and_restart)
 
         save_d_lay = QHBoxLayout()
-        save_d_lay.setContentsMargins(0, 10, 0, 0)
+        save_d_lay.setContentsMargins(0, 15, 0, 0)
         save_d_lay.addStretch()
         save_d_lay.addWidget(btn_save_dev)
         dev_layout.addLayout(save_d_lay)

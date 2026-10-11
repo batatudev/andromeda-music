@@ -3,7 +3,7 @@ os.environ["QT_API"] = "pyside6"
 
 import configparser
 from enum import IntEnum
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt
 
 from core.paths import PathsManager
@@ -49,6 +49,26 @@ APP_CONFIG = {
     "audio_auto_dl_playlists": [],
     "hide_undownloaded_offline": False
 }
+
+def get_combo_arrow_path(is_hover=False) -> str:
+    cache_dir = PathsManager.get_cache_dir()
+    fname = "combo_arrow_hover.png" if is_hover else "combo_arrow.png"
+    arrow_file = cache_dir / fname
+    if not arrow_file.exists():
+        pix = QPixmap(12, 8)
+        pix.fill(Qt.transparent)
+        painter = QPainter(pix)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor("#ffffff" if is_hover else "#888888"))
+        pen.setWidthF(1.8)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.drawLine(1, 1, 6, 6)
+        painter.drawLine(6, 6, 11, 1)
+        painter.end()
+        pix.save(str(arrow_file), "PNG")
+    return str(arrow_file).replace("\\", "/")
 
 def load_config():
     cfg = configparser.ConfigParser()
@@ -136,6 +156,9 @@ THEME = {}
 load_config()
 
 def get_app_style():
+    arrow_normal = get_combo_arrow_path(False)
+    arrow_hover = get_combo_arrow_path(True)
+
     return f"""
     QMainWindow, QWidget {{
         background-color: {THEME.get('bg_main', '#050505')};
@@ -332,4 +355,41 @@ def get_app_style():
     QSlider::groove:horizontal {{ height: 4px; background: {THEME.get('nav_bg', '#222222')}; border-radius: 2px; }}
     QSlider::sub-page:horizontal {{ background: {THEME.get('accent', '#1db954')}; border-radius: 2px; }}
     QSlider::handle:horizontal {{ background: {THEME.get('text_main', '#ffffff')}; width: 12px; height: 12px; margin: -4px 0; border-radius: 6px; }}
+
+    QComboBox {{
+        background-color: {THEME.get('bg_main', '#050505')};
+        color: {THEME.get('text_main', '#ffffff')};
+        border: 1px solid {THEME.get('border', '#121212')};
+        border-radius: 6px;
+        padding: 6px 36px 6px 12px;
+        font-size: 13px;
+    }}
+    QComboBox:hover {{
+        border-color: {THEME.get('nav_hover', '#333333')};
+    }}
+    QComboBox::drop-down {{
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 20px;
+        border: none;
+        margin-right: 12px;
+    }}
+    QComboBox::down-arrow {{
+        image: url("{arrow_normal}");
+        width: 12px;
+        height: 8px;
+    }}
+    QComboBox::down-arrow:hover {{
+        image: url("{arrow_hover}");
+    }}
+    QComboBox QAbstractItemView {{
+        background-color: {THEME.get('bg_card', '#111111')};
+        color: {THEME.get('text_main', '#ffffff')};
+        border: 1px solid {THEME.get('border', '#121212')};
+        selection-background-color: {THEME.get('nav_bg', '#222222')};
+        selection-color: {THEME.get('text_main', '#ffffff')};
+        border-radius: 6px;
+        padding: 4px;
+        outline: none;
+    }}
     """
