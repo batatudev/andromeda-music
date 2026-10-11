@@ -149,6 +149,7 @@ class DetailsView(LibraryScrollArea):
                     item.clicked.connect(lambda song, idx=i, sl=songs: self.main_window.engine.play_list(sl, idx))
                     item.fav_clicked.connect(self.main_window._handle_song_fav)
                     item.add_to_queue_clicked.connect(self.main_window.engine.add_to_queue)
+                    item.add_to_playlist_clicked.connect(self.main_window._show_playlist_dialog)
                     item.remove_from_playlist_clicked.connect(
                         lambda s_d, idx=i: self._remove_from_playlist(s_d, idx)
                     )

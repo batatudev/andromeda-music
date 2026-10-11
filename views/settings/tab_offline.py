@@ -3,11 +3,12 @@ os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QComboBox, QPushButton, QDialog, QScrollArea, QCheckBox, QSizePolicy
+    QComboBox, QPushButton, QSizePolicy
 )
 from PySide6.QtCore import Qt, QTimer
 from config import APP_CONFIG, save_config, THEME
 from core.i18n import tr
+from ui.dialogs import PlaylistSyncModal
 
 class TabOffline(QWidget):
     def __init__(self, settings_view):
@@ -248,57 +249,34 @@ class TabOffline(QWidget):
             return res.get('playlists', {}).get('playlist', [])
 
         def on_ready(playlists):
-            dlg = QDialog(self)
-            dlg.setWindowTitle(tr("dialogs.playlist_add_title", "Dodaj do playlisty"))
-            dlg.setFixedSize(400, 500)
-            from config import get_app_style
-            dlg.setStyleSheet(get_app_style())
-            layout = QVBoxLayout(dlg)
-
-            scroll = QScrollArea()
-            scroll.setWidgetResizable(True)
-            scroll.setStyleSheet("background: transparent; border: none;")
-            content = QWidget()
-            v = QVBoxLayout(content)
-            v.setSpacing(5)
-
-            checkboxes = {}
-            conf_key = "video_auto_dl_playlists" if media_type == "video" else "audio_auto_dl_playlists"
-            current_selected = APP_CONFIG.get(conf_key, [])
-
-            for pl in playlists:
-                pl_id = pl.get('id')
-                cb = QCheckBox(pl.get('name', ''))
-                cb.setStyleSheet(f"color: {THEME['text_main']}; spacing: 10px; font-size: 14px;")
-                if pl_id in current_selected:
-                    cb.setChecked(True)
-                v.addWidget(cb)
-                checkboxes[pl_id] = cb
-
-            v.addStretch()
-            scroll.setWidget(content)
-            layout.addWidget(scroll)
-
-            btn_save = QPushButton(tr("dialogs.save", "Zapisz"))
-            btn_save.setStyleSheet(f"background-color: {THEME['accent']}; color: white; padding: 10px; border-radius: 5px; font-weight: bold;")
-            btn_save.setCursor(Qt.PointingHandCursor)
-
-            def save_selection():
-                selected = [pid for pid, cb in checkboxes.items() if cb.isChecked()]
-                APP_CONFIG[conf_key] = selected
-                from config import save_config
-                save_config()
-                self.settings_view._initial_settings[conf_key] = selected
-
-                btn_prefix = tr("settings.offline.select_playlists", "Wybierz playlisty...")
-                if media_type == "video":
-                    self.btn_auto_pl.setText(f"{btn_prefix} ({len(selected)})")
-                else:
-                    self.btn_audio_auto_pl.setText(f"{btn_prefix} ({len(selected)})")
-                dlg.accept()
-
-            btn_save.clicked.connect(save_selection)
-            layout.addWidget(btn_save)
-            dlg.exec()
+            modal = PlaylistSyncModal(
+                self.main_window,
+                playlists,
+                media_type,
+                on_saved=self._on_playlists_sync_saved
+            )
+            modal.show_modal()
 
         self.main_window.run_async(fetch, on_ready)
+
+    def _on_playlists_sync_saved(self, media_type, selected_ids):
+        conf_key = "video_auto_dl_playlists" if media_type == "video" else "audio_auto_dl_playlists"
+        APP_CONFIG[conf_key] = selected_ids
+        save_config()
+        self.settings_view._initial_settings[conf_key] = selected_ids
+
+        btn_prefix = tr("settings.offline.select_playlists", "Wybierz playlisty...")
+        count = len(selected_ids)
+        if media_type == "video":
+            self.btn_auto_pl.setText(f"{btn_prefix} ({count})")
+        else:
+            self.btn_audio_auto_pl.setText(f"{btn_prefix} ({count})")
+
+        typ_label = "Teledyski" if media_type == "video" else "Muzyka"
+        if hasattr(self.main_window, 'show_toast'):
+            self.main_window.show_toast(
+                f"Zaktualizowano playlisty do pobierania ({count}).",
+                title=typ_label,
+                icon_str="fa5s.check-circle",
+                icon_color=THEME.get("accent", "#1db954")
+            )

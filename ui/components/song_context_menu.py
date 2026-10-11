@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/components/song_context_menu.py
-# OPIS ZMIAN: Naprawa błędu AttributeError przez niezawodną funkcję _get_window() dla pobierania audio/wideo
-
 import qtawesome as qta
 from PySide6.QtWidgets import (
     QMenu, QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
@@ -83,6 +79,12 @@ class SongContextMenu:
                     tr("context.add_queue", "Dodaj do kolejki")
                 )
                 act_add.triggered.connect(lambda: song_item.add_to_queue_clicked.emit(song_item.song))
+
+                act_add_pl = menu.addAction(
+                    qta.icon('fa5s.folder-plus', color=THEME['text_main']),
+                    tr("context.add_playlist", "Dodaj do playlisty")
+                )
+                act_add_pl.triggered.connect(lambda: song_item.add_to_playlist_clicked.emit(song_item.song))
 
                 act_rm_pl = menu.addAction(
                     qta.icon('fa5s.times', color=THEME['text_main']),
