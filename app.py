@@ -53,6 +53,12 @@ def _auto_play_playlist(main_window, pl_name: str):
     main_window.run_async(fetch, on_ready, page_bound=False)
 
 
+def _force_video_mode(main_window):
+    if not main_window.player_bar.btn_video_toggle.isChecked():
+        main_window.player_bar.btn_video_toggle.setChecked(True)
+        main_window._toggle_video_mode()
+
+
 def run():
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(APP_ICON_PATH))
@@ -76,6 +82,9 @@ def run():
                 QTimer.singleShot(600, lambda: _auto_play_playlist(w, playlist_name))
         except Exception as e:
             logger.log(f"Błąd parsowania argumentu --play-playlist: {e}")
+
+    if "--video" in sys.argv:
+        QTimer.singleShot(1500, lambda: _force_video_mode(w))
 
     sys.exit(app.exec())
 

@@ -1,6 +1,7 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+import sys
 import threading
 import time
 from PySide6.QtCore import QObject, Signal, QTimer, QUrl
@@ -25,7 +26,6 @@ from engine.queue_manager import QueueManager
 from engine.audio_controller import AudioController
 from engine.video_controller_online import VideoControllerOnline
 from core.paths import PathsManager
-
 
 class PlayerEngine(QObject):
     track_changed = Signal(object)
@@ -312,7 +312,11 @@ class PlayerEngine(QObject):
     def load_and_play_video(self, force_mid_track=False):
         song = self.queue_mgr.current_song()
         if song:
-            offline_path = self.video_download_manager.get_video_path(song.item_id)
+            if "--force-live" in sys.argv:
+                offline_path = None
+            else:
+                offline_path = self.video_download_manager.get_video_path(song.item_id)
+                
             if offline_path:
                 logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
                 self._activate_sync_timer()
@@ -493,6 +497,17 @@ class PlayerEngine(QObject):
         self.current_video_resolution = self.arf_manager.prepare_track_resolution(
             self.player.position()
         )
+        
+        if "--force-res" in sys.argv:
+            try:
+                idx = sys.argv.index("--force-res")
+                if idx + 1 < len(sys.argv):
+                    forced_res = sys.argv[idx + 1]
+                    self.current_video_resolution = forced_res
+                    self.arf_active_res = forced_res
+            except Exception:
+                pass
+                
         self.video_killed_for_track = False
         self.video_stream_start_time = time.time()
         self.h_sync_count = 0

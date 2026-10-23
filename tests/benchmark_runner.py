@@ -14,7 +14,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 CLK_TCK = os.sysconf(os.sysconf_names.get('SC_CLK_TCK', 'SC_CLK_TCK')) or 100
-DEFAULT_YT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PLKU7Ur1sVjeI"
+DEFAULT_YT_PLAYLIST_URL = "https://music.youtube.com/watch?v=xxFSf9l3dtg&list=PLKU7Ur1sVjeI"
 
 
 class LinuxProcessMonitor:
@@ -353,6 +353,8 @@ class TargetAppLocator:
     def resolve_app(
         target_name: str,
         scenario: str = "playback",
+        video_mode: str = "live-1080p",
+        playlist_name: str = "benchmark",
         yt_url: str = DEFAULT_YT_PLAYLIST_URL,
         custom_bin: str = None
     ) -> tuple:
@@ -361,8 +363,14 @@ class TargetAppLocator:
 
         if target_name == "andromeda":
             cmd = [sys.executable, str(ROOT_DIR / "main.py")]
-            if scenario == "playback":
-                cmd.extend(["--play-playlist", "benchmark"])
+            if scenario in ["playback", "video"]:
+                cmd.extend(["--play-playlist", playlist_name])
+            if scenario == "video":
+                cmd.append("--video")
+                if video_mode == "live-1080p":
+                    cmd.extend(["--force-live", "--force-res", "1080p"])
+                elif video_mode == "live-480p":
+                    cmd.extend(["--force-live", "--force-res", "480p"])
             return cmd, False, None, None
 
         flatpak_bin = shutil.which("flatpak")
@@ -603,9 +611,9 @@ class AndromedaInternalBenchmarks:
 
 class LiveProcessBenchmark:
     """
-    Uruchamia docelowy program, weryfikuje start właściwego Utworu 1 ('Przyszłość')
-    przez D-Bus MPRIS, zapewnia równą 15-sekundową rozgrzewkę bufora dla każdego programu,
-    zegar na żywo w konsoli oraz automatyczne przełączanie utworu sygnałem MPRIS.
+    Uruchamia docelowy program, weryfikuje start właściwego Utworu,
+    zapewnia równą rozgrzewkę bufora dla każdego programu,
+    zegar na żywo w konsoli oraz automatyczne przełączanie sygnałem MPRIS.
     """
 
     def __init__(
@@ -616,7 +624,9 @@ class LiveProcessBenchmark:
         flatpak_app_id: str = None,
         duration_sec: int = 120,
         warmup_sec: int = 15,
-        scenario: str = "playback"
+        scenario: str = "playback",
+        video_mode: str = "live-1080p",
+        playlist_name: str = "benchmark"
     ):
         self.target_name = target_name
         self.app_cmd = app_cmd
@@ -625,6 +635,21 @@ class LiveProcessBenchmark:
         self.duration_sec = duration_sec
         self.warmup_sec = warmup_sec
         self.scenario = scenario
+        self.video_mode = video_mode
+        self.playlist_name = playlist_name
+
+        if self.target_name == "andromeda":
+            if self.scenario == "video":
+                if self.video_mode == "offline":
+                    self.display_name = "Andromeda (Video Offline)"
+                elif self.video_mode == "live-480p":
+                    self.display_name = "Andromeda (Video 480p Live)"
+                else:
+                    self.display_name = "Andromeda (Video 1080p Live)"
+            else:
+                self.display_name = "Andromeda (Qt6)"
+        else:
+            self.display_name = self.target_name.capitalize()
 
     def _get_flatpak_child_pids(self) -> set:
         if not self.is_flatpak or not self.flatpak_app_id:
@@ -698,9 +723,15 @@ class LiveProcessBenchmark:
             if startup_time_sec is None:
                 startup_time_sec = time.perf_counter() - t_before_launch
 
-            # 2. Krok: Weryfikacja startu właściwego Utworu 1 ('Przyszłość')
-            if self.scenario == "playback":
-                expected_kw = "przysz"
+            # 2. Krok: Weryfikacja startu właściwego Utworu 1
+            if self.scenario in ["playback", "video"]:
+                if self.scenario == "playback":
+                    expected_kw = "przysz"
+                    expected_title = "Przyszłość"
+                else:
+                    expected_kw = "nieba"
+                    expected_title = "WIĘCEJ NIEBA"
+
                 is_playing_correct = False
 
                 LinuxProcessMonitor.send_mpris_cmd(self.target_name, "Play")
@@ -717,8 +748,8 @@ class LiveProcessBenchmark:
 
                 if not is_playing_correct:
                     curr_title = LinuxProcessMonitor.get_mpris_metadata(self.target_name).get("title", "Brak")
-                    print(f"\n[INFO] [{self.target_name.upper()}] Wykryty utwór w odtwarzaczu: '{curr_title}'.")
-                    print(f"       -> Otwórz playlistę 'benchmark' i kliknij Utwór 1 ('Przyszłość') w oknie {self.target_name.upper()}!")
+                    print(f"\n[INFO] [{self.display_name.upper()}] Wykryty utwór w odtwarzaczu: '{curr_title}'.")
+                    print(f"       -> Otwórz playlistę '{self.playlist_name}' i kliknij Utwór 1 ('{expected_title}') w oknie!")
                     for _ in range(60):
                         time.sleep(0.5)
                         status = LinuxProcessMonitor.get_playback_status(self.target_name)
@@ -726,15 +757,15 @@ class LiveProcessBenchmark:
                         title = meta.get("title", "")
                         if status == "Playing" and (expected_kw in title.lower() or not title):
                             is_playing_correct = True
-                            print(f"[OK] [{self.target_name.upper()}] Wykryto prawidłowy Utwór 1: '{title or 'Przyszłość'}'!")
+                            print(f"[OK] [{self.display_name.upper()}] Wykryto prawidłowy Utwór 1: '{title or expected_title}'!")
                             break
 
-            # 3. Krok: Równa 15-sekundowa rozgrzewka bufora audio
+            # 3. Krok: Równa rozgrzewka bufora audio/wideo
             if self.warmup_sec > 0:
-                print(f"[INFO] [{self.target_name.upper()}] Faza rozgrzewki: Utwór 1 ('Przyszłość') gra, stabilizacja bufora PipeWire ({self.warmup_sec}s)...")
+                print(f"[INFO] [{self.display_name.upper()}] Faza rozgrzewki: Utwór 1 gra, stabilizacja bufora PipeWire/FFmpeg ({self.warmup_sec}s)...")
                 time.sleep(self.warmup_sec)
 
-            print(f"[INFO] [{self.target_name.upper()}] Rozpoczynam próbkowanie metryk (czas trwania: {self.duration_sec}s)...")
+            print(f"[INFO] [{self.display_name.upper()}] Rozpoczynam próbkowanie metryk (czas trwania: {self.duration_sec}s)...")
             start_time = time.perf_counter()
             prev_ticks = 0
             prev_tick_time = start_time
@@ -773,10 +804,9 @@ class LiveProcessBenchmark:
                 prev_ticks = current_ticks
                 prev_tick_time = now
 
-                # Automatyczne przełączenie utworu w 60. sekundzie testu
-                if self.scenario == "playback" and not next_track_triggered and elapsed >= 60.0:
+                if self.scenario in ["playback", "video"] and not next_track_triggered and elapsed >= (self.duration_sec / 2):
                     next_track_triggered = True
-                    sys.stdout.write(f"\n[INFO] [{self.target_name.upper()}] >>> [01:00] PRZEŁĄCZANIE: WYSYŁANIE SYGNAŁU D-BUS MPRIS (NEXT) <<<\n")
+                    sys.stdout.write(f"\n[INFO] [{self.display_name.upper()}] >>> [{int(self.duration_sec/2)}s] PRZEŁĄCZANIE: WYSYŁANIE SYGNAŁU D-BUS MPRIS (NEXT) <<<\n")
                     sys.stdout.flush()
                     LinuxProcessMonitor.send_mpris_cmd(self.target_name, "Next")
 
@@ -784,9 +814,14 @@ class LiveProcessBenchmark:
                 secs = int(elapsed % 60)
                 tot_mins = int(self.duration_sec // 60)
                 tot_secs = int(self.duration_sec % 60)
-                track_label = "Utwór 1 (Przyszłość)" if elapsed < 60.0 else "Utwór 2 (MIĘSO)"
+                
+                if self.scenario == "video":
+                    track_label = "Utwór 1 (WIĘCEJ NIEBA)" if elapsed < (self.duration_sec / 2) else "Utwór 2 (JESTEM WOLNY)"
+                else:
+                    track_label = "Utwór 1 (Przyszłość)" if elapsed < (self.duration_sec / 2) else "Utwór 2 (MIĘSO)"
+                
                 sys.stdout.write(
-                    f"\r[{self.target_name.upper():<9}] [{mins:02d}:{secs:02d} / {tot_mins:02d}:{tot_secs:02d}] "
+                    f"\r[{self.display_name:<20}] [{mins:02d}:{secs:02d} / {tot_mins:02d}:{tot_secs:02d}] "
                     f"[{track_label}] CPU: {cpu_percent:5.1f}% | PSS: {mem['pss_mb']:6.1f} MB | Procesy: {len(pids)}"
                 )
                 sys.stdout.flush()
@@ -834,7 +869,7 @@ class LiveProcessBenchmark:
         max_processes = max(s["process_count"] for s in samples)
 
         return {
-            "target": self.target_name,
+            "target": self.display_name,
             "scenario": self.scenario,
             "warmup_sec": self.warmup_sec,
             "duration_sec": self.duration_sec,
@@ -888,12 +923,14 @@ class BenchmarkReporter:
     @staticmethod
     def print_multi_comparison_terminal(results_map: dict):
         print("\n" + "=" * 135)
-        print("          ZESTAWIENIE PORÓWNAWCZE: ODTWARZANIE AUDIO (LINUX / WAYLAND / 120s)")
+        print("          ZESTAWIENIE PORÓWNAWCZE WYDAJNOŚCI ZASOBÓW (LINUX / WAYLAND)")
         print("=" * 135)
 
         header = f"{'Metryka':<32}"
         for name in results_map.keys():
-            header += f" | {name.capitalize():<14}"
+            # Name in terminal can be slightly abbreviated to fit
+            n_short = name.replace("Andromeda", "Andr").replace("(", "").replace(")", "").strip()
+            header += f" | {n_short:<18}"
         print(header)
         print("-" * 135)
 
@@ -907,129 +944,93 @@ class BenchmarkReporter:
                     val_str = f"{val} {unit}".strip()
                 else:
                     val_str = str(val)
-                row += f" | {val_str:<14}"
+                row += f" | {val_str:<18}"
             print(row)
 
         print_row("Czas startu (Cold Startup)", "startup_time_sec", "s")
         print_row("Pamięć rzeczywista (PSS)", "avg_pss_mb", "MB")
         print_row("Pamięć fizyczna (RSS)", "avg_rss_mb", "MB")
-        print_row("Średnie CPU (Odtwarzanie Audio)", "avg_cpu_percent", "%")
+        print_row("Średnie CPU (Odtwarzanie)", "avg_cpu_percent", "%")
         print_row("Szczytowe CPU (Max Spike)", "max_cpu_percent", "%")
         print_row("Liczba procesów systemowych", "max_processes")
         print("=" * 135 + "\n")
 
     @staticmethod
-    def generate_multi_comparison_markdown(results_map: dict, internal_data: dict = None) -> str:
+    def generate_multi_comparison_markdown(results_map: dict, internal_data: dict = None, scenario: str = "video") -> str:
         md = []
-        md.append("## Raport Porównawczy: Andromeda Music vs Konkurencja (Audio Playback)\n")
-        md.append("*Środowisko testowe: Linux (Fedora / KDE Plasma / Wayland), 2 utwory ('Przyszłość' + 'MIĘSO', 120s z przełączeniem MPRIS w 60s), standaryzowany pomiar jądra (/proc/smaps_rollup)*\n")
+        if scenario == "video":
+            md.append("## Raport Porównawczy: Andromeda Music vs Konkurencja (Odtwarzanie Wideo)\n")
+            md.append("*Środowisko testowe: Linux (Fedora / KDE Plasma / Wayland), teledyski 1080p, standaryzowany pomiar jądra (/proc/smaps_rollup)*\n")
+        else:
+            md.append("## Raport Porównawczy: Andromeda Music vs Konkurencja (Audio Playback)\n")
+            md.append("*Środowisko testowe: Linux (Fedora / KDE Plasma / Wayland), 2 utwory (120s), standaryzowany pomiar jądra (/proc/smaps_rollup)*\n")
 
         headers = ["Metryka"]
         for target in results_map.keys():
-            if target == "andromeda":
-                headers.append("Andromeda (Qt6)")
-            elif target in ["feishin", "spotify"]:
-                headers.append(f"{target.capitalize()} (Electron)")
-            elif target == "brave":
-                headers.append("Brave (Chromium Web)")
-            elif target == "firefox":
-                headers.append("Firefox (Gecko Web)")
-            else:
-                headers.append(f"{target.capitalize()} (Natywna)")
-
-        if "andromeda" in results_map:
-            headers.append("Przewaga Andromedy")
+            headers.append(target)
+        
+        # We don't append "Przewaga" automatically if there are many Andromedas (like in video test)
+        if scenario != "video":
+            headers.append("Wnioski")
 
         md.append("| " + " | ".join(headers) + " |")
         md.append("| " + " | ".join([":---" if i == 0 else (":---:" if i < len(headers) - 1 else ":---") for i in range(len(headers))]) + " |")
 
-        a_data = results_map.get("andromeda", {})
-        a_start = a_data.get("startup_time_sec", 0)
-        a_pss = a_data.get("avg_pss_mb", 0)
-        a_rss = a_data.get("avg_rss_mb", 0)
-        a_cpu = a_data.get("avg_cpu_percent", 0)
-        a_max_cpu = a_data.get("max_cpu_percent", 0)
-        a_procs = a_data.get("max_processes", 1)
+        # Get the first Andromeda data for baseline comparison if needed
+        base_a_data = None
+        for k, v in results_map.items():
+            if "Andromeda" in k:
+                base_a_data = v
+                break
+        if not base_a_data:
+            base_a_data = {}
+
+        a_start = base_a_data.get("startup_time_sec", 0)
+        a_pss = base_a_data.get("avg_pss_mb", 0)
+        a_rss = base_a_data.get("avg_rss_mb", 0)
+        a_cpu = base_a_data.get("avg_cpu_percent", 0)
+        a_max_cpu = base_a_data.get("max_cpu_percent", 0)
+        a_procs = base_a_data.get("max_processes", 1)
+
+        def make_row(title, key, unit, precision=1, lower_is_better=True):
+            row = [f"**{title}**"]
+            for target in results_map.keys():
+                val = results_map[target].get(key, 0)
+                if precision == 3:
+                    row.append(f"**{val:.3f} {unit}**" if "Andromeda" in target else f"{val:.3f} {unit}")
+                elif precision == 2:
+                    row.append(f"**{val:.2f}{unit}**" if "Andromeda" in target else f"{val:.2f}{unit}")
+                elif precision == 0:
+                    row.append(f"**{val} {unit}**" if "Andromeda" in target else f"{val} {unit}")
+                else:
+                    row.append(f"**{val:.1f} {unit}**" if "Andromeda" in target else f"{val:.1f} {unit}")
+            
+            if scenario != "video":
+                row.append("-")
+            return row
 
         # 1. Start time
-        row_start = ["**Czas startu (Cold Startup)**"]
-        start_ratios = []
-        for t, d in results_map.items():
-            s_val = d.get("startup_time_sec", 0)
-            if t == "andromeda":
-                row_start.append(f"**{s_val:.3f} s**")
-            else:
-                row_start.append(f"{s_val:.3f} s")
-                if a_start > 0 and s_val > 0:
-                    start_ratios.append(f"{s_val / a_start:.1f}x")
-        if "andromeda" in results_map:
-            row_start.append(f"**Do {max(start_ratios, default='-')} szybszy start**" if start_ratios else "-")
+        row_start = make_row("Czas startu (Cold Startup)", "startup_time_sec", "s", 3)
         md.append("| " + " | ".join(row_start) + " |")
 
         # 2. PSS
-        row_pss = ["**Pamięć rzeczywista (PSS)**"]
-        pss_savings = []
-        for t, d in results_map.items():
-            pss_val = d.get("avg_pss_mb", 0)
-            if t == "andromeda":
-                row_pss.append(f"**{pss_val:.1f} MB**")
-            else:
-                row_pss.append(f"{pss_val:.1f} MB")
-                diff = pss_val - a_pss
-                pct = (diff / pss_val * 100) if pss_val > 0 else 0
-                pss_savings.append(f"-{diff:.0f} MB (-{pct:.0f}%)")
-        if "andromeda" in results_map:
-            row_pss.append(f"**Oszczędność {', '.join(pss_savings)}**" if pss_savings else "-")
+        row_pss = make_row("Pamięć rzeczywista (PSS)", "avg_pss_mb", "MB", 1)
         md.append("| " + " | ".join(row_pss) + " |")
 
         # 3. RSS
-        row_rss = ["**Pamięć fizyczna (RSS)**"]
-        for t, d in results_map.items():
-            rss_val = d.get("avg_rss_mb", 0)
-            if t == "andromeda":
-                row_rss.append(f"**{rss_val:.1f} MB**")
-            else:
-                row_rss.append(f"{rss_val:.1f} MB")
-        if "andromeda" in results_map:
-            row_rss.append("Niska pamięć rezydentna")
+        row_rss = make_row("Pamięć fizyczna (RSS)", "avg_rss_mb", "MB", 1)
         md.append("| " + " | ".join(row_rss) + " |")
 
         # 4. CPU Avg
-        row_cpu = ["**Średnie CPU (Odtwarzanie Audio)**"]
-        for t, d in results_map.items():
-            cpu_val = d.get("avg_cpu_percent", 0)
-            if t == "andromeda":
-                row_cpu.append(f"**{cpu_val:.2f}%**")
-            else:
-                row_cpu.append(f"{cpu_val:.2f}%")
-        if "andromeda" in results_map:
-            row_cpu.append("Natywny potok audio PipeWire")
+        row_cpu = make_row(f"Średnie CPU ({'Odtwarzanie Wideo' if scenario == 'video' else 'Odtwarzanie Audio'})", "avg_cpu_percent", "%", 2)
         md.append("| " + " | ".join(row_cpu) + " |")
 
         # 5. CPU Max
-        row_max_cpu = ["**Szczytowe CPU (Max Spike)**"]
-        for t, d in results_map.items():
-            max_cpu_val = d.get("max_cpu_percent", 0)
-            if t == "andromeda":
-                row_max_cpu.append(f"**{max_cpu_val:.2f}%**")
-            else:
-                row_max_cpu.append(f"{max_cpu_val:.2f}%")
-        if "andromeda" in results_map:
-            row_max_cpu.append("Płynne przełączenie bez zacięć")
+        row_max_cpu = make_row("Szczytowe CPU (Max Spike)", "max_cpu_percent", "%", 2)
         md.append("| " + " | ".join(row_max_cpu) + " |")
 
         # 6. Processes
-        row_proc = ["**Liczba procesów systemowych**"]
-        proc_diffs = []
-        for t, d in results_map.items():
-            p_val = d.get("max_processes", 1)
-            if t == "andromeda":
-                row_proc.append(f"**{p_val}**")
-            else:
-                row_proc.append(f"{p_val}")
-                proc_diffs.append(f"-{p_val - a_procs}")
-        if "andromeda" in results_map:
-            row_proc.append(f"**Brak narzutu przeglądarek ({', '.join(proc_diffs)} procesów)**" if proc_diffs else "-")
+        row_proc = make_row("Liczba procesów systemowych", "max_processes", "", 0)
         md.append("| " + " | ".join(row_proc) + " |")
 
         if internal_data:
@@ -1062,7 +1063,7 @@ def setup_browser_profiles():
     brave_cmd, _, _, _ = TargetAppLocator.resolve_app("brave")
     if brave_cmd:
         print("\n[1/2] Uruchamianie Brave...")
-        print("  -> Upewnij się, że jesteś zalogowany i przełącznik u góry to 'Utwór'.")
+        print("  -> Upewnij się, że jesteś zalogowany i przełącznik u góry to 'Wideo' (lub 'Utwór').")
         print("  -> Zamknij okno Brave, gdy skończysz.\n")
         proc = subprocess.Popen(brave_cmd)
         proc.wait()
@@ -1071,7 +1072,7 @@ def setup_browser_profiles():
     ff_cmd, _, _, _ = TargetAppLocator.resolve_app("firefox")
     if ff_cmd:
         print("\n[2/2] Uruchamianie Firefox...")
-        print("  -> Upewnij się, że jesteś zalogowany i przełącznik u góry to 'Utwór'.")
+        print("  -> Upewnij się, że jesteś zalogowany i przełącznik u góry to 'Wideo' (lub 'Utwór').")
         print("  -> Zamknij okno Firefox, gdy skończysz.\n")
         proc = subprocess.Popen(ff_cmd)
         proc.wait()
@@ -1088,12 +1089,14 @@ def main():
         "--target",
         type=str,
         default="compare",
-        help="Cel testu: np. 'feishin', 'feishin,andromeda' lub 'compare' (wszystkie)"
+        help="Cel testu: np. 'andromeda', 'brave', 'compare' lub 'compare-video'"
     )
-    parser.add_argument("--scenario", choices=["idle", "playback"], default="playback", help="Scenariusz testu live (domyślnie: playback)")
+    parser.add_argument("--scenario", choices=["idle", "playback", "video"], default="video", help="Scenariusz testu live")
+    parser.add_argument("--video-mode", choices=["live-1080p", "live-480p", "offline"], default="live-1080p", help="Tryb wideo dla Andromedy")
+    parser.add_argument("--playlist-name", type=str, default="benchmark2", help="Nazwa playlisty dla Andromedy")
     parser.add_argument("--warmup", type=int, default=15, help="Czas rozgrzewki przed pomiarem w sekundach (domyślnie 15s)")
-    parser.add_argument("--duration", type=int, default=120, help="Czas trwania próbkowania (domyślnie 120s = 60s utwór 1 + 60s utwór 2)")
-    parser.add_argument("--yt-url", type=str, default=DEFAULT_YT_PLAYLIST_URL, help="Bezpośredni link do odtwarzacza playlisty na YouTube Music")
+    parser.add_argument("--duration", type=int, default=120, help="Czas trwania próbkowania")
+    parser.add_argument("--yt-url", type=str, default="https://music.youtube.com/watch?v=xxFSf9l3dtg&list=PLSOIc_dAyPn8", help="Bezpośredni link do playlisty z wideo na YouTube Music")
     parser.add_argument("--save-md", action="store_true", help="Zapisz tabelę do benchmark_report.md")
     parser.add_argument("--save-csv", action="store_true", help="Zapisz próbki telemetryczne do tests/results/")
     parser.add_argument("--setup-browsers", action="store_true", help="Uruchom kreator logowania w profilach przeglądarek")
@@ -1107,28 +1110,49 @@ def main():
     results_map = {}
 
     target_arg = args.target.strip()
-    valid_targets = ["andromeda", "feishin", "spotify", "brave", "firefox"]
-
-    if target_arg == "compare":
-        targets_to_run = valid_targets
+    
+    # Tryb compare-video uruchamia 5 wariantów dla wideo
+    if target_arg == "compare-video":
+        configs_to_run = [
+            ("andromeda", "live-1080p"),
+            ("andromeda", "live-480p"),
+            ("andromeda", "offline"),
+            ("brave", None),
+            ("firefox", None)
+        ]
+        args.scenario = "video"
+    elif target_arg == "compare":
+        configs_to_run = [
+            ("andromeda", args.video_mode),
+            ("feishin", None),
+            ("spotify", None),
+            ("brave", None),
+            ("firefox", None)
+        ]
     else:
         raw_targets = [t.strip().lower() for t in target_arg.split(",") if t.strip()]
-        targets_to_run = [t for t in raw_targets if t in valid_targets]
-        if not targets_to_run:
-            print(f"[BŁĄD] Nieprawidłowy cel: '{args.target}'. Dostępne opcje: {', '.join(valid_targets)} lub 'compare'")
-            return
+        configs_to_run = [(t, args.video_mode if t == "andromeda" else None) for t in raw_targets]
 
-    if "andromeda" in targets_to_run:
+    if any(c[0] == "andromeda" for c in configs_to_run):
         print("[INFO] Uruchamianie wewnętrznych mikrobenchmarków Andromedy...")
         internal_results = AndromedaInternalBenchmarks.run_all_internal()
 
-    for target in targets_to_run:
-        app_cmd, is_flatpak, flatpak_id, _ = TargetAppLocator.resolve_app(target, scenario=args.scenario, yt_url=args.yt_url)
+    for target, v_mode in configs_to_run:
+        app_cmd, is_flatpak, flatpak_id, _ = TargetAppLocator.resolve_app(
+            target, 
+            scenario=args.scenario, 
+            video_mode=v_mode, 
+            playlist_name=args.playlist_name, 
+            yt_url=args.yt_url
+        )
+        
         if not app_cmd:
             print(f"[OSTRZEŻENIE] Program '{target}' nie został znaleziony w systemie. Pomijam.")
             continue
 
-        print(f"\n[INFO] Uruchamianie testu: {target.upper()} (Scenariusz={args.scenario}, warmup: {args.warmup}s, czas: {args.duration}s)...")
+        mode_str = f" ({v_mode})" if v_mode else ""
+        print(f"\n[INFO] Uruchamianie testu: {target.upper()}{mode_str} (Scenariusz={args.scenario}, warmup: {args.warmup}s, czas: {args.duration}s)...")
+        
         runner = LiveProcessBenchmark(
             target_name=target,
             app_cmd=app_cmd,
@@ -1136,23 +1160,26 @@ def main():
             flatpak_app_id=flatpak_id,
             duration_sec=args.duration,
             warmup_sec=args.warmup,
-            scenario=args.scenario
+            scenario=args.scenario,
+            video_mode=v_mode,
+            playlist_name=args.playlist_name
         )
         live_data = runner.execute()
         if live_data:
-            results_map[target] = live_data
+            display_name = live_data["target"]
+            results_map[display_name] = live_data
 
     if len(results_map) > 1:
         BenchmarkReporter.print_multi_comparison_terminal(results_map)
     elif len(results_map) == 1:
         single_target = list(results_map.keys())[0]
         BenchmarkReporter.print_terminal_summary(
-            internal_results if single_target == "andromeda" else {},
+            internal_results if "Andromeda" in single_target else {},
             results_map[single_target]
         )
 
     if args.save_md and results_map:
-        md_content = BenchmarkReporter.generate_multi_comparison_markdown(results_map, internal_results)
+        md_content = BenchmarkReporter.generate_multi_comparison_markdown(results_map, internal_results, scenario=args.scenario)
         report_path = ROOT_DIR / "benchmark_report.md"
         report_path.write_text(md_content, encoding="utf-8")
         print(f"[SUKCES] Zaktualizowano raport Markdown w: {report_path}")
@@ -1161,7 +1188,8 @@ def main():
         res_dir = ROOT_DIR / "tests" / "results"
         ts = int(time.time())
         for target, data in results_map.items():
-            BenchmarkReporter.export_csv(data, res_dir / f"{target}_{args.scenario}_{ts}.csv")
+            safe_name = target.replace(" ", "_").replace("(", "").replace(")", "").lower()
+            BenchmarkReporter.export_csv(data, res_dir / f"{safe_name}_{args.scenario}_{ts}.csv")
         print(f"[SUKCES] Zapisano próbki telemetryczne CSV do: {res_dir}")
 
 
