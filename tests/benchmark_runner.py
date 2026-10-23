@@ -14,13 +14,13 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 CLK_TCK = os.sysconf(os.sysconf_names.get('SC_CLK_TCK', 'SC_CLK_TCK')) or 100
+DEFAULT_YT_PLAYLIST_URL = "https://music.youtube.com/playlist?list=PLKU7Ur1sVjeI"
 
 
 class LinuxProcessMonitor:
     """
-    Niezależny próbnik procesów oparty o jądro Linuksa (/proc).
-    Wykrywa procesy potomne, wątki oraz grupy procesów PGID
-    (niezbędne do pełnego pomiaru architektury wieloprocesowej Electron/Chromium).
+    Niezależny próbnik procesów oparty o jądro Linuksa (/proc) oraz kontroler D-Bus MPRIS.
+    Wykrywa procesy potomne, wątki oraz całe drzewa PGID.
     """
 
     @staticmethod
@@ -140,19 +140,230 @@ class LinuxProcessMonitor:
                     threads += 1
         return max(1, threads)
 
+    @staticmethod
+    def send_mpris_cmd(target_name: str, cmd: str = "Next") -> bool:
+        if shutil.which("playerctl"):
+            try:
+                subprocess.run(
+                    ["playerctl", cmd.lower()],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=1
+                )
+                return True
+            except Exception:
+                pass
+
+        try:
+            res = subprocess.run(
+                [
+                    "dbus-send",
+                    "--session",
+                    "--dest=org.freedesktop.DBus",
+                    "--type=method_call",
+                    "--print-reply",
+                    "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus.ListNames"
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            mpris_names = []
+            for line in res.stdout.splitlines():
+                if 'string "org.mpris.MediaPlayer2.' in line:
+                    mpris_names.append(line.split('"')[1])
+
+            target_lower = target_name.lower()
+            matching = [n for n in mpris_names if target_lower in n.lower() or (target_lower == "andromeda" and "andromeda" in n.lower())]
+
+            for dest in matching:
+                subprocess.run(
+                    [
+                        "dbus-send",
+                        "--type=method_call",
+                        f"--dest={dest}",
+                        "/org/mpris/MediaPlayer2",
+                        f"org.mpris.MediaPlayer2.Player.{cmd}"
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=1
+                )
+                return True
+        except Exception:
+            pass
+        return False
+
+    @staticmethod
+    def get_playback_status(target_name: str) -> str:
+        try:
+            res = subprocess.run(
+                [
+                    "dbus-send",
+                    "--session",
+                    "--dest=org.freedesktop.DBus",
+                    "--type=method_call",
+                    "--print-reply",
+                    "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus.ListNames"
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            mpris_names = []
+            for line in res.stdout.splitlines():
+                if 'string "org.mpris.MediaPlayer2.' in line:
+                    n = line.split('"')[1]
+                    mpris_names.append(n)
+
+            target_lower = target_name.lower()
+            matching = [n for n in mpris_names if target_lower in n.lower() or (target_lower == "andromeda" and "andromeda" in n.lower())]
+
+            for dest in matching:
+                prop_res = subprocess.run(
+                    [
+                        "dbus-send",
+                        "--session",
+                        f"--dest={dest}",
+                        "--type=method_call",
+                        "--print-reply",
+                        "/org/mpris/MediaPlayer2",
+                        "org.freedesktop.DBus.Properties.Get",
+                        "string:org.mpris.MediaPlayer2.Player",
+                        "string:PlaybackStatus"
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=1
+                )
+                for pline in prop_res.stdout.splitlines():
+                    if "variant" in pline and "string" in pline:
+                        val = pline.split('"')[1]
+                        return val
+        except Exception:
+            pass
+        return "Stopped"
+
+    @staticmethod
+    def get_mpris_metadata(target_name: str) -> dict:
+        meta = {}
+        if shutil.which("playerctl"):
+            try:
+                res = subprocess.run(
+                    ["playerctl", "metadata", "xesam:title"],
+                    capture_output=True,
+                    text=True,
+                    timeout=1
+                )
+                if res.returncode == 0 and res.stdout.strip():
+                    meta["title"] = res.stdout.strip()
+                    return meta
+            except Exception:
+                pass
+
+        try:
+            res = subprocess.run(
+                [
+                    "dbus-send",
+                    "--session",
+                    "--dest=org.freedesktop.DBus",
+                    "--type=method_call",
+                    "--print-reply",
+                    "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus.ListNames"
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            mpris_names = []
+            for line in res.stdout.splitlines():
+                if 'string "org.mpris.MediaPlayer2.' in line:
+                    mpris_names.append(line.split('"')[1])
+
+            target_lower = target_name.lower()
+            matching = [n for n in mpris_names if target_lower in n.lower() or (target_lower == "andromeda" and "andromeda" in n.lower())]
+
+            for dest in matching:
+                prop_res = subprocess.run(
+                    [
+                        "dbus-send",
+                        "--session",
+                        f"--dest={dest}",
+                        "--type=method_call",
+                        "--print-reply",
+                        "/org/mpris/MediaPlayer2",
+                        "org.freedesktop.DBus.Properties.Get",
+                        "string:org.mpris.MediaPlayer2.Player",
+                        "string:Metadata"
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=1
+                )
+                lines = prop_res.stdout.splitlines()
+                for i, l in enumerate(lines):
+                    if 'string "xesam:title"' in l:
+                        for j in range(i + 1, min(i + 5, len(lines))):
+                            if 'string "' in lines[j]:
+                                meta["title"] = lines[j].split('"')[1]
+                                return meta
+        except Exception:
+            pass
+        return meta
+
 
 class TargetAppLocator:
     """
-    Automatycznie wykrywa polecenia uruchomieniowe (natywne, Flatpak, AppImage).
+    Automatycznie wykrywa polecenia uruchomieniowe i konfiguruje profile.
     """
 
     @staticmethod
-    def resolve_app(target_name: str, custom_bin: str = None) -> tuple:
+    def get_bench_profiles_dir() -> Path:
+        from core.paths import PathsManager
+        base_dir = PathsManager.get_cache_dir() / "bench_profiles"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        return base_dir
+
+    @staticmethod
+    def clean_browser_sessions(target_name: str, bench_dir: Path):
+        """
+        Usuwa pliki otwartych kart z poprzednich sesji,
+        pozostawiając w 100% nienaruszone ciasteczka i dane logowania.
+        """
+        if target_name == "brave":
+            sessions_dir = bench_dir / "Default" / "Sessions"
+            if sessions_dir.exists():
+                shutil.rmtree(sessions_dir, ignore_errors=True)
+            storage_dir = bench_dir / "Default" / "Session Storage"
+            if storage_dir.exists():
+                shutil.rmtree(storage_dir, ignore_errors=True)
+
+        elif target_name == "firefox":
+            sessionstore = bench_dir / "sessionstore.jsonlz4"
+            if sessionstore.exists():
+                sessionstore.unlink(missing_ok=True)
+            backups = bench_dir / "sessionstore-backups"
+            if backups.exists():
+                shutil.rmtree(backups, ignore_errors=True)
+
+    @staticmethod
+    def resolve_app(
+        target_name: str,
+        scenario: str = "playback",
+        yt_url: str = DEFAULT_YT_PLAYLIST_URL,
+        custom_bin: str = None
+    ) -> tuple:
         if custom_bin:
-            return [custom_bin], False, None
+            return [custom_bin], False, None, None
 
         if target_name == "andromeda":
-            return [sys.executable, str(ROOT_DIR / "main.py")], False, None
+            cmd = [sys.executable, str(ROOT_DIR / "main.py")]
+            if scenario == "playback":
+                cmd.extend(["--play-playlist", "benchmark"])
+            return cmd, False, None, None
 
         flatpak_bin = shutil.which("flatpak")
 
@@ -161,13 +372,13 @@ class TargetAppLocator:
                 try:
                     res = subprocess.run([flatpak_bin, "list", "--app"], capture_output=True, text=True)
                     if "org.jeffvli.feishin" in res.stdout:
-                        return [flatpak_bin, "run", "org.jeffvli.feishin"], True, "org.jeffvli.feishin"
+                        return [flatpak_bin, "run", "org.jeffvli.feishin"], True, "org.jeffvli.feishin", None
                 except Exception:
                     pass
 
             bin_path = shutil.which("feishin")
             if bin_path:
-                return [bin_path], False, None
+                return [bin_path], False, None, None
 
             common_locations = [
                 Path.home() / "Applications" / "feishin.AppImage",
@@ -177,20 +388,20 @@ class TargetAppLocator:
             ]
             for loc in common_locations:
                 if loc.exists() and os.access(loc, os.X_OK):
-                    return [str(loc)], False, None
+                    return [str(loc)], False, None, None
 
         if target_name == "spotify":
             if flatpak_bin:
                 try:
                     res = subprocess.run([flatpak_bin, "list", "--app"], capture_output=True, text=True)
                     if "com.spotify.Client" in res.stdout:
-                        return [flatpak_bin, "run", "com.spotify.Client"], True, "com.spotify.Client"
+                        return [flatpak_bin, "run", "com.spotify.Client"], True, "com.spotify.Client", None
                 except Exception:
                     pass
 
             bin_path = shutil.which("spotify")
             if bin_path:
-                return [bin_path], False, None
+                return [bin_path], False, None, None
 
             common_locations = [
                 Path("/usr/bin/spotify"),
@@ -198,9 +409,67 @@ class TargetAppLocator:
             ]
             for loc in common_locations:
                 if loc.exists() and os.access(loc, os.X_OK):
-                    return [str(loc)], False, None
+                    return [str(loc)], False, None, None
 
-        return None, False, None
+        if target_name == "brave":
+            bin_path = shutil.which("brave-browser") or shutil.which("brave") or "/usr/bin/brave-browser"
+            if Path(bin_path).exists() or shutil.which(bin_path):
+                bench_dir = TargetAppLocator.get_bench_profiles_dir() / "brave"
+                bench_dir.mkdir(parents=True, exist_ok=True)
+                TargetAppLocator.clean_browser_sessions("brave", bench_dir)
+
+                first_run_sentinel = bench_dir / "First Run"
+                first_run_sentinel.touch(exist_ok=True)
+
+                cmd = [
+                    bin_path,
+                    f"--user-data-dir={bench_dir}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-session-crashed-bubble",
+                    "--disable-fre",
+                    "--disable-search-engine-choice-screen",
+                    "--disable-features=BraveP3A,BraveRewards,SearchEngineChoiceScreen,BraveNews,BraveVPN,BraveWallet",
+                    yt_url
+                ]
+                return cmd, False, None, bench_dir
+
+        if target_name == "firefox":
+            bin_path = shutil.which("firefox") or "/usr/bin/firefox"
+            if Path(bin_path).exists() or shutil.which(bin_path):
+                bench_dir = TargetAppLocator.get_bench_profiles_dir() / "firefox"
+                bench_dir.mkdir(parents=True, exist_ok=True)
+                TargetAppLocator.clean_browser_sessions("firefox", bench_dir)
+
+                user_js = bench_dir / "user.js"
+                prefs = (
+                    'user_pref("browser.aboutwelcome.enabled", false);\n'
+                    'user_pref("trailhead.firstrun.didSeeAboutWelcome", true);\n'
+                    'user_pref("browser.startup.page", 1);\n'
+                    'user_pref("browser.startup.homepage", "about:blank");\n'
+                    'user_pref("browser.shell.checkDefaultBrowser", false);\n'
+                    'user_pref("datareporting.policy.dataSubmissionPolicyAccepted", true);\n'
+                    'user_pref("datareporting.policy.dataSubmissionPolicyBypassAcceptance", true);\n'
+                    'user_pref("browser.newtabpage.enabled", false);\n'
+                    'user_pref("browser.search.choice_screen.enabled", false);\n'
+                    'user_pref("doh-rollout.doneFirstRun", true);\n'
+                    'user_pref("browser.sessionstore.resume_from_crash", false);\n'
+                    'user_pref("browser.sessionstore.max_resumed_crashes", 0);\n'
+                    'user_pref("media.hardwaremediakeys.enabled", true);\n'
+                )
+                user_js.write_text(prefs, encoding="utf-8")
+
+                cmd = [
+                    bin_path,
+                    "--new-instance",
+                    "--no-remote",
+                    "--profile",
+                    str(bench_dir),
+                    yt_url
+                ]
+                return cmd, False, None, bench_dir
+
+        return None, False, None, None
 
 
 class AndromedaInternalBenchmarks:
@@ -334,8 +603,9 @@ class AndromedaInternalBenchmarks:
 
 class LiveProcessBenchmark:
     """
-    Uruchamia docelowy program (w tym kontenery Flatpak),
-    monitoruje zużycie zasobów całego drzewa procesów i dba o czyste zamykanie.
+    Uruchamia docelowy program, weryfikuje start właściwego Utworu 1 ('Przyszłość')
+    przez D-Bus MPRIS, zapewnia równą 15-sekundową rozgrzewkę bufora dla każdego programu,
+    zegar na żywo w konsoli oraz automatyczne przełączanie utworu sygnałem MPRIS.
     """
 
     def __init__(
@@ -344,9 +614,9 @@ class LiveProcessBenchmark:
         app_cmd: list,
         is_flatpak: bool = False,
         flatpak_app_id: str = None,
-        duration_sec: int = 15,
+        duration_sec: int = 120,
         warmup_sec: int = 15,
-        scenario: str = "idle"
+        scenario: str = "playback"
     ):
         self.target_name = target_name
         self.app_cmd = app_cmd
@@ -377,7 +647,6 @@ class LiveProcessBenchmark:
         return child_pids
 
     def execute(self) -> dict:
-        # Czysty start: upewnij się, że żadna instancja Flatpak nie wisi w tle
         if self.is_flatpak and self.flatpak_app_id:
             subprocess.run(
                 ["flatpak", "kill", self.flatpak_app_id],
@@ -404,7 +673,7 @@ class LiveProcessBenchmark:
         samples = []
 
         try:
-            # 1. Krok: Pomiar czasu startu (z tolerancją dla Flatpak launcherów)
+            # 1. Krok: Pomiar czasu startu okna
             flatpak_pids = set()
             for _ in range(300):
                 if self.is_flatpak:
@@ -429,14 +698,47 @@ class LiveProcessBenchmark:
             if startup_time_sec is None:
                 startup_time_sec = time.perf_counter() - t_before_launch
 
+            # 2. Krok: Weryfikacja startu właściwego Utworu 1 ('Przyszłość')
+            if self.scenario == "playback":
+                expected_kw = "przysz"
+                is_playing_correct = False
+
+                LinuxProcessMonitor.send_mpris_cmd(self.target_name, "Play")
+                time.sleep(1.0)
+
+                for _ in range(5):
+                    status = LinuxProcessMonitor.get_playback_status(self.target_name)
+                    meta = LinuxProcessMonitor.get_mpris_metadata(self.target_name)
+                    title = meta.get("title", "")
+                    if status == "Playing" and (expected_kw in title.lower() or not title):
+                        is_playing_correct = True
+                        break
+                    time.sleep(0.5)
+
+                if not is_playing_correct:
+                    curr_title = LinuxProcessMonitor.get_mpris_metadata(self.target_name).get("title", "Brak")
+                    print(f"\n[INFO] [{self.target_name.upper()}] Wykryty utwór w odtwarzaczu: '{curr_title}'.")
+                    print(f"       -> Otwórz playlistę 'benchmark' i kliknij Utwór 1 ('Przyszłość') w oknie {self.target_name.upper()}!")
+                    for _ in range(60):
+                        time.sleep(0.5)
+                        status = LinuxProcessMonitor.get_playback_status(self.target_name)
+                        meta = LinuxProcessMonitor.get_mpris_metadata(self.target_name)
+                        title = meta.get("title", "")
+                        if status == "Playing" and (expected_kw in title.lower() or not title):
+                            is_playing_correct = True
+                            print(f"[OK] [{self.target_name.upper()}] Wykryto prawidłowy Utwór 1: '{title or 'Przyszłość'}'!")
+                            break
+
+            # 3. Krok: Równa 15-sekundowa rozgrzewka bufora audio
             if self.warmup_sec > 0:
-                print(f"[INFO] [{self.target_name.upper()}] Faza rozgrzewki: oczekiwanie {self.warmup_sec}s...")
+                print(f"[INFO] [{self.target_name.upper()}] Faza rozgrzewki: Utwór 1 ('Przyszłość') gra, stabilizacja bufora PipeWire ({self.warmup_sec}s)...")
                 time.sleep(self.warmup_sec)
 
-            print(f"[INFO] [{self.target_name.upper()}] Rozpoczynam próbkowanie metryk ({self.duration_sec}s)...")
+            print(f"[INFO] [{self.target_name.upper()}] Rozpoczynam próbkowanie metryk (czas trwania: {self.duration_sec}s)...")
             start_time = time.perf_counter()
             prev_ticks = 0
             prev_tick_time = start_time
+            next_track_triggered = False
 
             end_loop_time = time.perf_counter() + self.duration_sec
             while time.perf_counter() < end_loop_time:
@@ -452,6 +754,7 @@ class LiveProcessBenchmark:
 
                 now = time.perf_counter()
                 dt = now - prev_tick_time
+                elapsed = now - start_time
 
                 seed_pids = set(flatpak_pids)
                 seed_pids.add(root_pid)
@@ -470,8 +773,26 @@ class LiveProcessBenchmark:
                 prev_ticks = current_ticks
                 prev_tick_time = now
 
+                # Automatyczne przełączenie utworu w 60. sekundzie testu
+                if self.scenario == "playback" and not next_track_triggered and elapsed >= 60.0:
+                    next_track_triggered = True
+                    sys.stdout.write(f"\n[INFO] [{self.target_name.upper()}] >>> [01:00] PRZEŁĄCZANIE: WYSYŁANIE SYGNAŁU D-BUS MPRIS (NEXT) <<<\n")
+                    sys.stdout.flush()
+                    LinuxProcessMonitor.send_mpris_cmd(self.target_name, "Next")
+
+                mins = int(elapsed // 60)
+                secs = int(elapsed % 60)
+                tot_mins = int(self.duration_sec // 60)
+                tot_secs = int(self.duration_sec % 60)
+                track_label = "Utwór 1 (Przyszłość)" if elapsed < 60.0 else "Utwór 2 (MIĘSO)"
+                sys.stdout.write(
+                    f"\r[{self.target_name.upper():<9}] [{mins:02d}:{secs:02d} / {tot_mins:02d}:{tot_secs:02d}] "
+                    f"[{track_label}] CPU: {cpu_percent:5.1f}% | PSS: {mem['pss_mb']:6.1f} MB | Procesy: {len(pids)}"
+                )
+                sys.stdout.flush()
+
                 samples.append({
-                    "time_offset": round(now - start_time, 2),
+                    "time_offset": round(elapsed, 2),
                     "cpu_percent": round(max(0.0, cpu_percent), 2),
                     "pss_mb": round(mem["pss_mb"], 2),
                     "rss_mb": round(mem["rss_mb"], 2),
@@ -480,6 +801,9 @@ class LiveProcessBenchmark:
                     "process_count": len(pids),
                 })
                 time.sleep(0.5)
+
+            sys.stdout.write("\n")
+            sys.stdout.flush()
 
         finally:
             if self.is_flatpak and self.flatpak_app_id:
@@ -547,7 +871,7 @@ class BenchmarkReporter:
             print(f"  • Zapytanie SQLite WAL (2000 w.):   {internal_data.get('sqlite_wal_query_2000_ms', 0):.2f} ms")
 
         if live_data:
-            scenario_name = live_data.get('scenario', 'idle').upper()
+            scenario_name = live_data.get('scenario', 'playback').upper()
             warmup_val = live_data.get('warmup_sec', 0)
             print(f"\n[2] METRYKI PROCESU LINUX / WAYLAND ({scenario_name}, WARMUP: {warmup_val}s):")
             print(f"  • Czas startu aplikacji:            {live_data.get('startup_time_sec', 0):.3f} s")
@@ -555,6 +879,7 @@ class BenchmarkReporter:
             print(f"  • Pamięć fizyczna (Średni RSS):     {live_data.get('avg_rss_mb', 0):.2f} MB")
             print(f"  • Szczyt pamięci (Max RSS):         {live_data.get('max_rss_mb', 0):.2f} MB")
             print(f"  • Średnie obciążenie CPU:           {live_data.get('avg_cpu_percent', 0):.2f} %")
+            print(f"  • Szczytowe CPU (Max spike):        {live_data.get('max_cpu_percent', 0):.2f} %")
             print(f"  • Liczba procesów systemowych:      {live_data.get('max_processes', 1)}")
             print(f"  • Średnia liczba wątków:            {live_data.get('avg_threads', 0)}")
 
@@ -562,15 +887,15 @@ class BenchmarkReporter:
 
     @staticmethod
     def print_multi_comparison_terminal(results_map: dict):
-        print("\n" + "=" * 90)
-        print("          ZESTAWIENIE PORÓWNAWCZE WYDAJNOŚCI I ZASOBÓW (LINUX / WAYLAND)")
-        print("=" * 90)
+        print("\n" + "=" * 135)
+        print("          ZESTAWIENIE PORÓWNAWCZE: ODTWARZANIE AUDIO (LINUX / WAYLAND / 120s)")
+        print("=" * 135)
 
         header = f"{'Metryka':<32}"
         for name in results_map.keys():
-            header += f" | {name.capitalize():<16}"
+            header += f" | {name.capitalize():<14}"
         print(header)
-        print("-" * 90)
+        print("-" * 135)
 
         def print_row(label, key, unit=""):
             row = f"{label:<32}"
@@ -582,28 +907,38 @@ class BenchmarkReporter:
                     val_str = f"{val} {unit}".strip()
                 else:
                     val_str = str(val)
-                row += f" | {val_str:<16}"
+                row += f" | {val_str:<14}"
             print(row)
 
         print_row("Czas startu (Cold Startup)", "startup_time_sec", "s")
         print_row("Pamięć rzeczywista (PSS)", "avg_pss_mb", "MB")
         print_row("Pamięć fizyczna (RSS)", "avg_rss_mb", "MB")
-        print_row("Średnie CPU (True Idle)", "avg_cpu_percent", "%")
+        print_row("Średnie CPU (Odtwarzanie Audio)", "avg_cpu_percent", "%")
+        print_row("Szczytowe CPU (Max Spike)", "max_cpu_percent", "%")
         print_row("Liczba procesów systemowych", "max_processes")
-        print("=" * 90 + "\n")
+        print("=" * 135 + "\n")
 
     @staticmethod
     def generate_multi_comparison_markdown(results_map: dict, internal_data: dict = None) -> str:
         md = []
-        md.append("## Raport Porównawczy: Andromeda Music vs Konkurencja\n")
-        md.append("*Środowisko testowe: Linux (Fedora / KDE Plasma / Wayland), standaryzowany pomiar jądra (/proc/smaps_rollup)*\n")
+        md.append("## Raport Porównawczy: Andromeda Music vs Konkurencja (Audio Playback)\n")
+        md.append("*Środowisko testowe: Linux (Fedora / KDE Plasma / Wayland), 2 utwory ('Przyszłość' + 'MIĘSO', 120s z przełączeniem MPRIS w 60s), standaryzowany pomiar jądra (/proc/smaps_rollup)*\n")
 
-        headers = ["Metryka", "Andromeda Music (Qt6)"]
+        headers = ["Metryka"]
         for target in results_map.keys():
-            if target != "andromeda":
-                tech = "Electron" if target in ["feishin", "spotify"] else "Natywna"
-                headers.append(f"{target.capitalize()} ({tech})")
-        headers.append("Przewaga Andromedy")
+            if target == "andromeda":
+                headers.append("Andromeda (Qt6)")
+            elif target in ["feishin", "spotify"]:
+                headers.append(f"{target.capitalize()} (Electron)")
+            elif target == "brave":
+                headers.append("Brave (Chromium Web)")
+            elif target == "firefox":
+                headers.append("Firefox (Gecko Web)")
+            else:
+                headers.append(f"{target.capitalize()} (Natywna)")
+
+        if "andromeda" in results_map:
+            headers.append("Przewaga Andromedy")
 
         md.append("| " + " | ".join(headers) + " |")
         md.append("| " + " | ".join([":---" if i == 0 else (":---:" if i < len(headers) - 1 else ":---") for i in range(len(headers))]) + " |")
@@ -613,59 +948,88 @@ class BenchmarkReporter:
         a_pss = a_data.get("avg_pss_mb", 0)
         a_rss = a_data.get("avg_rss_mb", 0)
         a_cpu = a_data.get("avg_cpu_percent", 0)
+        a_max_cpu = a_data.get("max_cpu_percent", 0)
         a_procs = a_data.get("max_processes", 1)
 
         # 1. Start time
-        row_start = ["**Czas startu (Cold Startup)**", f"**{a_start:.3f} s**"]
+        row_start = ["**Czas startu (Cold Startup)**"]
         start_ratios = []
         for t, d in results_map.items():
-            if t != "andromeda":
-                s_val = d.get("startup_time_sec", 0)
+            s_val = d.get("startup_time_sec", 0)
+            if t == "andromeda":
+                row_start.append(f"**{s_val:.3f} s**")
+            else:
                 row_start.append(f"{s_val:.3f} s")
-                if a_start > 0:
+                if a_start > 0 and s_val > 0:
                     start_ratios.append(f"{s_val / a_start:.1f}x")
-        diff_start_str = f"**Do {max(start_ratios, default='-')} szybszy start**" if start_ratios else "-"
-        row_start.append(diff_start_str)
+        if "andromeda" in results_map:
+            row_start.append(f"**Do {max(start_ratios, default='-')} szybszy start**" if start_ratios else "-")
         md.append("| " + " | ".join(row_start) + " |")
 
         # 2. PSS
-        row_pss = ["**Pamięć rzeczywista (PSS)**", f"**{a_pss:.1f} MB**"]
+        row_pss = ["**Pamięć rzeczywista (PSS)**"]
         pss_savings = []
         for t, d in results_map.items():
-            if t != "andromeda":
-                pss_val = d.get("avg_pss_mb", 0)
+            pss_val = d.get("avg_pss_mb", 0)
+            if t == "andromeda":
+                row_pss.append(f"**{pss_val:.1f} MB**")
+            else:
                 row_pss.append(f"{pss_val:.1f} MB")
                 diff = pss_val - a_pss
                 pct = (diff / pss_val * 100) if pss_val > 0 else 0
                 pss_savings.append(f"-{diff:.0f} MB (-{pct:.0f}%)")
-        row_pss.append(f"**Oszczędność {', '.join(pss_savings)}**" if pss_savings else "-")
+        if "andromeda" in results_map:
+            row_pss.append(f"**Oszczędność {', '.join(pss_savings)}**" if pss_savings else "-")
         md.append("| " + " | ".join(row_pss) + " |")
 
         # 3. RSS
-        row_rss = ["**Pamięć fizyczna (RSS)**", f"**{a_rss:.1f} MB**"]
+        row_rss = ["**Pamięć fizyczna (RSS)**"]
         for t, d in results_map.items():
-            if t != "andromeda":
-                row_rss.append(f"{d.get('avg_rss_mb', 0):.1f} MB")
-        row_rss.append("Niska pamięć rezydentna")
+            rss_val = d.get("avg_rss_mb", 0)
+            if t == "andromeda":
+                row_rss.append(f"**{rss_val:.1f} MB**")
+            else:
+                row_rss.append(f"{rss_val:.1f} MB")
+        if "andromeda" in results_map:
+            row_rss.append("Niska pamięć rezydentna")
         md.append("| " + " | ".join(row_rss) + " |")
 
-        # 4. CPU
-        row_cpu = ["**Średnie CPU (True Idle)**", f"**{a_cpu:.2f}%**"]
+        # 4. CPU Avg
+        row_cpu = ["**Średnie CPU (Odtwarzanie Audio)**"]
         for t, d in results_map.items():
-            if t != "andromeda":
-                row_cpu.append(f"{d.get('avg_cpu_percent', 0):.2f}%")
-        row_cpu.append("Pętla zdarzeń Qt6 uśpiona")
+            cpu_val = d.get("avg_cpu_percent", 0)
+            if t == "andromeda":
+                row_cpu.append(f"**{cpu_val:.2f}%**")
+            else:
+                row_cpu.append(f"{cpu_val:.2f}%")
+        if "andromeda" in results_map:
+            row_cpu.append("Natywny potok audio PipeWire")
         md.append("| " + " | ".join(row_cpu) + " |")
 
-        # 5. Processes
-        row_proc = ["**Liczba procesów systemowych**", f"**{a_procs}**"]
+        # 5. CPU Max
+        row_max_cpu = ["**Szczytowe CPU (Max Spike)**"]
+        for t, d in results_map.items():
+            max_cpu_val = d.get("max_cpu_percent", 0)
+            if t == "andromeda":
+                row_max_cpu.append(f"**{max_cpu_val:.2f}%**")
+            else:
+                row_max_cpu.append(f"{max_cpu_val:.2f}%")
+        if "andromeda" in results_map:
+            row_max_cpu.append("Płynne przełączenie bez zacięć")
+        md.append("| " + " | ".join(row_max_cpu) + " |")
+
+        # 6. Processes
+        row_proc = ["**Liczba procesów systemowych**"]
         proc_diffs = []
         for t, d in results_map.items():
-            if t != "andromeda":
-                p_val = d.get("max_processes", 1)
+            p_val = d.get("max_processes", 1)
+            if t == "andromeda":
+                row_proc.append(f"**{p_val}**")
+            else:
                 row_proc.append(f"{p_val}")
                 proc_diffs.append(f"-{p_val - a_procs}")
-        row_proc.append(f"**Brak narzutu Chromium ({', '.join(proc_diffs)} procesów)**" if proc_diffs else "-")
+        if "andromeda" in results_map:
+            row_proc.append(f"**Brak narzutu przeglądarek ({', '.join(proc_diffs)} procesów)**" if proc_diffs else "-")
         md.append("| " + " | ".join(row_proc) + " |")
 
         if internal_data:
@@ -690,41 +1054,81 @@ class BenchmarkReporter:
             writer.writerows(samples)
 
 
+def setup_browser_profiles():
+    print("\n" + "=" * 70)
+    print("      KREATOR PRZYGOTOWANIA PROFILI PRZEGLĄDAREK DO BENCHMARKU")
+    print("=" * 70)
+
+    brave_cmd, _, _, _ = TargetAppLocator.resolve_app("brave")
+    if brave_cmd:
+        print("\n[1/2] Uruchamianie Brave...")
+        print("  -> Upewnij się, że jesteś zalogowany i przełącznik u góry to 'Utwór'.")
+        print("  -> Zamknij okno Brave, gdy skończysz.\n")
+        proc = subprocess.Popen(brave_cmd)
+        proc.wait()
+        print("[OK] Zapisano sesję dla Brave.")
+
+    ff_cmd, _, _, _ = TargetAppLocator.resolve_app("firefox")
+    if ff_cmd:
+        print("\n[2/2] Uruchamianie Firefox...")
+        print("  -> Upewnij się, że jesteś zalogowany i przełącznik u góry to 'Utwór'.")
+        print("  -> Zamknij okno Firefox, gdy skończysz.\n")
+        proc = subprocess.Popen(ff_cmd)
+        proc.wait()
+        print("[OK] Zapisano sesję dla Firefox.")
+
+    print("\n" + "=" * 70)
+    print("[SUKCES] Profile gotowe!")
+    print("=" * 70 + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Andromeda Music Benchmark & Multi-Comparison Runner")
     parser.add_argument(
         "--target",
-        choices=["andromeda", "feishin", "spotify", "compare"],
+        type=str,
         default="compare",
-        help="Cel testu: andromeda, feishin, spotify lub compare (uruchamia wszystkie dostępne programy)"
+        help="Cel testu: np. 'feishin', 'feishin,andromeda' lub 'compare' (wszystkie)"
     )
-    parser.add_argument("--scenario", choices=["idle", "playback"], default="idle", help="Scenariusz testu live")
+    parser.add_argument("--scenario", choices=["idle", "playback"], default="playback", help="Scenariusz testu live (domyślnie: playback)")
     parser.add_argument("--warmup", type=int, default=15, help="Czas rozgrzewki przed pomiarem w sekundach (domyślnie 15s)")
-    parser.add_argument("--duration", type=int, default=15, help="Czas trwania próbkowania (sekundy)")
+    parser.add_argument("--duration", type=int, default=120, help="Czas trwania próbkowania (domyślnie 120s = 60s utwór 1 + 60s utwór 2)")
+    parser.add_argument("--yt-url", type=str, default=DEFAULT_YT_PLAYLIST_URL, help="Bezpośredni link do odtwarzacza playlisty na YouTube Music")
     parser.add_argument("--save-md", action="store_true", help="Zapisz tabelę do benchmark_report.md")
     parser.add_argument("--save-csv", action="store_true", help="Zapisz próbki telemetryczne do tests/results/")
+    parser.add_argument("--setup-browsers", action="store_true", help="Uruchom kreator logowania w profilach przeglądarek")
     args = parser.parse_args()
+
+    if args.setup_browsers:
+        setup_browser_profiles()
+        return
 
     internal_results = {}
     results_map = {}
 
-    targets_to_run = []
-    if args.target == "compare":
-        targets_to_run = ["andromeda", "feishin", "spotify"]
+    target_arg = args.target.strip()
+    valid_targets = ["andromeda", "feishin", "spotify", "brave", "firefox"]
+
+    if target_arg == "compare":
+        targets_to_run = valid_targets
     else:
-        targets_to_run = [args.target]
+        raw_targets = [t.strip().lower() for t in target_arg.split(",") if t.strip()]
+        targets_to_run = [t for t in raw_targets if t in valid_targets]
+        if not targets_to_run:
+            print(f"[BŁĄD] Nieprawidłowy cel: '{args.target}'. Dostępne opcje: {', '.join(valid_targets)} lub 'compare'")
+            return
 
     if "andromeda" in targets_to_run:
         print("[INFO] Uruchamianie wewnętrznych mikrobenchmarków Andromedy...")
         internal_results = AndromedaInternalBenchmarks.run_all_internal()
 
     for target in targets_to_run:
-        app_cmd, is_flatpak, flatpak_id = TargetAppLocator.resolve_app(target)
+        app_cmd, is_flatpak, flatpak_id, _ = TargetAppLocator.resolve_app(target, scenario=args.scenario, yt_url=args.yt_url)
         if not app_cmd:
             print(f"[OSTRZEŻENIE] Program '{target}' nie został znaleziony w systemie. Pomijam.")
             continue
 
-        print(f"\n[INFO] Uruchamianie testu: {target.upper()} (Flatpak={is_flatpak}, warmup: {args.warmup}s, próbkowanie: {args.duration}s)...")
+        print(f"\n[INFO] Uruchamianie testu: {target.upper()} (Scenariusz={args.scenario}, warmup: {args.warmup}s, czas: {args.duration}s)...")
         runner = LiveProcessBenchmark(
             target_name=target,
             app_cmd=app_cmd,

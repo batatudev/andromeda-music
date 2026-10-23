@@ -10,12 +10,47 @@ os.environ["PULSE_PROP_media.role"] = "music"
 import sys
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
 import qtawesome as qta
 
 from api_client import NavidromeClient
 from config import APP_CONFIG, APP_NAME, APP_ICON_PATH
 from ui.theme_manager import theme_manager
 from ui.main_window import MainWindow
+from core.models import MediaItem
+from utils import logger
+
+
+def _auto_play_playlist(main_window, pl_name: str):
+    """
+    Automatycznie odnajduje playlistę o zadanej nazwie i rozpoczyna odtwarzanie.
+    """
+    def fetch():
+        try:
+            params = main_window.client._get_auth_params()
+            res = main_window.client._make_request("getPlaylists", params)
+            playlists = res.get('playlists', {}).get('playlist', [])
+            target_id = None
+            for pl in playlists:
+                if pl.get('name', '').lower() == pl_name.lower():
+                    target_id = pl.get('id')
+                    break
+            if target_id:
+                p_params = main_window.client._get_auth_params()
+                p_params['id'] = target_id
+                p_res = main_window.client._make_request("getPlaylist", p_params)
+                pl_data = p_res.get('playlist', {})
+                songs = pl_data.get('entry', []) or pl_data.get('song', [])
+                return [MediaItem(s) for s in songs]
+        except Exception as e:
+            logger.log(f"Błąd auto-play playlisty {pl_name}: {e}")
+        return []
+
+    def on_ready(songs):
+        if songs:
+            main_window.engine.play_list(songs, 0)
+
+    main_window.run_async(fetch, on_ready, page_bound=False)
 
 
 def run():
@@ -29,8 +64,19 @@ def run():
         c = NavidromeClient(APP_CONFIG["url"], APP_CONFIG["username"], APP_CONFIG["password"])
     else:
         c = NavidromeClient("http://localhost", "", "")
+
     w = MainWindow(c)
     w.show()
+
+    if "--play-playlist" in sys.argv:
+        try:
+            idx = sys.argv.index("--play-playlist")
+            if idx + 1 < len(sys.argv):
+                playlist_name = sys.argv[idx + 1]
+                QTimer.singleShot(600, lambda: _auto_play_playlist(w, playlist_name))
+        except Exception as e:
+            logger.log(f"Błąd parsowania argumentu --play-playlist: {e}")
+
     sys.exit(app.exec())
 
 
