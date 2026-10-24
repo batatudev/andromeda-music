@@ -8,7 +8,7 @@ os.environ["PULSE_PROP_application.icon_name"] = "multimedia-audio-player"
 os.environ["PULSE_PROP_media.role"] = "music"
 
 import sys
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QSurfaceFormat
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer
 import qtawesome as qta
@@ -19,7 +19,6 @@ from ui.theme_manager import theme_manager
 from ui.main_window import MainWindow
 from core.models import MediaItem
 from utils import logger
-
 
 def _auto_play_playlist(main_window, pl_name: str):
     """
@@ -52,14 +51,18 @@ def _auto_play_playlist(main_window, pl_name: str):
 
     main_window.run_async(fetch, on_ready, page_bound=False)
 
-
 def _force_video_mode(main_window):
     if not main_window.player_bar.btn_video_toggle.isChecked():
         main_window.player_bar.btn_video_toggle.setChecked(True)
         main_window._toggle_video_mode()
 
-
 def run():
+    surface_format = QSurfaceFormat()
+    surface_format.setAlphaBufferSize(8)
+    surface_format.setDepthBufferSize(24)
+    surface_format.setRenderableType(QSurfaceFormat.OpenGL)
+    QSurfaceFormat.setDefaultFormat(surface_format)
+
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(APP_ICON_PATH))
     theme_manager.reload_theme()
@@ -87,7 +90,6 @@ def run():
         QTimer.singleShot(1500, lambda: _force_video_mode(w))
 
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     run()
