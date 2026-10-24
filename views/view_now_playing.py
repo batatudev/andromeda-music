@@ -30,21 +30,33 @@ Item {
     property alias videoOutputItem: videoOutput
     property real blurStrength: 0.0
 
+    // Ciemne tło zapobiegające białym przebłyskom z domyślnego bufora FBO
+    Rectangle {
+        anchors.fill: parent
+        color: "#050505"
+        z: -2
+    }
+
+    // 1. Warstwa wideo (GPU zero-copy) z marginesem -24px, by shader nie próbkował krawędzi
     VideoOutput {
         id: videoOutput
         anchors.fill: parent
+        anchors.margins: -24
         fillMode: VideoOutput.PreserveAspectCrop
         visible: root.blurStrength <= 0.01
     }
 
+    // 2. Warstwa MultiEffect (kinowy GPU shader blur)
     MultiEffect {
         id: blurEffect
         anchors.fill: parent
+        anchors.margins: -24
         source: videoOutput
         visible: root.blurStrength > 0.01
         blurEnabled: root.blurStrength > 0.01
         blur: root.blurStrength
-        blurMax: 48
+        blurMax: 64
+        autoPaddingEnabled: false
     }
 }
 """
@@ -63,7 +75,8 @@ class VideoQuickWidget(QQuickWidget):
 
         self.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
         self.setAttribute(Qt.WA_AlwaysStackOnTop, False)
-        self.setStyleSheet("background: transparent; border: none;")
+        self.setClearColor(QColor(5, 5, 5))
+        self.setStyleSheet("background: #050505; border: none;")
 
         qml_path = PathsManager.get_cache_dir() / "video_background.qml"
         try:
@@ -491,7 +504,10 @@ class NowPlayingWidget(QFrame):
             self._dim_base = opacity / 100.0
             self.overlay.opacity = self._dim_base
 
-            blur_ratio = min(1.0, max(0.0, blur_val / 100.0))
+            if blur_val > 0:
+                blur_ratio = min(1.0, (blur_val / 100.0) ** 0.55)
+            else:
+                blur_ratio = 0.0
             self.video_widget.set_blur(blur_ratio)
         else:
             opacity = APP_CONFIG.get("video_static_opacity", 80)
