@@ -1,6 +1,7 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+import sys
 import qtawesome as qta
 
 from PySide6.QtWidgets import (
@@ -501,6 +502,22 @@ class NowPlayingWidget(QFrame):
             opacity = APP_CONFIG.get("video_dynamic_opacity", 30)
             blur_val = APP_CONFIG.get("video_dynamic_blur", 0)
 
+            if "--force-opacity" in sys.argv:
+                try:
+                    idx = sys.argv.index("--force-opacity")
+                    if idx + 1 < len(sys.argv):
+                        opacity = int(sys.argv[idx + 1])
+                except Exception:
+                    pass
+
+            if "--force-blur" in sys.argv:
+                try:
+                    idx = sys.argv.index("--force-blur")
+                    if idx + 1 < len(sys.argv):
+                        blur_val = int(sys.argv[idx + 1])
+                except Exception:
+                    pass
+
             self._dim_base = opacity / 100.0
             self.overlay.opacity = self._dim_base
 
@@ -531,7 +548,6 @@ class NowPlayingWidget(QFrame):
                         self.bg_label.setPixmap(self.raw_pixmap)
                     else:
                         from utils import get_blurred_pixmap
-                        # Zeskalowanie 1:1 ze shaderem wideo (wartość 40 daje identyczny promień ~8.4px)
                         effective_blur = max(1, int(blur_val * 0.21))
                         blurred = get_blurred_pixmap(self.raw_pixmap, effective_blur)
                         self._cached_blurred_pixmap = blurred
