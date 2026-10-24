@@ -6,8 +6,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-DEFAULT_YT_PLAYLIST_URL = "https://music.youtube.com/watch?v=xxFSf9l3dtg&list=PLKU7Ur1sVjeI"
-
 class TargetAppLocator:
     """
     Automatycznie wykrywa polecenia uruchomieniowe i konfiguruje profile testowe aplikacji.
@@ -48,7 +46,7 @@ class TargetAppLocator:
         scenario: str = "video",
         video_mode: str = "live-1080p",
         playlist_name: str = "benchmark2",
-        yt_url: str = DEFAULT_YT_PLAYLIST_URL,
+        yt_url: str = None,
         custom_bin: str = None,
         blur_val: int = None,
         opacity_val: int = None
@@ -142,7 +140,8 @@ class TargetAppLocator:
                     "--disable-search-engine-choice-screen",
                     "--disable-features=BraveP3A,BraveRewards,SearchEngineChoiceScreen,BraveNews,BraveVPN,BraveWallet",
                 ]
-                if scenario in ["playback", "video"]:
+
+                if yt_url:
                     cmd.append(yt_url)
                 return cmd, False, None, bench_dir
 
@@ -178,7 +177,8 @@ class TargetAppLocator:
                     "--profile",
                     str(bench_dir)
                 ]
-                if scenario in ["playback", "video"]:
+
+                if yt_url:
                     cmd.append(yt_url)
                 return cmd, False, None, bench_dir
 

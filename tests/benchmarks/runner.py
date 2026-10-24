@@ -11,7 +11,7 @@ from .monitor import LinuxProcessMonitor, LinuxGpuMonitor, CLK_TCK
 
 class LiveProcessBenchmark:
     """
-    Uruchamia aplikację testową, weryfikuje start odtwarzania przez D-Bus MPRIS,
+    Uruchamia aplikację testową, dynamicznie weryfikuje start odtwarzania przez skanowanie D-Bus MPRIS,
     stabilizuje bufor w fazie warmup i próbuje telemetrię CPU, RAM oraz GPU.
     """
 
@@ -127,38 +127,43 @@ class LiveProcessBenchmark:
             if startup_time_sec is None:
                 startup_time_sec = time.perf_counter() - t_before_launch
 
+            target_mpris_name = None
+
             if self.scenario in ["playback", "video"]:
                 expected_kw = "przysz" if self.scenario == "playback" else "nieba"
                 expected_title = "Przyszłość" if self.scenario == "playback" else "WIĘCEJ NIEBA"
-                is_playing_correct = False
+                
+                print(f"\n[INFO] [{self.display_name.upper()}] Czekam na włączenie utworu '{expected_title}'...")
 
-                LinuxProcessMonitor.send_mpris_cmd(self.target_name, "Play")
-                time.sleep(1.0)
-
-                for _ in range(5):
-                    status = LinuxProcessMonitor.get_playback_status(self.target_name)
-                    meta = LinuxProcessMonitor.get_mpris_metadata(self.target_name)
-                    title = meta.get("title", "")
-                    if status == "Playing" and (expected_kw in title.lower() or not title):
-                        is_playing_correct = True
-                        break
-                    time.sleep(0.5)
-
-                if not is_playing_correct:
-                    curr_title = LinuxProcessMonitor.get_mpris_metadata(self.target_name).get("title", "Brak")
-                    print(f"\n[INFO] [{self.display_name.upper()}] Wykryty utwór w odtwarzaczu: '{curr_title}'.")
-                    print(f"       -> Otwórz playlistę '{self.playlist_name}' i kliknij Utwór 1 ('{expected_title}') w oknie!")
-                    for _ in range(60):
-                        time.sleep(0.5)
-                        status = LinuxProcessMonitor.get_playback_status(self.target_name)
-                        meta = LinuxProcessMonitor.get_mpris_metadata(self.target_name)
-                        title = meta.get("title", "")
-                        if status == "Playing" and (expected_kw in title.lower() or not title):
-                            print(f"[OK] [{self.display_name.upper()}] Wykryto prawidłowy Utwór 1: '{title or expected_title}'!")
+                for _ in range(240):  # Czeka do 120 sekund
+                    players = LinuxProcessMonitor.get_all_mpris_players()
+                    debug_info = []
+                    found = False
+                    
+                    for p in players:
+                        t = LinuxProcessMonitor.get_player_title(p)
+                        st = LinuxProcessMonitor.get_player_status(p)
+                        if t:
+                            debug_info.append(f"{p}='{t[:15]}'")
+                        
+                        if expected_kw in t.lower() and st == "Playing":
+                            target_mpris_name = p
+                            found = True
                             break
+                    
+                    if found:
+                        print(f"\n[OK] [{self.display_name.upper()}] Wykryto prawidłowy Utwór 1: '{expected_title}' w odtwarzaczu {target_mpris_name}!")
+                        break
+                    else:
+                        dbg_str = ", ".join(debug_info) if debug_info else "Brak"
+                        sys.stdout.write(f"\r[OCZEKIWANIE] Kliknij '{expected_title}'... (Widoczne procesy: {dbg_str})")
+                        sys.stdout.flush()
+                        time.sleep(0.5)
+                else:
+                    print(f"\n[OSTRZEŻENIE] Nie wykryto utworu '{expected_title}' w przewidzianym czasie. Kontynuuję test...")
 
             if self.warmup_sec > 0:
-                print(f"[INFO] [{self.display_name.upper()}] Faza rozgrzewki: stabilizacja buforów ({self.warmup_sec}s)...")
+                print(f"\n[INFO] [{self.display_name.upper()}] Faza rozgrzewki: stabilizacja buforów ({self.warmup_sec}s)...")
                 time.sleep(self.warmup_sec)
 
             print(f"[INFO] [{self.display_name.upper()}] Rozpoczynam próbkowanie metryk (czas trwania: {self.duration_sec}s)...")
@@ -223,17 +228,25 @@ class LiveProcessBenchmark:
                     next_track_triggered = True
                     sys.stdout.write(f"\n[INFO] [{self.display_name.upper()}] >>> [{int(self.duration_sec/2)}s] PRZEŁĄCZANIE: WYSYŁANIE SYGNAŁU D-BUS MPRIS (NEXT) <<<\n")
                     sys.stdout.flush()
-                    LinuxProcessMonitor.send_mpris_cmd(self.target_name, "Next")
+                    if target_mpris_name:
+                        LinuxProcessMonitor.send_cmd_to_player(target_mpris_name, "Next")
 
                 mins = int(elapsed // 60)
                 secs = int(elapsed % 60)
                 tot_mins = int(self.duration_sec // 60)
                 tot_secs = int(self.duration_sec % 60)
 
+                if self.scenario == "video":
+                    track_label = "Utwór 1 (WIĘCEJ NIEBA)" if elapsed < (self.duration_sec / 2) else "Utwór 2 (JESTEM WOLNY)"
+                elif self.scenario == "playback":
+                    track_label = "Utwór 1 (Przyszłość)" if elapsed < (self.duration_sec / 2) else "Utwór 2 (Mięso)"
+                else:
+                    track_label = "Spoczynek (Idle)"
+
                 sys.stdout.write(
                     f"\r[{self.display_name:<26}] [{mins:02d}:{secs:02d}/{tot_mins:02d}:{tot_secs:02d}] "
-                    f"CPU: {cpu_percent_total:4.1f}% (Rdzeń: {cpu_percent_raw:5.1f}%) | "
-                    f"GPU: {gpu_total_pct:4.1f}% (3D: {gpu_render_pct:4.1f}%, Dec: {gpu_video_pct:4.1f}%) | "
+                    f"[{track_label}] CPU: {cpu_percent_total:4.1f}% | "
+                    f"GPU: {gpu_total_pct:4.1f}% | "
                     f"PSS: {mem['pss_mb']:5.1f}MB"
                 )
                 sys.stdout.flush()

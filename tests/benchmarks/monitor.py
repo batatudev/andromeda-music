@@ -9,7 +9,7 @@ CLK_TCK = os.sysconf(os.sysconf_names.get('SC_CLK_TCK', 'SC_CLK_TCK')) or 100
 
 class LinuxProcessMonitor:
     """
-    Niezależny próbnik procesów oparty o jądro Linuksa (/proc) oraz kontroler D-Bus MPRIS.
+    Niezależny próbnik procesów oparty o jądro Linuksa (/proc) oraz dynamiczny kontroler D-Bus MPRIS.
     Wykrywa procesy potomne, wątki oraz całe drzewa PGID.
     """
 
@@ -130,179 +130,106 @@ class LinuxProcessMonitor:
                     threads += 1
         return max(1, threads)
 
+    # --- DYNAMICZNE WYKRYWANIE MPRIS ---
+
     @staticmethod
-    def send_mpris_cmd(target_name: str, cmd: str = "Next") -> bool:
+    def get_all_mpris_players() -> list:
+        players = []
         if shutil.which("playerctl"):
             try:
-                subprocess.run(
-                    ["playerctl", cmd.lower()],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=1
-                )
-                return True
+                res = subprocess.run(["playerctl", "-l"], capture_output=True, text=True, timeout=1)
+                if res.returncode == 0:
+                    players = res.stdout.splitlines()
             except Exception:
                 pass
-
-        try:
-            res = subprocess.run(
-                [
-                    "dbus-send",
-                    "--session",
-                    "--dest=org.freedesktop.DBus",
-                    "--type=method_call",
-                    "--print-reply",
-                    "/org/freedesktop/DBus",
+        
+        if not players:
+            try:
+                res = subprocess.run([
+                    "dbus-send", "--session", "--dest=org.freedesktop.DBus",
+                    "--type=method_call", "--print-reply", "/org/freedesktop/DBus",
                     "org.freedesktop.DBus.ListNames"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            mpris_names = []
-            for line in res.stdout.splitlines():
-                if 'string "org.mpris.MediaPlayer2.' in line:
-                    mpris_names.append(line.split('"')[1])
-
-            target_lower = target_name.lower()
-            matching = [n for n in mpris_names if target_lower in n.lower() or (target_lower == "andromeda" and "andromeda" in n.lower())]
-
-            for dest in matching:
-                subprocess.run(
-                    [
-                        "dbus-send",
-                        "--type=method_call",
-                        f"--dest={dest}",
-                        "/org/mpris/MediaPlayer2",
-                        f"org.mpris.MediaPlayer2.Player.{cmd}"
-                    ],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=1
-                )
-                return True
-        except Exception:
-            pass
-        return False
+                ], capture_output=True, text=True, timeout=2)
+                players = [line.split('"')[1] for line in res.stdout.splitlines() if 'string "org.mpris.MediaPlayer2.' in line]
+            except Exception:
+                pass
+        
+        return players
 
     @staticmethod
-    def get_playback_status(target_name: str) -> str:
+    def get_player_title(player_name: str) -> str:
+        if shutil.which("playerctl") and not player_name.startswith("org.mpris"):
+            try:
+                res = subprocess.run(["playerctl", "-p", player_name, "metadata", "xesam:title"], capture_output=True, text=True, timeout=1)
+                if res.returncode == 0:
+                    return res.stdout.strip()
+            except Exception:
+                pass
+        
+        dest = player_name if player_name.startswith("org.mpris") else f"org.mpris.MediaPlayer2.{player_name}"
         try:
-            res = subprocess.run(
-                [
-                    "dbus-send",
-                    "--session",
-                    "--dest=org.freedesktop.DBus",
-                    "--type=method_call",
-                    "--print-reply",
-                    "/org/freedesktop/DBus",
-                    "org.freedesktop.DBus.ListNames"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            mpris_names = []
-            for line in res.stdout.splitlines():
-                if 'string "org.mpris.MediaPlayer2.' in line:
-                    n = line.split('"')[1]
-                    mpris_names.append(n)
+            res = subprocess.run([
+                "dbus-send", "--session", f"--dest={dest}", "--type=method_call",
+                "--print-reply", "/org/mpris/MediaPlayer2",
+                "org.freedesktop.DBus.Properties.Get",
+                "string:org.mpris.MediaPlayer2.Player", "string:Metadata"
+            ], capture_output=True, text=True, timeout=1)
+            lines = res.stdout.splitlines()
+            for i, l in enumerate(lines):
+                if 'string "xesam:title"' in l:
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        if 'variant' in lines[j] and 'string "' in lines[j]:
+                            return lines[j].split('"')[1]
+                        elif 'string "' in lines[j]:
+                            return lines[j].split('"')[1]
+        except Exception:
+            pass
+        return ""
 
-            target_lower = target_name.lower()
-            matching = [n for n in mpris_names if target_lower in n.lower() or (target_lower == "andromeda" and "andromeda" in n.lower())]
-
-            for dest in matching:
-                prop_res = subprocess.run(
-                    [
-                        "dbus-send",
-                        "--session",
-                        f"--dest={dest}",
-                        "--type=method_call",
-                        "--print-reply",
-                        "/org/mpris/MediaPlayer2",
-                        "org.freedesktop.DBus.Properties.Get",
-                        "string:org.mpris.MediaPlayer2.Player",
-                        "string:PlaybackStatus"
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=1
-                )
-                for pline in prop_res.stdout.splitlines():
-                    if "variant" in pline and "string" in pline:
-                        val = pline.split('"')[1]
-                        return val
+    @staticmethod
+    def get_player_status(player_name: str) -> str:
+        if shutil.which("playerctl") and not player_name.startswith("org.mpris"):
+            try:
+                res = subprocess.run(["playerctl", "-p", player_name, "status"], capture_output=True, text=True, timeout=1)
+                if res.returncode == 0:
+                    return res.stdout.strip()
+            except Exception:
+                pass
+        
+        dest = player_name if player_name.startswith("org.mpris") else f"org.mpris.MediaPlayer2.{player_name}"
+        try:
+            res = subprocess.run([
+                "dbus-send", "--session", f"--dest={dest}", "--type=method_call",
+                "--print-reply", "/org/mpris/MediaPlayer2",
+                "org.freedesktop.DBus.Properties.Get",
+                "string:org.mpris.MediaPlayer2.Player", "string:PlaybackStatus"
+            ], capture_output=True, text=True, timeout=1)
+            for pline in res.stdout.splitlines():
+                if "variant" in pline and "string" in pline:
+                    return pline.split('"')[1]
         except Exception:
             pass
         return "Stopped"
 
     @staticmethod
-    def get_mpris_metadata(target_name: str) -> dict:
-        meta = {}
-        if shutil.which("playerctl"):
+    def send_cmd_to_player(player_name: str, cmd: str) -> bool:
+        if not player_name: return False
+        if shutil.which("playerctl") and not player_name.startswith("org.mpris"):
             try:
-                res = subprocess.run(
-                    ["playerctl", "metadata", "xesam:title"],
-                    capture_output=True,
-                    text=True,
-                    timeout=1
-                )
-                if res.returncode == 0 and res.stdout.strip():
-                    meta["title"] = res.stdout.strip()
-                    return meta
+                subprocess.run(["playerctl", "-p", player_name, cmd.lower()], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1)
+                return True
             except Exception:
                 pass
-
+        
+        dest = player_name if player_name.startswith("org.mpris") else f"org.mpris.MediaPlayer2.{player_name}"
         try:
-            res = subprocess.run(
-                [
-                    "dbus-send",
-                    "--session",
-                    "--dest=org.freedesktop.DBus",
-                    "--type=method_call",
-                    "--print-reply",
-                    "/org/freedesktop/DBus",
-                    "org.freedesktop.DBus.ListNames"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
-            mpris_names = []
-            for line in res.stdout.splitlines():
-                if 'string "org.mpris.MediaPlayer2.' in line:
-                    mpris_names.append(line.split('"')[1])
-
-            target_lower = target_name.lower()
-            matching = [n for n in mpris_names if target_lower in n.lower() or (target_lower == "andromeda" and "andromeda" in n.lower())]
-
-            for dest in matching:
-                prop_res = subprocess.run(
-                    [
-                        "dbus-send",
-                        "--session",
-                        f"--dest={dest}",
-                        "--type=method_call",
-                        "--print-reply",
-                        "/org/mpris/MediaPlayer2",
-                        "org.freedesktop.DBus.Properties.Get",
-                        "string:org.mpris.MediaPlayer2.Player",
-                        "string:Metadata"
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=1
-                )
-                lines = prop_res.stdout.splitlines()
-                for i, l in enumerate(lines):
-                    if 'string "xesam:title"' in l:
-                        for j in range(i + 1, min(i + 5, len(lines))):
-                            if 'string "' in lines[j]:
-                                meta["title"] = lines[j].split('"')[1]
-                                return meta
+            subprocess.run([
+                "dbus-send", "--type=method_call", f"--dest={dest}",
+                "/org/mpris/MediaPlayer2", f"org.mpris.MediaPlayer2.Player.{cmd}"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1)
+            return True
         except Exception:
-            pass
-        return meta
+            return False
 
 class LinuxGpuMonitor:
     """

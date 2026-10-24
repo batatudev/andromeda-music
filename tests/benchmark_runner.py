@@ -12,7 +12,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from tests.benchmarks.monitor import LinuxProcessMonitor, LinuxGpuMonitor
-from tests.benchmarks.locator import TargetAppLocator, DEFAULT_YT_PLAYLIST_URL
+from tests.benchmarks.locator import TargetAppLocator
 from tests.benchmarks.internal import AndromedaInternalBenchmarks
 from tests.benchmarks.runner import LiveProcessBenchmark
 from tests.benchmarks.reporter import BenchmarkReporter
@@ -54,10 +54,12 @@ def main():
     )
     parser.add_argument("--scenario", choices=["idle", "playback", "video"], default="video", help="Scenariusz testu live")
     parser.add_argument("--video-mode", choices=["live-1080p", "live-480p", "offline"], default="live-1080p", help="Tryb wideo dla Andromedy")
-    parser.add_argument("--playlist-name", type=str, default="benchmark2", help="Nazwa playlisty dla Andromedy")
+    parser.add_argument("--blur", type=int, default=None, help="Wymuś wartość rozmycia GPU (0-100)")
+    parser.add_argument("--opacity", type=int, default=None, help="Wymuś wartość przyciemnienia GPU (0-100)")
+    parser.add_argument("--playlist-name", type=str, default=None, help="Nazwa playlisty dla Andromedy")
     parser.add_argument("--warmup", type=int, default=15, help="Czas rozgrzewki bufora w sekundach (domyślnie 15s)")
     parser.add_argument("--duration", type=int, default=120, help="Czas trwania próbkowania (domyślnie 120s)")
-    parser.add_argument("--yt-url", type=str, default=DEFAULT_YT_PLAYLIST_URL, help="Link do playlisty z wideo na YouTube Music")
+    parser.add_argument("--yt-url", type=str, default=None, help="Link docelowy dla przeglądarek")
     parser.add_argument("--save-md", action="store_true", help="Zapisz tabelę wyników do pliku Markdown")
     parser.add_argument("--report-file", type=str, default="benchmark_report.md", help="Nazwa docelowego pliku raportu Markdown")
     parser.add_argument("--save-csv", action="store_true", help="Zapisz próbki telemetryczne do tests/results/")
@@ -67,6 +69,21 @@ def main():
     if args.setup_browsers:
         setup_browser_profiles()
         return
+
+    # Przypisywanie dynamicznych linków w zależności od scenariusza
+    if args.yt_url is None:
+        if args.scenario == "idle":
+            args.yt_url = "https://music.youtube.com"
+        elif args.scenario == "playback":
+            args.yt_url = "https://music.youtube.com/playlist?list=PLKU7Ur1sVjeI"
+        else:
+            args.yt_url = "https://music.youtube.com/playlist?list=PLSOIc_dAyPn8"
+
+    if args.playlist_name is None:
+        if args.scenario == "playback":
+            args.playlist_name = "benchmark"
+        else:
+            args.playlist_name = "benchmark2"
 
     internal_results = {}
     results_map = {}
@@ -82,9 +99,10 @@ def main():
         args.scenario = "video"
     elif target_arg == "compare-video":
         configs_to_run = [
-            ("andromeda", "live-1080p", "Andromeda (Video 1080p Live)", None, None),
-            ("andromeda", "live-480p", "Andromeda (Video 480p Live)", None, None),
-            ("andromeda", "offline", "Andromeda (Video Offline)", None, None),
+            ("andromeda", "live-1080p", "Andromeda (1080p Ambient)", None, None),
+            ("andromeda", "live-1080p", "Andromeda (1080p RAW - Czyste wideo)", 0, 0),
+            ("andromeda", "live-480p", "Andromeda (480p Ambient)", None, None),
+            ("andromeda", "offline", "Andromeda (Offline Ambient)", None, None),
             ("brave", None, "Brave (YouTube Music)", None, None),
             ("firefox", None, "Firefox (YouTube Music)", None, None)
         ]
@@ -100,7 +118,7 @@ def main():
     else:
         raw_targets = [t.strip().lower() for t in target_arg.split(",") if t.strip()]
         configs_to_run = [
-            (t, args.video_mode if t == "andromeda" else None, None, None, None)
+            (t, args.video_mode if t == "andromeda" else None, None, args.blur, args.opacity)
             for t in raw_targets
         ]
 
