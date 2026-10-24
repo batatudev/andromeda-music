@@ -75,7 +75,7 @@ def run():
         c = NavidromeClient("http://localhost", "", "")
 
     w = MainWindow(c)
-    w.show()
+    w.showMaximized()
 
     if "--play-playlist" in sys.argv:
         try:

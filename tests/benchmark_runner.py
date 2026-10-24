@@ -58,7 +58,8 @@ def main():
     parser.add_argument("--warmup", type=int, default=15, help="Czas rozgrzewki bufora w sekundach (domyślnie 15s)")
     parser.add_argument("--duration", type=int, default=120, help="Czas trwania próbkowania (domyślnie 120s)")
     parser.add_argument("--yt-url", type=str, default=DEFAULT_YT_PLAYLIST_URL, help="Link do playlisty z wideo na YouTube Music")
-    parser.add_argument("--save-md", action="store_true", help="Zapisz tabelę wyników do benchmark_report.md")
+    parser.add_argument("--save-md", action="store_true", help="Zapisz tabelę wyników do pliku Markdown")
+    parser.add_argument("--report-file", type=str, default="benchmark_report.md", help="Nazwa docelowego pliku raportu Markdown")
     parser.add_argument("--save-csv", action="store_true", help="Zapisz próbki telemetryczne do tests/results/")
     parser.add_argument("--setup-browsers", action="store_true", help="Uruchom kreator logowania profili przeglądarek")
     args = parser.parse_args()
@@ -159,9 +160,9 @@ def main():
 
     if args.save_md and results_map:
         md_content = BenchmarkReporter.generate_multi_comparison_markdown(results_map, internal_results, scenario=args.scenario)
-        report_path = ROOT_DIR / "benchmark_report.md"
+        report_path = ROOT_DIR / args.report_file
         report_path.write_text(md_content, encoding="utf-8")
-        print(f"[SUKCES] Zaktualizowano raport Markdown w: {report_path}")
+        print(f"[SUKCES] Zapisano raport Markdown w: {report_path}")
 
     if args.save_csv and results_map:
         res_dir = ROOT_DIR / "tests" / "results"
