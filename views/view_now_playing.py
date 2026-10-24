@@ -524,12 +524,20 @@ class NowPlayingWidget(QFrame):
                 ):
                     self.bg_label.setPixmap(self._cached_blurred_pixmap)
                 else:
-                    from utils import get_blurred_pixmap
-                    blurred = get_blurred_pixmap(self.raw_pixmap, blur_val)
-                    self._cached_blurred_pixmap = blurred
-                    self._cached_blur_raw = self.raw_pixmap
-                    self._cached_blur_val = blur_val
-                    self.bg_label.setPixmap(blurred)
+                    if blur_val <= 0:
+                        self._cached_blurred_pixmap = self.raw_pixmap
+                        self._cached_blur_raw = self.raw_pixmap
+                        self._cached_blur_val = 0
+                        self.bg_label.setPixmap(self.raw_pixmap)
+                    else:
+                        from utils import get_blurred_pixmap
+                        # Zeskalowanie 1:1 ze shaderem wideo (wartość 40 daje identyczny promień ~8.4px)
+                        effective_blur = max(1, int(blur_val * 0.21))
+                        blurred = get_blurred_pixmap(self.raw_pixmap, effective_blur)
+                        self._cached_blurred_pixmap = blurred
+                        self._cached_blur_raw = self.raw_pixmap
+                        self._cached_blur_val = blur_val
+                        self.bg_label.setPixmap(blurred)
 
     def set_media_mode(self, mode):
         if mode == "video":
