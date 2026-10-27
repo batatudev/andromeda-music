@@ -11,11 +11,12 @@ from PySide6.QtGui import QPixmap, QImage, QImageReader
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QNetworkDiskCache
 
 from core.paths import PathsManager
+from ui.widgets.images import is_navidrome_placeholder
 
 class AsyncImageLoader(QObject):
     """
     Wielowątkowy silnik asynchronicznego pobierania i buforowania okładek.
-    Dekodowanie i skalowanie grafik odbywa się w tle z zachowaniem partycjonowania ścieżek aktywnego serwera.
+    Dekodowanie i skalowanie grafik odbywa się w tle z eliminacją fałszywych placeholderów serwera.
     """
     image_decoded = Signal(str, object, list, bool)
 
@@ -119,12 +120,18 @@ class AsyncImageLoader(QObject):
                         reader.setScaledSize(scaled_size)
                     img = reader.read()
                     if not img.isNull():
-                        pix = QPixmap.fromImage(img)
-                        self._add_to_ram_cache(url, pix)
-                        t = target_ref()
-                        if t:
-                            t.set_image(pix, animate=False)
-                        return
+                        if is_navidrome_placeholder(img):
+                            try:
+                                os.remove(found_path)
+                            except Exception:
+                                pass
+                        else:
+                            pix = QPixmap.fromImage(img)
+                            self._add_to_ram_cache(url, pix)
+                            t = target_ref()
+                            if t:
+                                t.set_image(pix, animate=False)
+                            return
         except Exception:
             pass
 
@@ -167,6 +174,10 @@ class AsyncImageLoader(QObject):
                 img = QImage()
                 img.loadFromData(raw)
                 if not img.isNull():
+                    if is_navidrome_placeholder(img):
+                        self.image_decoded.emit(u, None, refs, fast)
+                        return
+
                     if img.width() > 500 or img.height() > 500:
                         img = img.scaled(500, 500, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     self.image_decoded.emit(u, img, refs, fast)
@@ -195,7 +206,15 @@ class AsyncImageLoader(QObject):
 
     def _on_image_decoded(self, url, img, target_refs, is_fast_cache):
         if not img or img.isNull():
+            for target_ref in target_refs:
+                try:
+                    target = target_ref()
+                    if target:
+                        target.set_image(None, animate=False)
+                except RuntimeError:
+                    pass
             return
+
         pix = QPixmap.fromImage(img)
         self._add_to_ram_cache(url, pix)
         for target_ref in target_refs:

@@ -168,3 +168,31 @@ class Artist(MediaItem):
     @property
     def albums(self):
         return self.get('album', [])
+
+    @property
+    def cover_id(self):
+        # 1. Sprawdź, czy użytkownik ustawił własne lokalne zdjęcie artysty
+        from core.paths import PathsManager
+        target_dir = PathsManager.get_custom_artists_dir()
+        art_id = self.item_id
+        if art_id:
+            for ext in ['.jpg', '.jpeg', '.png']:
+                if (target_dir / f"{art_id}{ext}").exists():
+                    return art_id
+
+        # 2. Weryfikacja obecności rzeczywistego zdjęcia w bibliotece Navidrome
+        # Serwer Navidrome zawsze zwraca syntetyczne coverArt 'ar-...' dla każdego artysty,
+        # ale jeśli nie znaleziono zdjęcia, pole 'artistImageUrl' nie jest wypełniane,
+        # a wywołanie getCoverArt zwraca brzydki plik 'artist-placeholder.webp' (szarą gwiazdę).
+        cover_art = self.get('coverArt', '')
+        has_real_image = bool(
+            self.get('artistImageUrl') or
+            self.get('largeImageUrl') or
+            self.get('mediumImageUrl') or
+            self.get('smallImageUrl')
+        )
+
+        if str(cover_art).startswith('ar-') and not has_real_image:
+            return ""
+
+        return cover_art or self.get('id', '')

@@ -4,15 +4,70 @@ os.environ["QT_API"] = "pyside6"
 import qtawesome as qta
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QPainter, QPainterPath, QPixmap, QColor
+from PySide6.QtGui import QPainter, QPainterPath, QPixmap, QColor, QImage
 
 from config import THEME
 from ui.widgets.buttons import get_cached_icon
 
+def is_navidrome_placeholder(image_or_pixmap) -> bool:
+    """Niezawodna detekcja szarej gwiazdy Navidrome (analiza próbkowania achromatycznego)."""
+    if not image_or_pixmap or image_or_pixmap.isNull():
+        return False
+
+    qimg = image_or_pixmap.toImage() if hasattr(image_or_pixmap, 'toImage') else image_or_pixmap
+    if qimg.isNull():
+        return False
+
+    w = qimg.width()
+    h = qimg.height()
+    if w < 24 or h < 24:
+        return False
+
+    try:
+        # Próbkowanie siatki 5x5 wewnątrz okręgu (25 punktów testowych)
+        grey_samples = 0
+        white_samples = 0
+        chromatic_samples = 0
+        valid_samples = 0
+
+        step_x = max(1, w // 6)
+        step_y = max(1, h // 6)
+
+        for ix in range(1, 6):
+            for iy in range(1, 6):
+                px = ix * step_x
+                py = iy * step_y
+                col = qimg.pixelColor(px, py)
+
+                if col.alpha() < 30:
+                    continue
+
+                valid_samples += 1
+                r, g, b = col.red(), col.green(), col.blue()
+
+                # Czy piksel ma nasycenie kolorystyczne (nie jest odcieniem szarości)
+                if abs(r - g) > 12 or abs(g - b) > 12 or abs(r - b) > 12:
+                    chromatic_samples += 1
+                elif r > 240 and g > 240 and b > 240:
+                    white_samples += 1
+                elif 180 <= r <= 245 and 180 <= g <= 245 and 180 <= b <= 245:
+                    grey_samples += 1
+
+        # Rzeczywiste zdjęcia ludzi mają kolory (skóra, tło, cienie).
+        # Placeholder Navidrome jest w 100% achromatyczny (tylko szary okrąg i biała gwiazda).
+        if valid_samples >= 15 and chromatic_samples == 0:
+            if white_samples >= 3 and grey_samples >= 5:
+                return True
+
+        return False
+    except Exception:
+        return False
+
 class RoundedImage(QWidget):
-    def __init__(self, size=None, radius=8, parent=None):
+    def __init__(self, size=None, radius=8, placeholder_icon=None, parent=None):
         super().__init__(parent)
         self.radius = radius
+        self.placeholder_icon = placeholder_icon
         self.pixmap_cache = None
         self.prepared_pixmap = None
         self._zoom = 1.0
@@ -65,7 +120,11 @@ class RoundedImage(QWidget):
         anim.start()
 
     def set_image(self, pixmap, animate=True):
-        self.pixmap_cache = pixmap
+        if pixmap and not pixmap.isNull() and is_navidrome_placeholder(pixmap):
+            self.pixmap_cache = None
+        else:
+            self.pixmap_cache = pixmap
+
         self._prepare_pixmap()
 
         if animate:
@@ -105,9 +164,16 @@ class RoundedImage(QWidget):
             bg_color = QColor(THEME.get("nav_bg", "#222222"))
             painter.fillRect(0, 0, w, h, bg_color)
 
+            if self.placeholder_icon:
+                icon_name = self.placeholder_icon
+            elif self.radius >= 30:
+                icon_name = 'fa5s.user'
+            else:
+                icon_name = 'fa5s.music'
+
             icon_size = max(16, int(min(w, h) * 0.38))
             icon_color = THEME.get("text_muted", "#888888")
-            icon_pix = get_cached_icon('fa5s.music', color=icon_color).pixmap(icon_size, icon_size)
+            icon_pix = get_cached_icon(icon_name, color=icon_color).pixmap(icon_size, icon_size)
 
             icon_x = (w - icon_size) // 2
             icon_y = (h - icon_size) // 2

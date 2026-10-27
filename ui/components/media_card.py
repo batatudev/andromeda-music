@@ -48,7 +48,8 @@ class MediaCard(QFrame):
         self.img_container = QWidget(self)
         self.img_container.setObjectName("CardImgContainer")
 
-        self.img = RoundedImage(size=None, radius=self.radius)
+        placeholder_icon = 'fa5s.user' if type_str == MediaType.ARTIST else 'fa5s.music'
+        self.img = RoundedImage(size=None, radius=self.radius, placeholder_icon=placeholder_icon)
         self.img.setParent(self.img_container)
 
         self.overlay = QFrame(self.img_container)
