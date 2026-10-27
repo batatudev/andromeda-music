@@ -1,4 +1,6 @@
 import os
+os.environ["QT_API"] = "pyside6"
+
 import json
 from PySide6.QtCore import QObject, Signal
 import config
@@ -15,7 +17,8 @@ class ThemeManager(QObject):
         return cls._instance
 
     def __init__(self):
-        if hasattr(self, '_initialized') and self._initialized: return
+        if hasattr(self, '_initialized') and self._initialized:
+            return
         super().__init__()
         self._initialized = True
         self.current_theme = {}
@@ -34,14 +37,13 @@ class ThemeManager(QObject):
             self.current_theme = self._load_custom_theme()
         else:
             self.current_theme = self._get_builtin_theme(mode == "dark")
-        
-        # Aktualizacja referencyjnego słownika THEME w config.py, aby nie złamać starych widoków
+
         config.THEME.update(self.current_theme)
         self.theme_changed.emit(self.current_theme)
         return self.current_theme
 
     def _get_builtin_theme(self, is_dark: bool) -> dict:
-        acc = config.APP_CONFIG.get("accent", "#1db954")
+        acc = config.APP_CONFIG.get("accent", "#aa00ff")
         return {
             "bg_main": "#050505" if is_dark else "#f5f5f5",
             "bg_main_rgb": "5,5,5" if is_dark else "245,245,245",
@@ -87,6 +89,6 @@ class ThemeManager(QObject):
             b = int(hex_color[4:6], 16)
             return f"rgba({r}, {g}, {b}, {alpha})"
         except ValueError:
-            return f"rgba(29, 185, 84, {alpha})"
+            return f"rgba(170, 0, 255, {alpha})"
 
 theme_manager = ThemeManager()

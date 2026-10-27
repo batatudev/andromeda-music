@@ -81,7 +81,7 @@ else
 fi
 
 # 3. Wirtualne środowisko z flagą --system-site-packages
-echo -e "\n[1/4] Przygotowywanie wirtualnego środowiska (.venv)..."
+echo -e "\n[1/5] Przygotowywanie wirtualnego środowiska (.venv)..."
 if [ ! -d "${VENV_DIR}" ]; then
     ${PYTHON_SYS} -m venv --system-site-packages "${VENV_DIR}"
     echo -e "[OK] Utworzono środowisko: ${VENV_DIR} (flaga --system-site-packages)"
@@ -90,13 +90,29 @@ else
 fi
 
 # 4. Instalacja pakietów z pip
-echo -e "\n[2/4] Weryfikacja i instalacja pakietów Pythona (pip)..."
+echo -e "\n[2/5] Weryfikacja i instalacja pakietów Pythona (pip)..."
 "${VENV_DIR}/bin/python3" -m pip install --upgrade pip --quiet
 "${VENV_DIR}/bin/pip" install -r "${PROJECT_DIR}/requirements.txt" --quiet
 echo -e "[OK] Pakiety z requirements.txt zainstalowane pomyślnie."
 
-# 5. Kopiowanie ikon XDG
-echo -e "\n[3/4] Instalacja ikon aplikacji w standardzie XDG..."
+# 5. Wdrożenie początkowej konfiguracji XDG (~/.config/<APP_ID>/config.ini)
+echo -e "\n[3/5] Weryfikacja i wdrażanie konfiguracji w ~/.config/${APP_ID}..."
+CONFIG_DIR="${HOME}/.config/${APP_ID}"
+mkdir -p "${CONFIG_DIR}"
+if [ ! -f "${CONFIG_DIR}/config.ini" ]; then
+    if [ -f "${PROJECT_DIR}/config.ini" ]; then
+        cp "${PROJECT_DIR}/config.ini" "${CONFIG_DIR}/config.ini"
+        echo -e "[OK] Wdrożono plik konfiguracyjny: ${CONFIG_DIR}/config.ini"
+    elif [ -f "${PROJECT_DIR}/config.example.ini" ]; then
+        cp "${PROJECT_DIR}/config.example.ini" "${CONFIG_DIR}/config.ini"
+        echo -e "[OK] Zainicjalizowano plik konfiguracyjny z szablonu: ${CONFIG_DIR}/config.ini"
+    fi
+else
+    echo -e "[INFO] Istniejący plik ${CONFIG_DIR}/config.ini został zachowany."
+fi
+
+# 6. Kopiowanie ikon XDG
+echo -e "\n[4/5] Instalacja ikon aplikacji w standardzie XDG..."
 ICON_SRC="${PROJECT_DIR}/assets/logo.png"
 if [ -f "${ICON_SRC}" ]; then
     HICOLOR_DIR="${HOME}/.local/share/icons/hicolor/512x512/apps"
@@ -107,13 +123,13 @@ if [ -f "${ICON_SRC}" ]; then
     cp "${ICON_SRC}" "${PIXMAPS_DIR}/${APP_ID}.png"
 
     if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-        gtk-update-icon-cache -f -t "${HOME}/.local/share/icons/hicolor" 2>/dev/null || true
+        gtk-update-icon-cache -q -f -t "${HOME}/.local/share/icons/hicolor" >/dev/null 2>&1 </dev/null || true
     fi
     echo -e "[OK] Zainstalowano ikonę pod identyfikatorem: ${APP_ID}.png"
 fi
 
-# 6. Rejestracja skrótu .desktop i launchera w ~/.local/bin
-echo -e "\n[4/4] Rejestracja skrótu aplikacji w menu systemowym (KDE / GNOME)..."
+# 7. Rejestracja skrótu .desktop i launchera w ~/.local/bin
+echo -e "\n[5/5] Rejestracja skrótu aplikacji w menu systemowym (KDE / GNOME)..."
 BIN_DIR="${HOME}/.local/bin"
 mkdir -p "${BIN_DIR}"
 WRAPPER_FILE="${BIN_DIR}/${APP_ID}"
@@ -150,13 +166,14 @@ EOF
 chmod +x "${DESKTOP_FILE}"
 echo -e "[OK] Utworzono plik skrótu: ${DESKTOP_FILE}"
 
+# Odświeżenie baz systemowych z pełnym odcięciem deskryptorów i limitem czasu
 if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
+    update-desktop-database "${DESKTOP_DIR}" >/dev/null 2>&1 </dev/null || true
 fi
 if command -v kbuildsycoca6 >/dev/null 2>&1; then
-    kbuildsycoca6 2>/dev/null || true
+    timeout 2s kbuildsycoca6 >/dev/null 2>&1 </dev/null || true
 elif command -v kbuildsycoca5 >/dev/null 2>&1; then
-    kbuildsycoca5 2>/dev/null || true
+    timeout 2s kbuildsycoca5 >/dev/null 2>&1 </dev/null || true
 fi
 
 echo -e "\n${C_BOLD}${C_GREEN}======================================================================${C_RESET}"
@@ -166,3 +183,5 @@ echo -e "Aplikację możesz uruchomić:"
 echo -e "  1. Z menu aplikacji KDE Plasma / GNOME (${APP_NAME})"
 echo -e "  2. Wpisując w terminalu polecenie: ${C_BOLD}${APP_ID}${C_RESET}"
 echo -e "  3. Bezpośrednio przez launcher: ${C_BOLD}${WRAPPER_FILE}${C_RESET}\n"
+
+exit 0

@@ -135,14 +135,14 @@ class SettingsView(QWidget):
             "password": APP_CONFIG.get("password", ""),
             "theme_mode": APP_CONFIG.get("theme_mode", "system"),
             "language": APP_CONFIG.get("language", "pl"),
-            "accent": APP_CONFIG.get("accent", "#1db954"),
+            "accent": APP_CONFIG.get("accent", "#aa00ff"),
             "video_resolution": APP_CONFIG.get("video_resolution", "1080p"),
             "video_min_res": APP_CONFIG.get("video_min_res", "480p"),
             "video_auto_res": APP_CONFIG.get("video_auto_res", True),
-            "video_dynamic_opacity": APP_CONFIG.get("video_dynamic_opacity", 30),
-            "video_dynamic_blur": APP_CONFIG.get("video_dynamic_blur", 0),
-            "video_static_opacity": APP_CONFIG.get("video_static_opacity", 80),
-            "video_static_blur": APP_CONFIG.get("video_static_blur", 60),
+            "video_dynamic_opacity": APP_CONFIG.get("video_dynamic_opacity", 20),
+            "video_dynamic_blur": APP_CONFIG.get("video_dynamic_blur", 40),
+            "video_static_opacity": APP_CONFIG.get("video_static_opacity", 50),
+            "video_static_blur": APP_CONFIG.get("video_static_blur", 75),
             "dev_mode": APP_CONFIG.get("dev_mode", False),
             "video_offline_quality": APP_CONFIG.get("video_offline_quality", "1080p"),
             "video_smart_auto_play": APP_CONFIG.get("video_smart_auto_play", False),
@@ -174,7 +174,7 @@ class SettingsView(QWidget):
             self.tab_theme.combo_theme.setCurrentIndex(idx)
             lang = APP_CONFIG.get("language", "pl")
             self.tab_theme.combo_lang.setCurrentIndex(0 if lang == "pl" else 1)
-            self.tab_theme.current_accent = APP_CONFIG.get("accent", "#1db954")
+            self.tab_theme.current_accent = APP_CONFIG.get("accent", "#aa00ff")
             self.tab_theme.btn_color.setStyleSheet(
                 f"background-color: {self.tab_theme.current_accent}; color: white; padding: 8px; border-radius: 5px;"
             )

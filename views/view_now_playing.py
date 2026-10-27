@@ -31,14 +31,12 @@ Item {
     property alias videoOutputItem: videoOutput
     property real blurStrength: 0.0
 
-    // Ciemne tło zapobiegające białym przebłyskom z domyślnego bufora FBO
     Rectangle {
         anchors.fill: parent
         color: "#050505"
         z: -2
     }
 
-    // 1. Warstwa wideo (GPU zero-copy) z marginesem -24px, by shader nie próbkował krawędzi
     VideoOutput {
         id: videoOutput
         anchors.fill: parent
@@ -47,7 +45,6 @@ Item {
         visible: root.blurStrength <= 0.01
     }
 
-    // 2. Warstwa MultiEffect (kinowy GPU shader blur)
     MultiEffect {
         id: blurEffect
         anchors.fill: parent
@@ -63,11 +60,6 @@ Item {
 """
 
 class VideoQuickWidget(QQuickWidget):
-    """
-    Sprzętowo akcelerowany widżet wideo oparty o QtQuick / Qt RHI.
-    Renderuje wideo zdekodowane przez VA-API bezpośrednio na GPU i aplikuje
-    kinowy GLSL blur shader w jednym przejściu (Zero CPU overhead).
-    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_fps = 30
@@ -96,7 +88,6 @@ class VideoQuickWidget(QQuickWidget):
 
     @property
     def video_item(self):
-        """Zwraca interfejs wejścia wideo dla QMediaPlayer."""
         if self._target_sink:
             return self._target_sink
         root = self.rootObject()
@@ -118,15 +109,10 @@ class VideoQuickWidget(QQuickWidget):
 VideoGraphicsView = VideoQuickWidget
 
 class DimOverlay(QWidget):
-    """
-    Lekka, sprzętowo zoptymalizowana nakładka przyciemniająca.
-    Eliminuje powolny filtr programowy QGraphicsOpacityEffect, rysując
-    kolor o zadanym kanale alfa w jednej instrukcji fillRect na GPU.
-    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self._opacity = 0.3
+        self._opacity = 0.2
 
     @Property(float)
     def opacity(self):
@@ -192,7 +178,7 @@ class NowPlayingWidget(QFrame):
         self.crossfade_anim.setEasingCurve(QEasingCurve.InOutCubic)
         self.crossfade_anim.finished.connect(self._on_crossfade_finished)
 
-        self._dim_base = 0.3
+        self._dim_base = 0.2
         self._crossfade_callback = None
         self._crossfade_target_mode = None
 
@@ -312,9 +298,6 @@ class NowPlayingWidget(QFrame):
         self.update_video_settings()
 
     def update_queue(self, songs, active_idx, handlers, loader, client):
-        """
-        Buduje listę utworów w widżecie kolejki z zachowaniem scrolla.
-        """
         v_bar = self.queue_scroll.verticalScrollBar()
         old_val = v_bar.value()
 
@@ -360,7 +343,6 @@ class NowPlayingWidget(QFrame):
         QTimer.singleShot(0, lambda: self.queue_scroll.verticalScrollBar().setValue(old_val))
 
     def sync_active_index(self, active_idx):
-        """Aktualizuje podświetlenie aktywnego utworu bez przebudowy widżetów."""
         for i in range(self.queue_layout.count()):
             item = self.queue_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), SongItem):
@@ -369,7 +351,6 @@ class NowPlayingWidget(QFrame):
                 w.set_active(w.queue_index == active_idx)
 
     def scroll_to_active(self, active_idx):
-        """Przewija widok kolejki do aktualnie odtwarzanego utworu."""
         if 0 <= active_idx < self.queue_layout.count():
             item = self.queue_layout.itemAt(active_idx)
             if item and item.widget():
@@ -499,8 +480,8 @@ class NowPlayingWidget(QFrame):
 
     def update_video_settings(self):
         if self.bg_layout.currentWidget() == self.video_widget:
-            opacity = APP_CONFIG.get("video_dynamic_opacity", 30)
-            blur_val = APP_CONFIG.get("video_dynamic_blur", 0)
+            opacity = APP_CONFIG.get("video_dynamic_opacity", 20)
+            blur_val = APP_CONFIG.get("video_dynamic_blur", 40)
 
             if "--force-opacity" in sys.argv:
                 try:
@@ -527,8 +508,8 @@ class NowPlayingWidget(QFrame):
                 blur_ratio = 0.0
             self.video_widget.set_blur(blur_ratio)
         else:
-            opacity = APP_CONFIG.get("video_static_opacity", 80)
-            blur_val = APP_CONFIG.get("video_static_blur", 60)
+            opacity = APP_CONFIG.get("video_static_opacity", 50)
+            blur_val = APP_CONFIG.get("video_static_blur", 75)
 
             self._dim_base = opacity / 100.0
             self.overlay.opacity = self._dim_base
@@ -571,7 +552,7 @@ class NowPlayingWidget(QFrame):
         self.breath_anim.stop()
         self.breath_restore_anim.stop()
         curr = self.overlay.opacity
-        target = APP_CONFIG.get("video_static_opacity", 80) / 100.0
+        target = APP_CONFIG.get("video_static_opacity", 50) / 100.0
         self.crossfade_anim.setStartValue(curr)
         self.crossfade_anim.setEndValue(target)
         self._crossfade_callback = on_done
@@ -584,7 +565,7 @@ class NowPlayingWidget(QFrame):
         self.breath_restore_anim.stop()
         self.bg_layout.setCurrentWidget(self.video_widget)
         curr = self.overlay.opacity
-        target = APP_CONFIG.get("video_dynamic_opacity", 30) / 100.0
+        target = APP_CONFIG.get("video_dynamic_opacity", 20) / 100.0
         self.crossfade_anim.setStartValue(curr)
         self.crossfade_anim.setEndValue(target)
         self._crossfade_callback = None

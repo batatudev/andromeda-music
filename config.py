@@ -3,6 +3,8 @@ os.environ["QT_API"] = "pyside6"
 
 import configparser
 import uuid
+import shutil
+from pathlib import Path
 from enum import IntEnum
 from PySide6.QtGui import QGuiApplication, QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt
@@ -43,16 +45,16 @@ APP_CONFIG = {
     "theme_mode": "system",
     "language": "pl",
     "dark_mode": True,
-    "accent": "#1db954",
+    "accent": "#aa00ff",
     "volume": 80,
     "dev_mode": False,
     "video_resolution": "1080p",
     "video_min_res": "480p",
     "video_auto_res": True,
-    "video_dynamic_opacity": 30,
-    "video_dynamic_blur": 0,
-    "video_static_opacity": 80,
-    "video_static_blur": 60,
+    "video_dynamic_opacity": 20,
+    "video_dynamic_blur": 40,
+    "video_static_opacity": 50,
+    "video_static_blur": 75,
     "video_offline_path": "",
     "video_offline_quality": "1080p",
     "video_smart_auto_play": False,
@@ -145,6 +147,25 @@ def load_config():
     cfg = configparser.ConfigParser()
     config_path = PathsManager.get_config_file()
 
+    # First-Run initialization: jeśli plik w ~/.config/<APP_ID> nie istnieje,
+    # zainicjalizuj go automatycznie z szablonu w katalogu programu (config.ini lub config.example.ini)
+    if not config_path.exists():
+        root_dir = Path(__file__).resolve().parent
+        bundled_cfg = root_dir / "config.ini"
+        bundled_example = root_dir / "config.example.ini"
+        if bundled_cfg.exists():
+            try:
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(bundled_cfg, config_path)
+            except Exception:
+                pass
+        elif bundled_example.exists():
+            try:
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(bundled_example, config_path)
+            except Exception:
+                pass
+
     if config_path.exists():
         cfg.read(config_path)
 
@@ -209,7 +230,7 @@ def load_config():
             legacy_dark = cfg["Theme"].getboolean("dark_mode", fallback=True)
             APP_CONFIG["theme_mode"] = "dark" if legacy_dark else "light"
         APP_CONFIG["language"] = cfg["Theme"].get("language", fallback="pl")
-        APP_CONFIG["accent"] = cfg["Theme"].get("accent", fallback="#1db954")
+        APP_CONFIG["accent"] = cfg["Theme"].get("accent", fallback="#aa00ff")
         APP_CONFIG["volume"] = cfg["Theme"].getint("volume", fallback=80)
         APP_CONFIG["dev_mode"] = cfg["Theme"].getboolean("dev_mode", fallback=False)
 
@@ -217,10 +238,10 @@ def load_config():
         APP_CONFIG["video_resolution"] = cfg["Video"].get("resolution", fallback="1080p")
         APP_CONFIG["video_min_res"] = cfg["Video"].get("min_resolution", fallback="480p")
         APP_CONFIG["video_auto_res"] = cfg["Video"].getboolean("auto_res", fallback=True)
-        APP_CONFIG["video_dynamic_opacity"] = cfg["Video"].getint("dynamic_opacity", fallback=30)
-        APP_CONFIG["video_dynamic_blur"] = cfg["Video"].getint("dynamic_blur", fallback=0)
-        APP_CONFIG["video_static_opacity"] = cfg["Video"].getint("static_opacity", fallback=80)
-        APP_CONFIG["video_static_blur"] = cfg["Video"].getint("static_blur", fallback=60)
+        APP_CONFIG["video_dynamic_opacity"] = cfg["Video"].getint("dynamic_opacity", fallback=20)
+        APP_CONFIG["video_dynamic_blur"] = cfg["Video"].getint("dynamic_blur", fallback=40)
+        APP_CONFIG["video_static_opacity"] = cfg["Video"].getint("static_opacity", fallback=50)
+        APP_CONFIG["video_static_blur"] = cfg["Video"].getint("static_blur", fallback=75)
 
     if "VideoOffline" in cfg:
         APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback="")
@@ -334,7 +355,7 @@ def get_app_style():
         border: none;
     }}
     #PlayPauseBtn:hover {{
-        background-color: {THEME.get('accent', '#1db954')};
+        background-color: {THEME.get('accent', '#aa00ff')};
     }}
 
     #ControlBtn {{ background: transparent; border: none; border-radius: 18px; }}
@@ -343,7 +364,7 @@ def get_app_style():
     #HeroSection {{ margin-bottom: 25px; border-radius: 0px; }}
     #QueueHeader {{ border-radius: 15px; margin-bottom: 25px; }}
     #HeroTitle {{ font-size: 42px; font-weight: bold; background: transparent; border: none; }}
-    #HeroSubtitle {{ font-size: 12px; color: {THEME.get('accent', '#1db954')}; font-weight: bold; letter-spacing: 2px; background: transparent; }}
+    #HeroSubtitle {{ font-size: 12px; color: {THEME.get('accent', '#aa00ff')}; font-weight: bold; letter-spacing: 2px; background: transparent; }}
 
     #Card {{ background-color: {THEME.get('bg_card', '#111111')}; border-radius: 12px; border: none; }}
     #Card:hover {{ background-color: {THEME.get('hover_card', '#181818')}; }}
@@ -378,13 +399,13 @@ def get_app_style():
         margin: 0px;
     }}
     #CardPlayBtn:hover, QPushButton#CardPlayBtn:hover, #Card QPushButton#CardPlayBtn:hover, #ArtistCard QPushButton#CardPlayBtn:hover {{
-        background-color: {THEME.get('accent', '#1db954')};
+        background-color: {THEME.get('accent', '#aa00ff')};
     }}
 
     #SongItem {{ background-color: transparent; border-radius: 8px; padding: 0px 8px; }}
     #SongItem:hover {{ background-color: {THEME.get('bg_card', '#111111')}; }}
     #SongItem QLabel {{ background: transparent; border: none; }}
-    #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(29, 185, 84, 0.1)')}; }}
+    #SongItem[active="true"] {{ background-color: {THEME.get('accent_rgba', 'rgba(170, 0, 255, 0.1)')}; }}
     #SongTitle {{ font-weight: 600; font-size: 14px; color: {THEME.get('text_main', '#ffffff')}; background: transparent; margin: 0px; padding: 0px; }}
     #SongArtist, #SongAlbum {{ font-size: 12px; color: {THEME.get('text_muted', '#888888')}; background: transparent; }}
     #SongArtist:hover, #SongAlbum:hover {{ color: {THEME.get('text_main', '#ffffff')}; text-decoration: underline; }}
@@ -418,7 +439,7 @@ def get_app_style():
     #SongImgContainer QPushButton#SongPlayBtn:hover,
     #NowPlayingQueueFrame #SongPlayBtn:hover,
     #NowPlayingQueueFrame QPushButton#SongPlayBtn:hover {{
-        background-color: {THEME.get('accent', '#1db954')};
+        background-color: {THEME.get('accent', '#aa00ff')};
     }}
 
     #SongPlayNextBtn:hover {{ background: {THEME.get('btn_play_next_hover', 'rgba(52,152,219,0.2)')}; }}
@@ -438,7 +459,7 @@ def get_app_style():
         height: 6px;
     }}
     QProgressBar#StorageBar::chunk {{
-        background-color: {THEME.get('accent', '#1db954')};
+        background-color: {THEME.get('accent', '#aa00ff')};
         border-radius: 4px;
     }}
 
@@ -456,9 +477,9 @@ def get_app_style():
         color: {THEME.get('text_main', '#ffffff')};
     }}
     QPushButton#FilterPill[active="true"] {{
-        background-color: {THEME.get('accent', '#1db954')};
+        background-color: {THEME.get('accent', '#aa00ff')};
         color: white;
-        border-color: {THEME.get('accent', '#1db954')};
+        border-color: {THEME.get('accent', '#aa00ff')};
     }}
     QPushButton#FilterPill[has_error="true"] {{
         color: #e74c3c;
@@ -495,7 +516,7 @@ def get_app_style():
     }}
 
     QSlider::groove:horizontal {{ height: 4px; background: {THEME.get('nav_bg', '#222222')}; border-radius: 2px; }}
-    QSlider::sub-page:horizontal {{ background: {THEME.get('accent', '#1db954')}; border-radius: 2px; }}
+    QSlider::sub-page:horizontal {{ background: {THEME.get('accent', '#aa00ff')}; border-radius: 2px; }}
     QSlider::handle:horizontal {{ background: {THEME.get('text_main', '#ffffff')}; width: 12px; height: 12px; margin: -4px 0; border-radius: 6px; }}
 
     QComboBox {{
