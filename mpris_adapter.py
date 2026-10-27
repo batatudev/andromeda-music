@@ -1,11 +1,14 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
+import re
 import threading
-import random
+from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Qt
 from PySide6.QtMultimedia import QMediaPlayer
+
 from config import APP_NAME
+from core.paths import PathsManager, APP_ID
 from utils import logger
 
 try:
@@ -15,7 +18,9 @@ try:
     HAS_MPRIS = True
 except ImportError as e:
     HAS_MPRIS = False
-    logger.log(f"Brak pydbus/gi. Integracja MPRIS wyłączona. {e}")
+    print(f"\n[MPRIS BŁĄD] Brak wymaganych modułów D-Bus (pydbus / PyGObject): {e}")
+    print("[MPRIS INFO] Zainstaluj pakiety: pip install pydbus PyGObject\n")
+    logger.log(f"Brak bibliotek pydbus/gi. Integracja MPRIS wyłączona: {e}")
 
 class MprisSignals(QObject):
     next_requested = Signal()
@@ -73,15 +78,28 @@ class MprisPlayer:
             <property name="CanPause" type="b" access="read"/>
             <property name="CanSeek" type="b" access="read"/>
             <property name="CanControl" type="b" access="read"/>
+            <signal name="Seeked">
+                <arg type="x" name="Position"/>
+            </signal>
         </interface>
     </node>
     """
 
     PropertiesChanged = signal()
+    Seeked = signal()
 
-    def __init__(self, engine, signals):
-        self.engine = engine
+    def __init__(self, signals):
         self.signals = signals
+        self._playback_status = "Stopped"
+        self._loop_status = "None"
+        self._shuffle = False
+        self._volume = 1.0
+        self._position_us = 0
+        self._can_go_next = True
+        self._can_go_previous = True
+        self._metadata = {
+            "mpris:trackid": GLib.Variant('o', "/org/mpris/MediaPlayer2/TrackList/NoTrack")
+        }
 
     @property
     def CanQuit(self):
@@ -101,15 +119,24 @@ class MprisPlayer:
 
     @property
     def DesktopEntry(self):
-        return "andromeda-music"
+        desktop_filename = f"{APP_ID}.desktop"
+        standard_dirs = [
+            Path.home() / ".local" / "share" / "applications",
+            Path("/usr/local/share/applications"),
+            Path("/usr/share/applications")
+        ]
+        for d in standard_dirs:
+            if (d / desktop_filename).exists():
+                return APP_ID
+        return ""
 
     @property
     def SupportedUriSchemes(self):
-        return []
+        return ["file", "http", "https"]
 
     @property
     def SupportedMimeTypes(self):
-        return []
+        return ["audio/mpeg", "audio/mp4", "audio/x-wav", "video/mp4", "video/webm"]
 
     def Quit(self):
         pass
@@ -143,24 +170,11 @@ class MprisPlayer:
 
     @property
     def PlaybackStatus(self):
-        try:
-            state = self.engine.player.playbackState()
-            if state == QMediaPlayer.PlaybackState.PlayingState:
-                return "Playing"
-            if state == QMediaPlayer.PlaybackState.PausedState:
-                return "Paused"
-            return "Stopped"
-        except RuntimeError:
-            return "Stopped"
+        return self._playback_status
 
     @property
     def LoopStatus(self):
-        try:
-            if self.engine.is_looping:
-                return "Track"
-            return "None"
-        except RuntimeError:
-            return "None"
+        return self._loop_status
 
     @LoopStatus.setter
     def LoopStatus(self, val):
@@ -168,10 +182,7 @@ class MprisPlayer:
 
     @property
     def Shuffle(self):
-        try:
-            return self.engine.is_shuffled
-        except RuntimeError:
-            return False
+        return self._shuffle
 
     @Shuffle.setter
     def Shuffle(self, val):
@@ -187,36 +198,11 @@ class MprisPlayer:
 
     @property
     def Metadata(self):
-        try:
-            if 0 <= self.engine.idx < len(self.engine.queue):
-                song = self.engine.queue[self.engine.idx]
-                cid = song.cover_id
-
-                if cid:
-                    url = self.engine.client.get_cover_art_url(cid)
-                else:
-                    url = ""
-
-                dur = song.duration_sec * 1000000
-
-                return {
-                    "mpris:trackid": GLib.Variant('o', "/org/mpris/MediaPlayer2/Track/0"),
-                    "mpris:length": GLib.Variant('x', dur),
-                    "mpris:artUrl": GLib.Variant('s', url),
-                    "xesam:title": GLib.Variant('s', song.title),
-                    "xesam:artist": GLib.Variant('as', [song.artist]),
-                    "xesam:album": GLib.Variant('s', song.album)
-                }
-            return {"mpris:trackid": GLib.Variant('o', "/org/mpris/MediaPlayer2/Track/0")}
-        except RuntimeError:
-            return {"mpris:trackid": GLib.Variant('o', "/org/mpris/MediaPlayer2/Track/0")}
+        return self._metadata
 
     @property
     def Volume(self):
-        try:
-            return self.engine.audio_output.volume()
-        except RuntimeError:
-            return 1.0
+        return self._volume
 
     @Volume.setter
     def Volume(self, val):
@@ -224,10 +210,7 @@ class MprisPlayer:
 
     @property
     def Position(self):
-        try:
-            return self.engine.player.position() * 1000
-        except RuntimeError:
-            return 0
+        return self._position_us
 
     @property
     def MinimumRate(self):
@@ -239,11 +222,11 @@ class MprisPlayer:
 
     @property
     def CanGoNext(self):
-        return True
+        return self._can_go_next
 
     @property
     def CanGoPrevious(self):
-        return True
+        return self._can_go_previous
 
     @property
     def CanPlay(self):
@@ -268,7 +251,7 @@ class MprisService:
 
         self.engine = engine
         self.signals = MprisSignals()
-        self.player = MprisPlayer(engine, self.signals)
+        self.player = MprisPlayer(self.signals)
 
         self.signals.next_requested.connect(self.engine.next_song, Qt.QueuedConnection)
         self.signals.prev_requested.connect(self.engine.prev_song, Qt.QueuedConnection)
@@ -283,39 +266,214 @@ class MprisService:
         self.signals.shuffle_changed.connect(self._handle_shuffle, Qt.QueuedConnection)
         self.signals.volume_changed.connect(self._handle_volume, Qt.QueuedConnection)
 
-        self.bus = SessionBus()
-        try:
-            self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}")
-            self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
-        except RuntimeError as e:
-            logger.log(f"Nie można zarejestrować MPRIS (prawdopodobnie inna instancja działa): {e}")
-            try:
-                import os
-                self.bus.request_name(f"org.mpris.MediaPlayer2.{APP_NAME.replace(' ', '')}.instance{os.getpid()}")
-                self.bus.register_object("/org/mpris/MediaPlayer2", self.player, None)
-            except Exception:
-                pass
-        self.engine.track_changed.connect(self._upd_meta)
-        self.engine.state_changed.connect(self._upd_state)
-        self.engine.loop_mode_changed.connect(self._upd_loop)
-        self.engine.shuffle_mode_changed.connect(self._upd_shuffle)
-
         self.loop = GLib.MainLoop()
-        threading.Thread(target=self.loop.run, daemon=True).start()
+        self._loop_thread = threading.Thread(target=self.loop.run, daemon=True)
+        self._loop_thread.start()
+
+        self.bus = SessionBus()
+        self._publication = None
+
+        bus_name = "org.mpris.MediaPlayer2.AndromedaMusic"
+
+        try:
+            self._publication = self.bus.publish(bus_name, ("/org/mpris/MediaPlayer2", self.player))
+            print(f"[MPRIS OK] Zarejestrowano w D-Bus: '{bus_name}'")
+            logger.log(f"MPRIS: Opublikowano serwis '{bus_name}'")
+        except Exception as e:
+            fallback_name = f"{bus_name}.instance{os.getpid()}"
+            print(f"[MPRIS OSTRZEŻENIE] Nazwa '{bus_name}' zajęta ({e}). Rejestracja instancji: '{fallback_name}'")
+            try:
+                self._publication = self.bus.publish(fallback_name, ("/org/mpris/MediaPlayer2", self.player))
+                print(f"[MPRIS OK] Zarejestrowano instancję: '{fallback_name}'")
+                logger.log(f"MPRIS: Opublikowano instancję '{fallback_name}'")
+            except Exception as e2:
+                print(f"[MPRIS BŁĄD] Krytyczny błąd rejestracji D-Bus: {e2}")
+                logger.log(f"MPRIS: Krytyczny błąd publikacji D-Bus: {e2}")
+
+        self.engine.track_changed.connect(self._on_track_changed)
+        self.engine.state_changed.connect(self._on_state_changed)
+        self.engine.position_changed.connect(self._on_position_changed)
+        self.engine.loop_mode_changed.connect(self._on_loop_changed)
+        self.engine.shuffle_mode_changed.connect(self._on_shuffle_changed)
+        self.engine.queue_cleared.connect(self._on_queue_cleared)
+
+        self._emit_current_state()
+
+    def _resolve_cover_uri(self, song):
+        if not song:
+            return None
+
+        cid = getattr(song, 'cover_id', None)
+        if not cid:
+            return None
+
+        covers_dir = PathsManager.get_covers_cache_dir()
+        for ext in [".jpg", ".png", ".jpeg"]:
+            cf = covers_dir / f"{cid}{ext}"
+            if cf.exists():
+                return cf.as_uri()
+
+        custom_covers = PathsManager.get_custom_covers_dir()
+        for ext in [".jpg", ".png", ".jpeg"]:
+            cf = custom_covers / f"{cid}{ext}"
+            if cf.exists():
+                return cf.as_uri()
+
+        img_cache = PathsManager.get_images_cache_dir()
+        for ext in [".jpg", ".png"]:
+            cf = img_cache / f"{cid}{ext}"
+            if cf.exists():
+                return cf.as_uri()
+
+        if hasattr(self.engine, 'client') and self.engine.client:
+            url = self.engine.client.get_cover_art_url(cid)
+            if url and (url.startswith("http://") or url.startswith("https://")):
+                return url
+
+        return None
+
+    def _build_metadata(self, song):
+        meta = {}
+        if song:
+            raw_id = getattr(song, 'item_id', '0')
+            clean_id = re.sub(r'[^a-zA-Z0-9_]', '_', str(raw_id)) or "0"
+
+            meta["mpris:trackid"] = GLib.Variant('o', f"/org/mpris/MediaPlayer2/Track/{clean_id}")
+
+            dur_sec = getattr(song, 'duration_sec', 0)
+            dur_us = int(dur_sec * 1000000)
+            if dur_us > 0:
+                meta["mpris:length"] = GLib.Variant('x', dur_us)
+
+            title = getattr(song, 'title', '')
+            if title:
+                meta["xesam:title"] = GLib.Variant('s', str(title))
+
+            artist = getattr(song, 'artist', '')
+            if artist:
+                meta["xesam:artist"] = GLib.Variant('as', [str(artist)])
+
+            album = getattr(song, 'album', '')
+            if album:
+                meta["xesam:album"] = GLib.Variant('s', str(album))
+
+            art_uri = self._resolve_cover_uri(song)
+            if art_uri:
+                meta["mpris:artUrl"] = GLib.Variant('s', str(art_uri))
+        else:
+            meta["mpris:trackid"] = GLib.Variant('o', "/org/mpris/MediaPlayer2/TrackList/NoTrack")
+
+        return meta
+
+    def _emit_current_state(self):
+        try:
+            changed = {
+                "PlaybackStatus": self.player._playback_status,
+                "Metadata": self.player._metadata,
+                "CanControl": True,
+                "CanPlay": True,
+                "CanPause": True,
+                "CanGoNext": self.player._can_go_next,
+                "CanGoPrevious": self.player._can_go_previous,
+                "LoopStatus": self.player._loop_status,
+                "Shuffle": self.player._shuffle
+            }
+            GLib.idle_add(self._notify_properties_changed, changed)
+        except Exception as e:
+            logger.log(f"MPRIS emit state error: {e}")
+
+    def _notify_properties_changed(self, changed_dict):
+        try:
+            self.player.PropertiesChanged("org.mpris.MediaPlayer2.Player", changed_dict, [])
+        except Exception as e:
+            logger.log(f"MPRIS PropertiesChanged error: {e}")
+
+    def _on_track_changed(self, song):
+        self.player._metadata = self._build_metadata(song)
+        self.player._can_go_next = bool(len(self.engine.queue) > 1)
+        self.player._can_go_previous = bool(len(self.engine.queue) > 1)
+
+        title = getattr(song, 'title', 'Nieznany') if song else 'Brak'
+        artist = getattr(song, 'artist', '') if song else ''
+        print(f"[MPRIS] Zmiana utworu: '{title}' - '{artist}' | Status: {self.player._playback_status}")
+
+        changed = {
+            "Metadata": self.player._metadata,
+            "PlaybackStatus": self.player._playback_status,
+            "CanGoNext": self.player._can_go_next,
+            "CanGoPrevious": self.player._can_go_previous
+        }
+        GLib.idle_add(self._notify_properties_changed, changed)
+
+    def _on_state_changed(self, is_playing):
+        if is_playing:
+            self.player._playback_status = "Playing"
+        else:
+            state = self.engine.player.playbackState()
+            if state == QMediaPlayer.PlaybackState.PausedState:
+                self.player._playback_status = "Paused"
+            else:
+                self.player._playback_status = "Stopped"
+
+        if not self.player._metadata or "xesam:title" not in self.player._metadata:
+            current_song = self.engine.queue_mgr.current_song() if hasattr(self.engine, 'queue_mgr') else None
+            if current_song:
+                self.player._metadata = self._build_metadata(current_song)
+
+        print(f"[MPRIS] Zmiana stanu odtwarzania -> {self.player._playback_status}")
+
+        changed = {
+            "PlaybackStatus": self.player._playback_status,
+            "Metadata": self.player._metadata
+        }
+        GLib.idle_add(self._notify_properties_changed, changed)
+
+    def _on_position_changed(self, pos_ms):
+        self.player._position_us = int(pos_ms * 1000)
+
+    def _on_loop_changed(self, is_looping):
+        self.player._loop_status = "Track" if is_looping else "None"
+        changed = {"LoopStatus": self.player._loop_status}
+        GLib.idle_add(self._notify_properties_changed, changed)
+
+    def _on_shuffle_changed(self, is_shuffled):
+        self.player._shuffle = bool(is_shuffled)
+        changed = {"Shuffle": self.player._shuffle}
+        GLib.idle_add(self._notify_properties_changed, changed)
+
+    def _on_queue_cleared(self):
+        self.player._playback_status = "Stopped"
+        self.player._metadata = {
+            "mpris:trackid": GLib.Variant('o', "/org/mpris/MediaPlayer2/TrackList/NoTrack")
+        }
+        print("[MPRIS] Kolejka wyczyszczona -> Stopped")
+        changed = {
+            "PlaybackStatus": "Stopped",
+            "Metadata": self.player._metadata
+        }
+        GLib.idle_add(self._notify_properties_changed, changed)
 
     def _handle_seek(self, offset):
         try:
-            new_pos = self.engine.player.position() + int(offset / 1000)
-            if new_pos < 0:
-                new_pos = 0
-            self.engine.set_position(new_pos)
-        except RuntimeError:
+            new_pos_ms = self.engine.player.position() + int(offset / 1000)
+            if new_pos_ms < 0:
+                new_pos_ms = 0
+            self.engine.set_position(new_pos_ms)
+            new_pos_us = int(new_pos_ms * 1000)
+            self.player._position_us = new_pos_us
+            GLib.idle_add(self.player.Seeked, new_pos_us)
+        except Exception:
             pass
 
     def _handle_set_position(self, position):
         try:
-            self.engine.set_position(int(position / 1000))
-        except RuntimeError:
+            new_pos_ms = int(position / 1000)
+            if new_pos_ms < 0:
+                new_pos_ms = 0
+            self.engine.set_position(new_pos_ms)
+            self.player._position_us = int(position)
+            GLib.idle_add(self.player.Seeked, int(position))
+        except Exception:
             pass
 
     def _handle_loop(self, val):
@@ -323,26 +481,11 @@ class MprisService:
             self.engine.set_loop(True)
         else:
             self.engine.set_loop(False)
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"LoopStatus": self.player.LoopStatus}, [])
 
     def _handle_shuffle(self, val):
         self.engine.set_shuffle(val)
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"Shuffle": self.player.Shuffle}, [])
 
     def _handle_volume(self, val):
-        self.engine.set_volume(int(val * 100))
-
-    def _upd_meta(self, _):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {
-            "Metadata": self.player.Metadata,
-            "PlaybackStatus": self.player.PlaybackStatus
-        }, [])
-
-    def _upd_state(self, _):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"PlaybackStatus": self.player.PlaybackStatus}, [])
-
-    def _upd_loop(self, is_looping):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"LoopStatus": self.player.LoopStatus}, [])
-
-    def _upd_shuffle(self, is_shuffled):
-        GLib.idle_add(self.player.PropertiesChanged, "org.mpris.MediaPlayer2.Player", {"Shuffle": self.player.Shuffle}, [])
+        vol_pct = max(0, min(100, int(val * 100)))
+        self.engine.set_volume(vol_pct)
+        self.player._volume = float(val)
