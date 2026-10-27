@@ -4,7 +4,7 @@ os.environ["QT_API"] = "pyside6"
 import sys
 import uuid
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
     QLineEdit, QPushButton, QSizePolicy, QComboBox, QMessageBox
 )
 from PySide6.QtCore import Qt, QCoreApplication
@@ -32,11 +32,11 @@ class TabServer(QWidget):
             f"#SettingsCard {{ background-color: {THEME['bg_card']}; border-radius: 12px; padding: 26px 85px; border: 1px solid {THEME['border']}; }}"
         )
         self.server_layout = QVBoxLayout(server_group)
-        self.server_layout.setSpacing(14)
+        self.server_layout.setSpacing(16)
 
         lbl_s_title = QLabel(tr("settings.server.header", "Serwer Navidrome"))
         lbl_s_title.setStyleSheet(
-            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 8px; background: transparent;"
+            f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
         self.server_layout.addWidget(lbl_s_title)
 
@@ -110,97 +110,118 @@ class TabServer(QWidget):
             }}
         """
 
-        def add_row(parent_layout, text, widget):
-            r = QHBoxLayout()
-            r.setSpacing(20)
+        btn_del_style = f"""
+            QPushButton {{
+                background-color: {THEME['nav_bg']};
+                color: #e74c3c;
+                padding: 7px 14px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: bold;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(231, 76, 60, 0.25);
+            }}
+        """
+
+        # Dwukolumnowa siatka formularza gwarantująca identyczny punkt startu X
+        form_grid = QGridLayout()
+        form_grid.setHorizontalSpacing(20)
+        form_grid.setVerticalSpacing(12)
+        form_grid.setContentsMargins(0, 0, 0, 0)
+        form_grid.setColumnMinimumWidth(0, 200)
+        form_grid.setColumnStretch(0, 0)
+        form_grid.setColumnStretch(1, 1)
+
+        def make_label(text):
             lbl = QLabel(text)
             lbl.setFixedWidth(200)
             lbl.setFixedHeight(36)
             lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
-            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            r.addWidget(lbl)
-            r.addWidget(widget)
-            parent_layout.addLayout(r)
+            return lbl
 
-        # 1. Główny wiersz: Aktywny profil (Pełna szerokość pola)
+        # Rząd 0: Aktywny profil
+        lbl_profile = make_label(tr("settings.server.active_profile", "Aktywny profil:"))
         self.combo_servers = QComboBox()
         self.combo_servers.setStyleSheet(input_style)
+        self.combo_servers.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.combo_servers.currentIndexChanged.connect(self._on_server_selected)
-        add_row(self.server_layout, "Aktywny profil:", self.combo_servers)
+        form_grid.addWidget(lbl_profile, 0, 0)
+        form_grid.addWidget(self.combo_servers, 0, 1)
 
-        # 2. Wiersz akcji pod listą wyboru (Wyrównany z początkiem kontrolki)
-        profile_actions_lay = QHBoxLayout()
-        profile_actions_lay.setContentsMargins(0, 0, 0, 6)
-        profile_actions_lay.setSpacing(10)
+        # Rząd 1: Przyciski akcji profilu (idealnie wewnątrz Kolumny 1)
+        actions_widget = QWidget()
+        actions_widget.setStyleSheet("background: transparent;")
+        actions_lay = QHBoxLayout(actions_widget)
+        actions_lay.setContentsMargins(0, 0, 0, 0)
+        actions_lay.setSpacing(10)
 
-        spacer_prefix = QLabel()
-        spacer_prefix.setFixedWidth(200)
-        spacer_prefix.setStyleSheet("background: transparent;")
-        profile_actions_lay.addWidget(spacer_prefix)
-        profile_actions_lay.addSpacing(20)
-
-        self.btn_new_server = QPushButton("+ Nowy profil")
+        self.btn_new_server = QPushButton(tr("settings.server.new_profile", "+ Nowy profil"))
         self.btn_new_server.setStyleSheet(btn_action_style)
         self.btn_new_server.setCursor(Qt.PointingHandCursor)
         self.btn_new_server.clicked.connect(self._create_new_server)
-        profile_actions_lay.addWidget(self.btn_new_server)
+        actions_lay.addWidget(self.btn_new_server)
 
-        self.btn_load_demo = QPushButton("Wstaw publiczne Demo")
+        self.btn_load_demo = QPushButton(tr("settings.server.load_demo", "Wstaw publiczne Demo"))
         self.btn_load_demo.setStyleSheet(btn_action_style)
         self.btn_load_demo.setCursor(Qt.PointingHandCursor)
         self.btn_load_demo.setToolTip("Wstawia publiczny serwer testowy demo.navidrome.org")
         self.btn_load_demo.clicked.connect(self._load_public_demo)
-        profile_actions_lay.addWidget(self.btn_load_demo)
+        actions_lay.addWidget(self.btn_load_demo)
 
-        profile_actions_lay.addStretch()
-
-        self.btn_del_server = QPushButton("Usuń profil")
-        self.btn_del_server.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: #e74c3c;
-                padding: 6px 14px;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: bold;
-                border: 1px solid #e74c3c;
-            }}
-            QPushButton:hover {{
-                background-color: rgba(231, 76, 60, 0.15);
-            }}
-        """)
+        self.btn_del_server = QPushButton(tr("settings.server.delete_profile", "Usuń profil"))
+        self.btn_del_server.setStyleSheet(btn_del_style)
         self.btn_del_server.setCursor(Qt.PointingHandCursor)
         self.btn_del_server.clicked.connect(self._delete_current_server)
-        profile_actions_lay.addWidget(self.btn_del_server)
+        actions_lay.addWidget(self.btn_del_server)
 
-        self.server_layout.addLayout(profile_actions_lay)
+        actions_lay.addStretch()
+        form_grid.addWidget(actions_widget, 1, 1)
 
+        # Rząd 2: Subtelna linia podziału
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet(f"background-color: {THEME['border']}; max-height: 1px; margin: 4px 0px 8px 0px;")
-        self.server_layout.addWidget(line)
+        line.setStyleSheet(f"background-color: {THEME['border']}; max-height: 1px; margin: 6px 0px 8px 0px;")
+        form_grid.addWidget(line, 2, 0, 1, 2)
 
-        # 3. Pola formularza konfiguracji serwera
+        # Rząd 3: Nazwa profilu
+        lbl_name = make_label(tr("settings.server.profile_name", "Nazwa profilu:"))
         self.inp_name = QLineEdit()
         self.inp_name.setStyleSheet(input_style)
+        self.inp_name.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        form_grid.addWidget(lbl_name, 3, 0)
+        form_grid.addWidget(self.inp_name, 3, 1)
 
+        # Rząd 4: Adres URL
+        lbl_url = make_label(tr("settings.server.url", "Adres URL:"))
         self.inp_url = QLineEdit()
         self.inp_url.setStyleSheet(input_style)
+        self.inp_url.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        form_grid.addWidget(lbl_url, 4, 0)
+        form_grid.addWidget(self.inp_url, 4, 1)
 
+        # Rząd 5: Użytkownik
+        lbl_user = make_label(tr("settings.server.user", "Użytkownik:"))
         self.inp_user = QLineEdit()
         self.inp_user.setStyleSheet(input_style)
+        self.inp_user.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        form_grid.addWidget(lbl_user, 5, 0)
+        form_grid.addWidget(self.inp_user, 5, 1)
 
+        # Rząd 6: Hasło
+        lbl_pwd = make_label(tr("settings.server.pass", "Hasło:"))
         self.inp_pwd = QLineEdit()
         self.inp_pwd.setEchoMode(QLineEdit.Password)
         self.inp_pwd.setStyleSheet(input_style)
+        self.inp_pwd.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        form_grid.addWidget(lbl_pwd, 6, 0)
+        form_grid.addWidget(self.inp_pwd, 6, 1)
 
-        add_row(self.server_layout, "Nazwa profilu:", self.inp_name)
-        add_row(self.server_layout, tr("settings.server.url", "Adres URL:"), self.inp_url)
-        add_row(self.server_layout, tr("settings.server.user", "Użytkownik:"), self.inp_user)
-        add_row(self.server_layout, tr("settings.server.pass", "Hasło:"), self.inp_pwd)
+        self.server_layout.addLayout(form_grid)
 
-        # 4. Pasek akcji dolnych (Testowanie i Zapis)
+        # Dolny pasek akcji (Testowanie i Zapis)
         btn_test = QPushButton(tr("settings.server.test", "Testuj połączenie"))
         btn_test.setStyleSheet(f"""
             QPushButton {{
@@ -242,7 +263,7 @@ class TabServer(QWidget):
         btn_save_server.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         status_lay = QHBoxLayout()
-        status_lay.setContentsMargins(0, 15, 0, 0)
+        status_lay.setContentsMargins(0, 10, 0, 0)
         status_lay.setSpacing(15)
         status_lay.addWidget(self.lbl_status)
         status_lay.addStretch()
@@ -312,7 +333,7 @@ class TabServer(QWidget):
         if idx >= 0:
             self.combo_servers.setCurrentIndex(idx)
         self.inp_name.setFocus()
-        self.lbl_status.setText("Utworzono nowy profil serwera.")
+        self.lbl_status.setText(tr("settings.server.created", "Utworzono nowy profil serwera."))
         self.lbl_status.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent;")
 
     def _load_public_demo(self):
@@ -333,7 +354,7 @@ class TabServer(QWidget):
             self.inp_user.setText(DEFAULT_DEMO_SERVER["username"])
             self.inp_pwd.setText(DEFAULT_DEMO_SERVER["password"])
 
-        self.lbl_status.setText("Załadowano dane serwera demonstracyjnego.")
+        self.lbl_status.setText(tr("settings.server.demo_loaded", "Załadowano dane serwera demonstracyjnego."))
         self.lbl_status.setStyleSheet(f"color: {THEME['accent']}; background: transparent; font-weight: bold;")
 
     def _delete_current_server(self):
@@ -343,10 +364,15 @@ class TabServer(QWidget):
         server = get_server_by_id(sid)
         sname = server.get("name", sid) if server else sid
 
+        prompt_txt = tr(
+            "settings.server.delete_confirm",
+            "Czy na pewno chcesz usunąć profil '{name}'?\n(Pobrane pliki tego serwera pozostaną na dysku)."
+        ).replace("{name}", sname)
+
         ans = QMessageBox.question(
             self,
-            "Usuwanie profilu serwera",
-            f"Czy na pewno chcesz usunąć profil '{sname}'?\n(Pobrane pliki tego serwera pozostaną na dysku).",
+            tr("settings.server.delete_title", "Usuwanie profilu serwera"),
+            prompt_txt,
             QMessageBox.Yes | QMessageBox.No
         )
         if ans == QMessageBox.Yes:

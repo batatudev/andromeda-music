@@ -30,6 +30,11 @@
   "settings.saved": "Settings saved",
 
   "settings.server.header": "Navidrome Server",
+  "settings.server.active_profile": "Active profile:",
+  "settings.server.new_profile": "+ New profile",
+  "settings.server.load_demo": "Load Public Demo",
+  "settings.server.delete_profile": "Delete profile",
+  "settings.server.profile_name": "Profile name:",
   "settings.server.url": "Server URL:",
   "settings.server.user": "Username:",
   "settings.server.pass": "Password:",
@@ -37,6 +42,10 @@
   "settings.server.testing": "Connecting...",
   "settings.server.success": "Connected successfully!",
   "settings.server.error": "Connection failed.",
+  "settings.server.created": "Created new server profile.",
+  "settings.server.demo_loaded": "Loaded demo server configuration.",
+  "settings.server.delete_title": "Delete Server Profile",
+  "settings.server.delete_confirm": "Are you sure you want to delete profile '{name}'?\n(Downloaded files will remain on disk).",
 
   "settings.theme.header": "Application Appearance",
   "settings.theme.mode": "Theme:",

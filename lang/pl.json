@@ -30,6 +30,11 @@
   "settings.saved": "Zapisano ustawienia",
 
   "settings.server.header": "Serwer Navidrome",
+  "settings.server.active_profile": "Aktywny profil:",
+  "settings.server.new_profile": "+ Nowy profil",
+  "settings.server.load_demo": "Wstaw Demo",
+  "settings.server.delete_profile": "Usuń profil",
+  "settings.server.profile_name": "Nazwa profilu:",
   "settings.server.url": "Adres URL:",
   "settings.server.user": "Użytkownik:",
   "settings.server.pass": "Hasło:",
@@ -37,6 +42,10 @@
   "settings.server.testing": "Łączenie...",
   "settings.server.success": "Połączono pomyślnie!",
   "settings.server.error": "Błąd połączenia.",
+  "settings.server.created": "Utworzono nowy profil serwera.",
+  "settings.server.demo_loaded": "Załadowano dane serwera demonstracyjnego.",
+  "settings.server.delete_title": "Usuwanie profilu serwera",
+  "settings.server.delete_confirm": "Czy na pewno chcesz usunąć profil '{name}'?\n(Pobrane pliki tego serwera pozostaną na dysku).",
 
   "settings.theme.header": "Wygląd aplikacji",
   "settings.theme.mode": "Motyw:",
