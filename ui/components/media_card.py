@@ -157,14 +157,6 @@ class MediaCard(QFrame):
             act_artist.triggered.connect(self._on_artist_click)
             menu.addAction(act_artist)
 
-            act_dl_videos = QAction(
-                qta.icon('fa5s.video', color=THEME['text_main']),
-                tr("context.download_video", "Pobierz teledysk"),
-                self
-            )
-            act_dl_videos.triggered.connect(lambda: self.download_videos_clicked.emit(self.data, self.type_str))
-            menu.addAction(act_dl_videos)
-
             menu.addSeparator()
 
             act_custom_cov = QAction(
@@ -192,16 +184,6 @@ class MediaCard(QFrame):
             menu.addAction(act_save_cov)
 
         if self.type_str == MediaType.ARTIST:
-            menu.addSeparator()
-
-            act_dl_videos = QAction(
-                qta.icon('fa5s.video', color=THEME['text_main']),
-                tr("context.download_video", "Pobierz teledysk"),
-                self
-            )
-            act_dl_videos.triggered.connect(lambda: self.download_videos_clicked.emit(self.data, self.type_str))
-            menu.addAction(act_dl_videos)
-
             menu.addSeparator()
 
             act_custom_img = QAction(
