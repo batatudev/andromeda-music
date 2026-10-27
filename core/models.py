@@ -1,6 +1,98 @@
+import os
+os.environ["QT_API"] = "pyside6"
+
 import re
+import json
+from pathlib import Path
 
 RE_YT_URL = re.compile(r'(https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[^\s",&]+)')
+
+_DEMO_LINKS_CACHE = None
+_DEMO_LINKS_MTIME = 0
+
+def _normalize_str(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = text.lower().strip()
+    cleaned = re.sub(r'[\(\[\{].*?[\)\]\}]', '', cleaned).strip()
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    return cleaned
+
+def _load_demo_links():
+    global _DEMO_LINKS_CACHE, _DEMO_LINKS_MTIME
+
+    root_dir = Path(__file__).resolve().parent.parent
+    candidate_paths = [
+        root_dir / "demo_links.json",
+        Path.home() / ".config" / "andromeda-music" / "demo_links.json",
+        Path.home() / ".config" / "andromeda-test" / "demo_links.json"
+    ]
+
+    target_file = None
+    for p in candidate_paths:
+        if p.exists():
+            target_file = p
+            break
+
+    if not target_file:
+        _DEMO_LINKS_CACHE = {}
+        return _DEMO_LINKS_CACHE
+
+    try:
+        mtime = target_file.stat().st_mtime
+        if _DEMO_LINKS_CACHE is not None and mtime == _DEMO_LINKS_MTIME:
+            return _DEMO_LINKS_CACHE
+
+        _DEMO_LINKS_MTIME = mtime
+        with open(target_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        parsed_links = {}
+
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    t = _normalize_str(item.get("title", ""))
+                    a = _normalize_str(item.get("artist", ""))
+                    u = str(item.get("url", "")).strip()
+                    if t and u and ("youtube.com" in u or "youtu.be" in u):
+                        parsed_links[(t, a)] = u
+        elif isinstance(data, dict):
+            for key, val in data.items():
+                u = str(val).strip()
+                if "youtube.com" in u or "youtu.be" in u:
+                    if " - " in key:
+                        parts = key.split(" - ", 1)
+                        a = _normalize_str(parts[0])
+                        t = _normalize_str(parts[1])
+                        parsed_links[(t, a)] = u
+                    else:
+                        t = _normalize_str(key)
+                        parsed_links[(t, "")] = u
+
+        _DEMO_LINKS_CACHE = parsed_links
+        return _DEMO_LINKS_CACHE
+    except Exception:
+        _DEMO_LINKS_CACHE = {}
+        return _DEMO_LINKS_CACHE
+
+def get_demo_catalog_link(title: str, artist: str) -> str | None:
+    links = _load_demo_links()
+    if not links:
+        return None
+
+    norm_title = _normalize_str(title)
+    norm_artist = _normalize_str(artist)
+
+    match = links.get((norm_title, norm_artist))
+    if match:
+        return match
+
+    for (t, a), url in links.items():
+        if t == norm_title and (not a or a in norm_artist or norm_artist in a):
+            return url
+
+    return None
 
 class MediaItem(dict):
     """
@@ -58,7 +150,8 @@ class MediaItem(dict):
                     return m.group(0)
             elif field in ('purl', 'PURL') and (text.startswith('http://') or text.startswith('https://')):
                 return text.strip()
-        return None
+
+        return get_demo_catalog_link(self.title, self.artist)
 
 class Song(MediaItem):
     """ DTO reprezentujące pojedynczy utwór (Track). """

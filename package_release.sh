@@ -37,6 +37,12 @@ cp "${PROJECT_DIR}/utils.py" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/install.sh" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/uninstall.sh" "${RELEASE_DIR}/"
 
+# Kopiowanie bazy linków demo, jeśli istnieje
+if [ -f "${PROJECT_DIR}/demo_links.json" ]; then
+    cp "${PROJECT_DIR}/demo_links.json" "${RELEASE_DIR}/"
+    echo -e "[OK] Dołączono plik bazy linków: demo_links.json"
+fi
+
 # Kopiowanie instrukcji dla twórcy
 if [ -f "${PROJECT_DIR}/INSTRUKCJA_TESTERA.md" ]; then
     cp "${PROJECT_DIR}/INSTRUKCJA_TESTERA.md" "${RELEASE_DIR}/"
@@ -51,11 +57,9 @@ cp -r "${PROJECT_DIR}/lang" "${RELEASE_DIR}/"
 cp -r "${PROJECT_DIR}/assets" "${RELEASE_DIR}/"
 
 echo -e "\n[2/5] Przygotowywanie konfiguracji z fabrycznym serwerem Demo..."
-# Przygotowanie gotowego config.ini z publicznym serwerem demo (tester nie musi nic konfigurować)
 cp "${PROJECT_DIR}/config.example.ini" "${RELEASE_DIR}/config.ini"
 
 echo -e "\n[3/5] Sanityzacja i czyszczenie plików deweloperskich..."
-# Usunięcie zbędnych plików i cache
 find "${RELEASE_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 find "${RELEASE_DIR}" -type f -name "*.pyc" -delete
 find "${RELEASE_DIR}" -type f -name "*.pyo" -delete
@@ -64,7 +68,6 @@ find "${RELEASE_DIR}" -type f -name "*.tmp" -delete
 find "${RELEASE_DIR}" -type f -name "*.db*" -delete
 find "${RELEASE_DIR}" -type f -name "*.log" -delete
 
-# Nadanie praw wykonywalności
 chmod +x "${RELEASE_DIR}/install.sh"
 chmod +x "${RELEASE_DIR}/uninstall.sh"
 chmod +x "${RELEASE_DIR}/main.py"
@@ -85,6 +88,7 @@ echo -e "${C_BOLD}${C_GREEN}        PACZKA TESTOWA ZOSTAŁA POMYŚLNIE WYGENEROW
 echo -e "${C_BOLD}${C_GREEN}======================================================================${C_RESET}"
 echo -e "Gotowy plik do wysłania: ${C_BOLD}${OUTPUT_PATH}${C_RESET} (~${SIZE_MB} MB)"
 echo -e "\nPaczka zawiera:"
-echo -e "  • Prekonfigurowany serwer publiczny demo Navidrome (działa od razu po instalacji)"
-echo -e "  • Skrypty install.sh i uninstall.sh (zgodne z openSUSE, KDE Plasma 6 i Waylandem)"
+echo -e "  • Prekonfigurowany serwer publiczny demo Navidrome"
+echo -e "  • Własną bazę linków YouTube (demo_links.json)"
+echo -e "  • Skrypty install.sh i uninstall.sh (zoptymalizowane pod openSUSE/KDE 6)"
 echo -e "  • Przejrzysty przewodnik INSTRUKCJA_TESTERA.md\n"
