@@ -37,10 +37,22 @@ cp "${PROJECT_DIR}/utils.py" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/install.sh" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/uninstall.sh" "${RELEASE_DIR}/"
 
-# Kopiowanie bazy linków demo, jeśli istnieje
+# Kopiowanie bazy linków do wideo demo (demo_links.json) z automatycznym fallbackiem
 if [ -f "${PROJECT_DIR}/demo_links.json" ]; then
-    cp "${PROJECT_DIR}/demo_links.json" "${RELEASE_DIR}/"
-    echo -e "[OK] Dołączono plik bazy linków: demo_links.json"
+    cp "${PROJECT_DIR}/demo_links.json" "${RELEASE_DIR}/demo_links.json"
+    echo -e "[OK] Dołączono plik z linkami teledysków: demo_links.json"
+else
+    echo -e "${C_YELLOW}[OSTRZEŻENIE] Brak demo_links.json w folderze głównym. Tworzę szablon w paczce...${C_RESET}"
+    cat << 'EOF' > "${RELEASE_DIR}/demo_links.json"
+[
+  {
+    "artist": "Pornophonique",
+    "title": "Sad Robot",
+    "url": "https://www.youtube.com/watch?v=y3nE4r0z09c"
+  }
+]
+EOF
+    echo -e "[OK] Wygenerowano domyślny demo_links.json z utworem Sad Robot."
 fi
 
 # Kopiowanie instrukcji dla twórcy
@@ -89,6 +101,6 @@ echo -e "${C_BOLD}${C_GREEN}====================================================
 echo -e "Gotowy plik do wysłania: ${C_BOLD}${OUTPUT_PATH}${C_RESET} (~${SIZE_MB} MB)"
 echo -e "\nPaczka zawiera:"
 echo -e "  • Prekonfigurowany serwer publiczny demo Navidrome"
-echo -e "  • Własną bazę linków YouTube (demo_links.json)"
+echo -e "  • Plik bazy linków YouTube dla utworów demo: demo_links.json"
 echo -e "  • Skrypty install.sh i uninstall.sh (zoptymalizowane pod openSUSE/KDE 6)"
-echo -e "  • Przejrzysty przewodnik INSTRUKCJA_TESTERA.md\n"
+echo -e "  • Przewodnik dla twórcy: INSTRUKCJA_TESTERA.md\n"

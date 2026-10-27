@@ -95,10 +95,11 @@ echo -e "\n[2/5] Weryfikacja i instalacja pakietów Pythona (pip)..."
 "${VENV_DIR}/bin/pip" install -r "${PROJECT_DIR}/requirements.txt" --quiet
 echo -e "[OK] Pakiety z requirements.txt zainstalowane pomyślnie."
 
-# 5. Wdrożenie początkowej konfiguracji XDG (~/.config/<APP_ID>/config.ini)
+# 5. Wdrożenie konfiguracji i bazy linków do ~/.config/<APP_ID>/
 echo -e "\n[3/5] Weryfikacja i wdrażanie konfiguracji w ~/.config/${APP_ID}..."
 CONFIG_DIR="${HOME}/.config/${APP_ID}"
 mkdir -p "${CONFIG_DIR}"
+
 if [ ! -f "${CONFIG_DIR}/config.ini" ]; then
     if [ -f "${PROJECT_DIR}/config.ini" ]; then
         cp "${PROJECT_DIR}/config.ini" "${CONFIG_DIR}/config.ini"
@@ -109,6 +110,11 @@ if [ ! -f "${CONFIG_DIR}/config.ini" ]; then
     fi
 else
     echo -e "[INFO] Istniejący plik ${CONFIG_DIR}/config.ini został zachowany."
+fi
+
+if [ -f "${PROJECT_DIR}/demo_links.json" ] && [ ! -f "${CONFIG_DIR}/demo_links.json" ]; then
+    cp "${PROJECT_DIR}/demo_links.json" "${CONFIG_DIR}/demo_links.json"
+    echo -e "[OK] Wdrożono bazę linków teledysków demo: ${CONFIG_DIR}/demo_links.json"
 fi
 
 # 6. Kopiowanie ikon XDG
