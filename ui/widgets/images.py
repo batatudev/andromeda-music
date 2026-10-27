@@ -4,7 +4,7 @@ os.environ["QT_API"] = "pyside6"
 import qtawesome as qta
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QPainter, QPainterPath, QPixmap
+from PySide6.QtGui import QPainter, QPainterPath, QPixmap, QColor
 
 from config import THEME
 from ui.widgets.buttons import get_cached_icon
@@ -91,7 +91,32 @@ class RoundedImage(QWidget):
 
         pixmap = self.pixmap_cache
         if not pixmap or pixmap.isNull():
-            pixmap = get_cached_icon('fa5s.music', color=THEME.get("text_muted", "#888888")).pixmap(w // 2, h // 2)
+            placeholder = QPixmap(w, h)
+            placeholder.fill(Qt.transparent)
+
+            painter = QPainter(placeholder)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+            clip_path = QPainterPath()
+            clip_path.addRoundedRect(0, 0, w, h, self.radius, self.radius)
+            painter.setClipPath(clip_path)
+
+            bg_color = QColor(THEME.get("nav_bg", "#222222"))
+            painter.fillRect(0, 0, w, h, bg_color)
+
+            icon_size = max(16, int(min(w, h) * 0.38))
+            icon_color = THEME.get("text_muted", "#888888")
+            icon_pix = get_cached_icon('fa5s.music', color=icon_color).pixmap(icon_size, icon_size)
+
+            icon_x = (w - icon_size) // 2
+            icon_y = (h - icon_size) // 2
+            painter.drawPixmap(icon_x, icon_y, icon_pix)
+            painter.end()
+
+            self.prepared_pixmap = placeholder
+            self.update()
+            return
 
         scaled = pixmap.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
 
