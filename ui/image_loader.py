@@ -12,11 +12,10 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkRe
 
 from core.paths import PathsManager
 
-
 class AsyncImageLoader(QObject):
     """
     Wielowątkowy silnik asynchronicznego pobierania i buforowania okładek.
-    Dekodowanie i skalowanie grafik odbywa się w tle, odciążając wątek GUI.
+    Dekodowanie i skalowanie grafik odbywa się w tle z zachowaniem partycjonowania ścieżek aktywnego serwera.
     """
     image_decoded = Signal(str, object, list, bool)
 
@@ -30,13 +29,13 @@ class AsyncImageLoader(QObject):
         self.disk_cache.setCacheDirectory(str(cp))
         self.manager.setCache(self.disk_cache)
 
-        self.custom_artists_dir = PathsManager.get_data_dir() / "custom_artists"
+        self.custom_artists_dir = PathsManager.get_custom_artists_dir()
         self.custom_artists_dir.mkdir(parents=True, exist_ok=True)
 
-        self.custom_covers_dir = PathsManager.get_data_dir() / "custom_covers"
+        self.custom_covers_dir = PathsManager.get_custom_covers_dir()
         self.custom_covers_dir.mkdir(parents=True, exist_ok=True)
 
-        self.covers_cache_dir = PathsManager.get_cache_dir() / "covers"
+        self.covers_cache_dir = PathsManager.get_covers_cache_dir()
         self.covers_cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.queue = []

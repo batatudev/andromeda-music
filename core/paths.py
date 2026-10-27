@@ -3,14 +3,28 @@ os.environ["QT_API"] = "pyside6"
 
 import shutil
 import sqlite3
+import re
 from pathlib import Path
 
 APP_ID = "andromeda-music"
 LEGACY_APP_ID = "navidrome-player-v3"
 
-
 class PathsManager:
     _migration_checked = False
+    _server_migration_checked = False
+    _active_server_id = "default"
+
+    @classmethod
+    def set_active_server_id(cls, server_id: str):
+        """Ustawia identyfikator aktywnego serwera dla ścieżek partycjonowanych."""
+        clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(server_id).strip())
+        cls._active_server_id = clean_id if clean_id else "default"
+        cls._migrate_legacy_single_server_data_if_needed()
+
+    @classmethod
+    def get_active_server_id(cls) -> str:
+        """Zwraca identyfikator aktywnego serwera."""
+        return cls._active_server_id
 
     @classmethod
     def get_config_dir(cls) -> Path:
@@ -22,7 +36,7 @@ class PathsManager:
 
     @classmethod
     def get_data_dir(cls) -> Path:
-        """Katalog na trwałe dane użytkownika: ~/.local/share/andromeda-music"""
+        """Globalny katalog na trwałe dane użytkownika: ~/.local/share/andromeda-music"""
         base = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         p = Path(base) / APP_ID
         p.mkdir(parents=True, exist_ok=True)
@@ -30,11 +44,29 @@ class PathsManager:
 
     @classmethod
     def get_cache_dir(cls) -> Path:
-        """Katalog na pamięć podręczną (cache): ~/.cache/andromeda-music"""
+        """Globalny katalog na pamięć podręczną (cache): ~/.cache/andromeda-music"""
         base = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
         p = Path(base) / APP_ID
         p.mkdir(parents=True, exist_ok=True)
         cls._migrate_legacy_data_if_needed(p)
+        return p
+
+    @classmethod
+    def get_server_data_dir(cls, server_id: str = None) -> Path:
+        """Izolowany katalog na trwałe dane konkretnego serwera: ~/.local/share/andromeda-music/servers/<server_id>"""
+        sid = server_id or cls._active_server_id
+        clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(sid).strip()) or "default"
+        p = cls.get_data_dir() / "servers" / clean_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @classmethod
+    def get_server_cache_dir(cls, server_id: str = None) -> Path:
+        """Izolowany katalog na pamięć podręczną konkretnego serwera: ~/.cache/andromeda-music/servers/<server_id>"""
+        sid = server_id or cls._active_server_id
+        clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(sid).strip()) or "default"
+        p = cls.get_cache_dir() / "servers" / clean_id
+        p.mkdir(parents=True, exist_ok=True)
         return p
 
     @classmethod
@@ -69,47 +101,115 @@ class PathsManager:
                 pass
 
     @classmethod
+    def _migrate_legacy_single_server_data_if_needed(cls):
+        """Przenosi stare dane pojedynczego serwera z katalogu głównego do profilu servers/default/."""
+        if cls._server_migration_checked:
+            return
+        cls._server_migration_checked = True
+
+        root_cache = cls.get_cache_dir()
+        root_data = cls.get_data_dir()
+        target_cache = cls.get_server_cache_dir("default")
+        target_data = cls.get_server_data_dir("default")
+
+        db_files = ["library_cache.db", "offline_videos.db", "offline_audio.db"]
+        for db_name in db_files:
+            src_db = root_cache / db_name
+            dst_db = target_cache / db_name
+            if src_db.exists() and not dst_db.exists():
+                try:
+                    shutil.move(str(src_db), str(dst_db))
+                    for ext in ["-wal", "-shm"]:
+                        src_extra = root_cache / f"{db_name}{ext}"
+                        dst_extra = target_cache / f"{db_name}{ext}"
+                        if src_extra.exists():
+                            shutil.move(str(src_extra), str(dst_extra))
+                except Exception:
+                    pass
+
+        dirs_to_move_cache = ["images", "covers", "audio"]
+        for dname in dirs_to_move_cache:
+            src_dir = root_cache / dname
+            dst_dir = target_cache / dname
+            if src_dir.exists() and not dst_dir.exists():
+                try:
+                    shutil.move(str(src_dir), str(dst_dir))
+                except Exception:
+                    pass
+
+        dirs_to_move_data = ["audio-offline", "video-offline", "custom_covers", "custom_artists"]
+        for dname in dirs_to_move_data:
+            src_dir = root_data / dname
+            dst_dir = target_data / dname
+            if src_dir.exists() and not dst_dir.exists():
+                try:
+                    shutil.move(str(src_dir), str(dst_dir))
+                except Exception:
+                    pass
+
+    @classmethod
     def get_audio_cache_dir(cls) -> Path:
-        """Katalog na tymczasowy bufor strumieniowania: ~/.cache/andromeda-music/audio"""
-        p = cls.get_cache_dir() / "audio"
+        """Katalog na tymczasowy bufor strumieniowania dla aktywnego serwera."""
+        p = cls.get_server_cache_dir() / "audio"
         p.mkdir(parents=True, exist_ok=True)
         return p
 
     @classmethod
     def get_images_cache_dir(cls) -> Path:
-        """Katalog na cache okładek i miniatur: ~/.cache/andromeda-music/images"""
-        p = cls.get_cache_dir() / "images"
+        """Katalog na cache okładek dla aktywnego serwera."""
+        p = cls.get_server_cache_dir() / "images"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @classmethod
+    def get_covers_cache_dir(cls) -> Path:
+        """Katalog na zapisane miniaturki okładek dla aktywnego serwera."""
+        p = cls.get_server_cache_dir() / "covers"
         p.mkdir(parents=True, exist_ok=True)
         return p
 
     @classmethod
     def get_offline_videos_dir(cls) -> Path:
-        """Trwały katalog na pobrane teledyski offline: ~/.local/share/andromeda-music/video-offline"""
-        p = cls.get_data_dir() / "video-offline"
+        """Trwały katalog na pobrane teledyski dla aktywnego serwera."""
+        p = cls.get_server_data_dir() / "video-offline"
         p.mkdir(parents=True, exist_ok=True)
         return p
 
     @classmethod
     def get_offline_audio_dir(cls) -> Path:
-        """Trwały katalog na pobraną muzykę offline: ~/.local/share/andromeda-music/audio-offline"""
-        p = cls.get_data_dir() / "audio-offline"
+        """Trwały katalog na pobraną muzykę dla aktywnego serwera."""
+        p = cls.get_server_data_dir() / "audio-offline"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @classmethod
+    def get_custom_covers_dir(cls) -> Path:
+        """Katalog na własne okładki albumów dla aktywnego serwera."""
+        p = cls.get_server_data_dir() / "custom_covers"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    @classmethod
+    def get_custom_artists_dir(cls) -> Path:
+        """Katalog na własne zdjęcia artystów dla aktywnego serwera."""
+        p = cls.get_server_data_dir() / "custom_artists"
         p.mkdir(parents=True, exist_ok=True)
         return p
 
     @classmethod
     def get_video_db_path(cls) -> Path:
-        """Baza SQLite pobrań wideo: ~/.cache/andromeda-music/offline_videos.db"""
-        return cls.get_cache_dir() / "offline_videos.db"
+        """Baza SQLite pobrań wideo dla aktywnego serwera."""
+        return cls.get_server_cache_dir() / "offline_videos.db"
 
     @classmethod
     def get_audio_db_path(cls) -> Path:
-        """Baza SQLite pobrań audio: ~/.cache/andromeda-music/offline_audio.db"""
-        return cls.get_cache_dir() / "offline_audio.db"
+        """Baza SQLite pobrań audio dla aktywnego serwera."""
+        return cls.get_server_cache_dir() / "offline_audio.db"
 
     @classmethod
     def get_library_cache_db_path(cls) -> Path:
-        """Lokalna kopia biblioteki Navidrome: ~/.cache/andromeda-music/library_cache.db"""
-        return cls.get_cache_dir() / "library_cache.db"
+        """Lokalna kopia biblioteki Navidrome dla aktywnego serwera."""
+        return cls.get_server_cache_dir() / "library_cache.db"
 
     @classmethod
     def get_config_file(cls) -> Path:
@@ -130,7 +230,7 @@ class PathsManager:
 
     @classmethod
     def enable_wal_mode(cls, db_path: Path | str):
-        """Włącza trwały tryb WAL w nagłówku bazy (wywoływane jednorazowo w _init_db)."""
+        """Włącza trwały tryb WAL w nagłówku bazy."""
         try:
             conn = sqlite3.connect(str(db_path), timeout=5.0)
             conn.execute("PRAGMA journal_mode = WAL")

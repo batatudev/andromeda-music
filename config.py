@@ -2,6 +2,7 @@ import os
 os.environ["QT_API"] = "pyside6"
 
 import configparser
+import uuid
 from enum import IntEnum
 from PySide6.QtGui import QGuiApplication, QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt
@@ -10,6 +11,14 @@ from core.paths import PathsManager
 
 APP_NAME = "Andromeda Music"
 APP_ICON_PATH = "assets/logo.png"
+
+DEFAULT_DEMO_SERVER = {
+    "id": "demo",
+    "name": "Navidrome Public Demo",
+    "url": "https://demo.navidrome.org",
+    "username": "demo",
+    "password": "demo"
+}
 
 class Pages(IntEnum):
     HOME = 0
@@ -26,13 +35,17 @@ class Pages(IntEnum):
     DOWNLOADS = 11
 
 APP_CONFIG = {
-    "url": "",
-    "username": "",
-    "password": "",
+    "servers": [DEFAULT_DEMO_SERVER.copy()],
+    "active_server_id": "demo",
+    "url": DEFAULT_DEMO_SERVER["url"],
+    "username": DEFAULT_DEMO_SERVER["username"],
+    "password": DEFAULT_DEMO_SERVER["password"],
     "theme_mode": "system",
+    "language": "pl",
     "dark_mode": True,
     "accent": "#1db954",
     "volume": 80,
+    "dev_mode": False,
     "video_resolution": "1080p",
     "video_min_res": "480p",
     "video_auto_res": True,
@@ -40,7 +53,7 @@ APP_CONFIG = {
     "video_dynamic_blur": 0,
     "video_static_opacity": 80,
     "video_static_blur": 60,
-    "video_offline_path": str(PathsManager.get_data_dir() / "video-offline"),
+    "video_offline_path": "",
     "video_offline_quality": "1080p",
     "video_smart_auto_play": False,
     "video_auto_dl_favs": False,
@@ -49,6 +62,64 @@ APP_CONFIG = {
     "audio_auto_dl_playlists": [],
     "hide_undownloaded_offline": False
 }
+
+def get_active_server() -> dict:
+    active_id = APP_CONFIG.get("active_server_id", "demo")
+    for s in APP_CONFIG.get("servers", []):
+        if s.get("id") == active_id:
+            return s
+    if APP_CONFIG.get("servers"):
+        return APP_CONFIG["servers"][0]
+    return DEFAULT_DEMO_SERVER.copy()
+
+def get_server_by_id(server_id: str) -> dict | None:
+    for s in APP_CONFIG.get("servers", []):
+        if s.get("id") == server_id:
+            return s
+    return None
+
+def set_active_server(server_id: str):
+    server = get_server_by_id(server_id)
+    if server:
+        APP_CONFIG["active_server_id"] = server_id
+        APP_CONFIG["url"] = server.get("url", "")
+        APP_CONFIG["username"] = server.get("username", "")
+        APP_CONFIG["password"] = server.get("password", "")
+        PathsManager.set_active_server_id(server_id)
+        save_config()
+
+def add_or_update_server(server_dict: dict) -> str:
+    s_id = server_dict.get("id")
+    if not s_id:
+        s_id = str(uuid.uuid4())[:8]
+        server_dict["id"] = s_id
+
+    servers = APP_CONFIG.get("servers", [])
+    found = False
+    for i, s in enumerate(servers):
+        if s.get("id") == s_id:
+            servers[i] = server_dict
+            found = True
+            break
+    if not found:
+        servers.append(server_dict)
+
+    APP_CONFIG["servers"] = servers
+    save_config()
+    return s_id
+
+def remove_server(server_id: str) -> bool:
+    servers = APP_CONFIG.get("servers", [])
+    if len(servers) <= 1:
+        return False
+
+    APP_CONFIG["servers"] = [s for s in servers if s.get("id") != server_id]
+    if APP_CONFIG.get("active_server_id") == server_id:
+        new_active = APP_CONFIG["servers"][0]["id"]
+        set_active_server(new_active)
+    else:
+        save_config()
+    return True
 
 def get_combo_arrow_path(is_hover=False) -> str:
     cache_dir = PathsManager.get_cache_dir()
@@ -77,10 +148,60 @@ def load_config():
     if config_path.exists():
         cfg.read(config_path)
 
-    if "Navidrome" in cfg:
-        APP_CONFIG["url"] = cfg["Navidrome"].get("url", "")
-        APP_CONFIG["username"] = cfg["Navidrome"].get("username", "")
-        APP_CONFIG["password"] = cfg["Navidrome"].get("password", "")
+    servers_list = []
+    active_server_id = "demo"
+
+    server_sections = [s for s in cfg.sections() if s.startswith("Server_")]
+    if server_sections:
+        if "Servers" in cfg:
+            active_server_id = cfg["Servers"].get("active_server_id", "demo")
+
+        for sec in server_sections:
+            s_id = sec.replace("Server_", "").strip()
+            s_name = cfg[sec].get("name", s_id)
+            s_url = cfg[sec].get("url", "")
+            s_user = cfg[sec].get("username", "")
+            s_pwd = cfg[sec].get("password", "")
+            servers_list.append({
+                "id": s_id,
+                "name": s_name,
+                "url": s_url,
+                "username": s_user,
+                "password": s_pwd
+            })
+    elif "Navidrome" in cfg and cfg["Navidrome"].get("url"):
+        legacy_url = cfg["Navidrome"].get("url", "")
+        legacy_user = cfg["Navidrome"].get("username", "")
+        legacy_pwd = cfg["Navidrome"].get("password", "")
+        active_server_id = "default"
+        servers_list.append({
+            "id": "default",
+            "name": "Główny Serwer",
+            "url": legacy_url,
+            "username": legacy_user,
+            "password": legacy_pwd
+        })
+    else:
+        servers_list.append(DEFAULT_DEMO_SERVER.copy())
+        active_server_id = "demo"
+
+    if not servers_list:
+        servers_list.append(DEFAULT_DEMO_SERVER.copy())
+        active_server_id = "demo"
+
+    server_ids = [s["id"] for s in servers_list]
+    if active_server_id not in server_ids:
+        active_server_id = server_ids[0]
+
+    APP_CONFIG["servers"] = servers_list
+    APP_CONFIG["active_server_id"] = active_server_id
+
+    active_server = get_active_server()
+    APP_CONFIG["url"] = active_server.get("url", "")
+    APP_CONFIG["username"] = active_server.get("username", "")
+    APP_CONFIG["password"] = active_server.get("password", "")
+    PathsManager.set_active_server_id(active_server_id)
+
     if "Theme" in cfg:
         if "theme_mode" in cfg["Theme"]:
             APP_CONFIG["theme_mode"] = cfg["Theme"].get("theme_mode", "system")
@@ -91,6 +212,7 @@ def load_config():
         APP_CONFIG["accent"] = cfg["Theme"].get("accent", fallback="#1db954")
         APP_CONFIG["volume"] = cfg["Theme"].getint("volume", fallback=80)
         APP_CONFIG["dev_mode"] = cfg["Theme"].getboolean("dev_mode", fallback=False)
+
     if "Video" in cfg:
         APP_CONFIG["video_resolution"] = cfg["Video"].get("resolution", fallback="1080p")
         APP_CONFIG["video_min_res"] = cfg["Video"].get("min_resolution", fallback="480p")
@@ -99,13 +221,15 @@ def load_config():
         APP_CONFIG["video_dynamic_blur"] = cfg["Video"].getint("dynamic_blur", fallback=0)
         APP_CONFIG["video_static_opacity"] = cfg["Video"].getint("static_opacity", fallback=80)
         APP_CONFIG["video_static_blur"] = cfg["Video"].getint("static_blur", fallback=60)
+
     if "VideoOffline" in cfg:
-        APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback=str(PathsManager.get_data_dir() / "video-offline"))
+        APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback="")
         APP_CONFIG["video_offline_quality"] = cfg["VideoOffline"].get("quality", fallback="1080p")
         APP_CONFIG["video_smart_auto_play"] = cfg["VideoOffline"].getboolean("smart_auto_play", fallback=False)
         APP_CONFIG["video_auto_dl_favs"] = cfg["VideoOffline"].getboolean("auto_dl_favs", fallback=False)
         dl_pl = cfg["VideoOffline"].get("auto_dl_playlists", fallback="")
         APP_CONFIG["video_auto_dl_playlists"] = [p.strip() for p in dl_pl.split(",") if p.strip()]
+
     if "AudioOffline" in cfg:
         APP_CONFIG["audio_auto_dl_favs"] = cfg["AudioOffline"].getboolean("auto_dl_favs", fallback=False)
         a_dl_pl = cfg["AudioOffline"].get("auto_dl_playlists", fallback="")
@@ -114,11 +238,26 @@ def load_config():
 
 def save_config():
     cfg = configparser.ConfigParser()
+
+    cfg["Servers"] = {
+        "active_server_id": APP_CONFIG.get("active_server_id", "demo")
+    }
+
+    for s in APP_CONFIG.get("servers", []):
+        sec_name = f"Server_{s['id']}"
+        cfg[sec_name] = {
+            "name": s.get("name", s["id"]),
+            "url": s.get("url", ""),
+            "username": s.get("username", ""),
+            "password": s.get("password", "")
+        }
+
     cfg["Navidrome"] = {
         "url": APP_CONFIG["url"],
         "username": APP_CONFIG["username"],
         "password": APP_CONFIG["password"]
     }
+
     cfg["Theme"] = {
         "theme_mode": APP_CONFIG.get("theme_mode", "system"),
         "language": APP_CONFIG.get("language", "pl"),
@@ -126,6 +265,7 @@ def save_config():
         "volume": str(APP_CONFIG["volume"]),
         "dev_mode": str(APP_CONFIG.get("dev_mode", False))
     }
+
     cfg["Video"] = {
         "resolution": APP_CONFIG["video_resolution"],
         "min_resolution": APP_CONFIG["video_min_res"],
@@ -135,13 +275,15 @@ def save_config():
         "static_opacity": str(APP_CONFIG["video_static_opacity"]),
         "static_blur": str(APP_CONFIG["video_static_blur"])
     }
+
     cfg["VideoOffline"] = {
-        "path": APP_CONFIG.get("video_offline_path", str(PathsManager.get_data_dir() / "video-offline")),
+        "path": APP_CONFIG.get("video_offline_path", ""),
         "quality": APP_CONFIG.get("video_offline_quality", "1080p"),
         "smart_auto_play": str(APP_CONFIG.get("video_smart_auto_play", False)),
         "auto_dl_favs": str(APP_CONFIG.get("video_auto_dl_favs", False)),
         "auto_dl_playlists": ",".join(APP_CONFIG.get("video_auto_dl_playlists", []))
     }
+
     cfg["AudioOffline"] = {
         "auto_dl_favs": str(APP_CONFIG.get("audio_auto_dl_favs", False)),
         "auto_dl_playlists": ",".join(APP_CONFIG.get("audio_auto_dl_playlists", [])),
@@ -149,7 +291,7 @@ def save_config():
     }
 
     config_path = PathsManager.get_config_file()
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         cfg.write(f)
 
 THEME = {}
