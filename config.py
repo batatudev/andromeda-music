@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 
 from core.paths import PathsManager
 
-APP_NAME = "Andromeda Music"
+APP_NAME = os.environ.get("ANDROMEDA_APP_NAME", "Andromeda Music")
 APP_ICON_PATH = "assets/logo.png"
 
 DEFAULT_DEMO_SERVER = {

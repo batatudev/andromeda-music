@@ -6,7 +6,8 @@ import sqlite3
 import re
 from pathlib import Path
 
-APP_ID = "andromeda-music"
+raw_app_id = os.environ.get("ANDROMEDA_APP_ID", "andromeda-music")
+APP_ID = re.sub(r'[^a-zA-Z0-9_\-]', '', str(raw_app_id).strip()) or "andromeda-music"
 LEGACY_APP_ID = "navidrome-player-v3"
 
 class PathsManager:
@@ -28,7 +29,7 @@ class PathsManager:
 
     @classmethod
     def get_config_dir(cls) -> Path:
-        """Katalog na pliki konfiguracyjne: ~/.config/andromeda-music"""
+        """Katalog na pliki konfiguracyjne: ~/.config/<APP_ID>"""
         base = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
         p = Path(base) / APP_ID
         p.mkdir(parents=True, exist_ok=True)
@@ -36,7 +37,7 @@ class PathsManager:
 
     @classmethod
     def get_data_dir(cls) -> Path:
-        """Globalny katalog na trwałe dane użytkownika: ~/.local/share/andromeda-music"""
+        """Globalny katalog na trwałe dane użytkownika: ~/.local/share/<APP_ID>"""
         base = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
         p = Path(base) / APP_ID
         p.mkdir(parents=True, exist_ok=True)
@@ -44,7 +45,7 @@ class PathsManager:
 
     @classmethod
     def get_cache_dir(cls) -> Path:
-        """Globalny katalog na pamięć podręczną (cache): ~/.cache/andromeda-music"""
+        """Globalny katalog na pamięć podręczną (cache): ~/.cache/<APP_ID>"""
         base = os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
         p = Path(base) / APP_ID
         p.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,7 @@ class PathsManager:
 
     @classmethod
     def get_server_data_dir(cls, server_id: str = None) -> Path:
-        """Izolowany katalog na trwałe dane konkretnego serwera: ~/.local/share/andromeda-music/servers/<server_id>"""
+        """Izolowany katalog na trwałe dane konkretnego serwera: ~/.local/share/<APP_ID>/servers/<server_id>"""
         sid = server_id or cls._active_server_id
         clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(sid).strip()) or "default"
         p = cls.get_data_dir() / "servers" / clean_id
@@ -62,7 +63,7 @@ class PathsManager:
 
     @classmethod
     def get_server_cache_dir(cls, server_id: str = None) -> Path:
-        """Izolowany katalog na pamięć podręczną konkretnego serwera: ~/.cache/andromeda-music/servers/<server_id>"""
+        """Izolowany katalog na pamięć podręczną konkretnego serwera: ~/.cache/<APP_ID>/servers/<server_id>"""
         sid = server_id or cls._active_server_id
         clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', str(sid).strip()) or "default"
         p = cls.get_cache_dir() / "servers" / clean_id
@@ -72,7 +73,7 @@ class PathsManager:
     @classmethod
     def _migrate_legacy_data_if_needed(cls, target_cache_dir: Path):
         """Automatycznie przenosi bazy z navidrome-player-v3, jeśli istnieją."""
-        if cls._migration_checked:
+        if cls._migration_checked or APP_ID != "andromeda-music":
             return
         cls._migration_checked = True
 
@@ -213,7 +214,7 @@ class PathsManager:
 
     @classmethod
     def get_config_file(cls) -> Path:
-        """Główny plik konfiguracyjny: ~/.config/andromeda-music/config.ini"""
+        """Główny plik konfiguracyjny: ~/.config/<APP_ID>/config.ini"""
         return cls.get_config_dir() / "config.ini"
 
     @classmethod
