@@ -87,8 +87,8 @@ class HomeView(LibraryScrollArea):
             if self.row_arts:
                 self.row_arts.update_width(avail_w)
 
-    def load(self):
-        if self._is_loaded:
+    def load(self, force=False):
+        if not force and self._is_loaded:
             return
 
         self.content_widget.setUpdatesEnabled(False)

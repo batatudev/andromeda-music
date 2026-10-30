@@ -59,7 +59,7 @@ class SearchView(LibraryScrollArea):
         self.content_layout.addWidget(self.results_widget)
         self.content_layout.addStretch()
 
-    def load(self):
+    def load(self, force=False):
         self.search_input.setFocus()
         if not self.last_query:
             self._clear_layout(self.results_layout)

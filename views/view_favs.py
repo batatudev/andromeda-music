@@ -11,7 +11,6 @@ from ui.components import SongItem
 from core.i18n import tr
 from views.library_base import LibraryScrollArea
 
-
 class FavsView(LibraryScrollArea):
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -21,8 +20,8 @@ class FavsView(LibraryScrollArea):
         if 0 <= idx < len(self._current_songs):
             self.main_window.engine.play_list(self._current_songs, idx)
 
-    def load(self):
-        if self._is_loaded:
+    def load(self, force=False):
+        if not force and self._is_loaded:
             return
 
         self.content_widget.setUpdatesEnabled(False)
