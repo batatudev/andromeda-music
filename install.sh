@@ -47,7 +47,7 @@ if [ -z "${PYTHON_SYS}" ]; then
 fi
 
 PY_VER="$(${PYTHON_SYS} -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-echo -e "[INFO] Wykryto interpreter: ${C_GREEN}${PYTHON_SYS}${C_RESET} (wersja ${PY_VER})"
+echo -e "[INFO] Wykryto interpreter systemowy: ${C_GREEN}${PYTHON_SYS}${C_RESET} (wersja ${PY_VER})"
 
 # 2. Rozpoznanie menedżera pakietów dystrybucji
 PKG_MANAGER=""
@@ -56,6 +56,9 @@ INSTALL_CMD=""
 if command -v zypper >/dev/null 2>&1; then
     PKG_MANAGER="openSUSE (zypper)"
     INSTALL_CMD="sudo zypper install ffmpeg python3-pip python3-devel python3-gobject"
+elif command -v dnf5 >/dev/null 2>&1; then
+    PKG_MANAGER="Fedora (dnf5)"
+    INSTALL_CMD="sudo dnf5 install ffmpeg python3-pip python3-devel python3-gobject"
 elif command -v dnf >/dev/null 2>&1; then
     PKG_MANAGER="Fedora / RHEL (dnf)"
     INSTALL_CMD="sudo dnf install ffmpeg python3-pip python3-devel python3-gobject"
@@ -80,20 +83,52 @@ else
     echo -e "[OK] Narzędzie 'ffmpeg' jest zainstalowane."
 fi
 
-# 3. Wirtualne środowisko z flagą --system-site-packages
-echo -e "\n[1/5] Przygotowywanie wirtualnego środowiska (.venv)..."
-if [ ! -d "${VENV_DIR}" ]; then
-    ${PYTHON_SYS} -m venv --system-site-packages "${VENV_DIR}"
-    echo -e "[OK] Utworzono środowisko: ${VENV_DIR} (flaga --system-site-packages)"
-else
-    echo -e "[INFO] Istniejące środowisko .venv zostanie wykorzystane."
+# 3. Weryfikacja i przygotowanie wirtualnego środowiska (.venv)
+echo -e "\n[1/5] Weryfikacja spójności środowiska wirtualnego (.venv)..."
+REBUILD_VENV=false
+
+if [ -d "${VENV_DIR}" ]; then
+    if [ ! -x "${VENV_DIR}/bin/python3" ]; then
+        echo -e "${C_YELLOW}[INFO] Wykryto uszkodzone środowisko wirtualne. Przebudowuję...${C_RESET}"
+        REBUILD_VENV=true
+    else
+        VENV_PY_VER="$("${VENV_DIR}/bin/python3" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "broken")"
+        if [ "${VENV_PY_VER}" != "${PY_VER}" ]; then
+            echo -e "${C_YELLOW}[INFO] Wykryto zmianę wersji Pythona po aktualizacji systemu (stara: ${VENV_PY_VER}, nowa: ${PY_VER}).${C_RESET}"
+            echo -e "${C_YELLOW}Automatyczna przebudowa środowiska .venv dla Pythona ${PY_VER}...${C_RESET}"
+            REBUILD_VENV=true
+        fi
+    fi
 fi
 
-# 4. Instalacja pakietów z pip
+if [ "${REBUILD_VENV}" = true ] && [ -d "${VENV_DIR}" ]; then
+    rm -rf "${VENV_DIR}"
+fi
+
+if [ ! -d "${VENV_DIR}" ]; then
+    ${PYTHON_SYS} -m venv --system-site-packages "${VENV_DIR}"
+    echo -e "[OK] Utworzono świeże środowisko: ${VENV_DIR} (Python ${PY_VER}, flaga --system-site-packages)"
+else
+    echo -e "[INFO] Istniejące środowisko .venv jest w pełni zgodne z Pythonem ${PY_VER}."
+fi
+
+# 4. Instalacja pakietów z pip i ochrona przed unbundlingiem fontów
 echo -e "\n[2/5] Weryfikacja i instalacja pakietów Pythona (pip)..."
 "${VENV_DIR}/bin/python3" -m pip install --upgrade pip --quiet
 "${VENV_DIR}/bin/pip" install -r "${PROJECT_DIR}/requirements.txt" --quiet
-echo -e "[OK] Pakiety z requirements.txt zainstalowane pomyślnie."
+
+# Krytyczna ochrona dla Fedory i dystrybucji z rozbitymi pakietami fontów RPM:
+# Wymuszenie instalacji kompletnego pakietu qtawesome z PyPI bezpośrednio w venv,
+# co zapobiega błędowi FileNotFoundError dla fontawesome5-regular-webfont-5.15.4.ttf.
+"${VENV_DIR}/bin/pip" install --upgrade --force-reinstall --no-deps qtawesome --quiet
+
+# Szybki test integralności środowiska (Smoke Test)
+echo -e "[INFO] Sprawdzanie integralności bibliotek i fontów Qt..."
+if ! "${VENV_DIR}/bin/python3" -c "import qtawesome as qta; _ = qta.icon('fa5s.music'); import PySide6" 2>/dev/null; then
+    echo -e "${C_YELLOW}[OSTRZEŻENIE] Wykryto konflikt zasobów QtAwesome. Wymuszam izolację biblioteki...${C_RESET}"
+    "${VENV_DIR}/bin/pip" install --ignore-installed qtawesome --quiet
+fi
+echo -e "[OK] Pakiety z requirements.txt oraz zasoby QtAwesome zostały pomyślnie zweryfikowane."
 
 # 5. Wdrożenie konfiguracji i bazy linków do ~/.config/<APP_ID>/
 echo -e "\n[3/5] Weryfikacja i wdrażanie konfiguracji w ~/.config/${APP_ID}..."
