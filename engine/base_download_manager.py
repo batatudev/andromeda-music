@@ -43,6 +43,7 @@ class BaseDownloadManager(QObject):
         self.cancel_current_event = threading.Event()
         self._is_running = True
 
+        PathsManager.enable_wal_mode(self.db_path)
         self._init_db()
         self._reload_path_cache()
         self._reload_queued_to_memory()
@@ -88,10 +89,21 @@ class BaseDownloadManager(QObject):
             self._path_cache = {}
 
     def is_downloaded(self, item_id: str) -> bool:
-        return item_id in self._path_cache
+        """Sprawdza obecność pliku w cache i weryfikuje fizyczne istnienie na dysku (self-healing)."""
+        path = self._path_cache.get(item_id)
+        if path and os.path.exists(path):
+            return True
+        if item_id in self._path_cache:
+            self._path_cache.pop(item_id, None)
+        return False
 
     def get_file_path(self, item_id: str) -> str | None:
-        return self._path_cache.get(item_id)
+        path = self._path_cache.get(item_id)
+        if path and os.path.exists(path):
+            return path
+        if item_id in self._path_cache:
+            self._path_cache.pop(item_id, None)
+        return None
 
     def set_snooze(self, hours: int):
         if hours == 0:
@@ -146,7 +158,7 @@ class BaseDownloadManager(QObject):
             sql = f"UPDATE downloads SET {', '.join(query_parts)} WHERE item_id = ?"
             cursor.execute(sql, tuple(params))
 
-            if status == DownloadStatus.COMPLETED and file_path:
+            if status == DownloadStatus.COMPLETED and file_path and os.path.exists(file_path):
                 self._path_cache[item_id] = file_path
             elif status != DownloadStatus.COMPLETED:
                 self._path_cache.pop(item_id, None)

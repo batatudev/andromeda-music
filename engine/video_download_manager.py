@@ -131,22 +131,27 @@ class VideoDownloadManager(BaseDownloadManager):
 
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT status, is_hidden FROM downloads WHERE item_id = ?", (item_id,))
+        cursor.execute("SELECT status, file_path, is_hidden FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
 
         if row:
-            if row[0] in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                if row[0] == DownloadStatus.COMPLETED and row[1] == 1:
-                    cursor.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (item_id,))
-                    conn.commit()
-                    self.queue_updated.emit()
+            status, file_path, is_hidden = row[0], row[1], row[2]
+            if status == DownloadStatus.COMPLETED:
+                if file_path and os.path.exists(file_path):
+                    if is_hidden == 1:
+                        cursor.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (item_id,))
+                        conn.commit()
+                        self.queue_updated.emit()
+                    conn.close()
+                    return
+                # Plik zniknął z dysku — zezwalamy na ponowne pobranie
+            elif status in [DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING]:
                 conn.close()
                 return
-            else:
-                cursor.execute(
-                    "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = 0, added_at = ? WHERE item_id = ?",
-                    (DownloadStatus.QUEUED, yt_link, title, cover_id, int(time.time()), item_id)
-                )
+            cursor.execute(
+                "UPDATE downloads SET status = ?, yt_link = ?, title = ?, cover_id = ?, is_hidden = 0, added_at = ? WHERE item_id = ?",
+                (DownloadStatus.QUEUED, yt_link, title, cover_id, int(time.time()), item_id)
+            )
         else:
             quality = APP_CONFIG.get("video_offline_quality", "1080p")
             cursor.execute(
@@ -174,12 +179,12 @@ class VideoDownloadManager(BaseDownloadManager):
 
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT item_id, status, is_hidden FROM downloads")
-        existing_status = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+        cursor.execute("SELECT item_id, status, file_path, is_hidden FROM downloads")
+        existing_status = {row[0]: (row[1], row[2], row[3]) for row in cursor.fetchall()}
 
         inserts = []
         updates = []
-        added_count = 0
+        items_to_enqueue = []
         added_at = int(time.time())
         quality = APP_CONFIG.get("video_offline_quality", "1080p")
 
@@ -190,16 +195,17 @@ class VideoDownloadManager(BaseDownloadManager):
 
             status_info = existing_status.get(item_id)
             if status_info:
-                status, is_hidden = status_info
-                if status in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                    # Ukończone pliki pozostają w swoim obecnym stanie (nie odznaczamy is_hidden w tle!)
+                status, file_path, is_hidden = status_info
+                if status == DownloadStatus.COMPLETED and file_path and os.path.exists(file_path):
+                    continue
+                elif status in [DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
                     continue
                 else:
                     updates.append((DownloadStatus.QUEUED, yt_link, title, cover_id, 0, added_at, item_id))
-                    added_count += 1
+                    items_to_enqueue.append(item)
             else:
                 inserts.append((item_id, title, yt_link, DownloadStatus.QUEUED, quality, added_at, cover_id, 0))
-                added_count += 1
+                items_to_enqueue.append(item)
 
         if inserts:
             cursor.executemany(
@@ -215,13 +221,11 @@ class VideoDownloadManager(BaseDownloadManager):
         conn.commit()
         conn.close()
 
-        if added_count > 0:
+        if items_to_enqueue:
             priority = 1 if high_priority else 10
-            for item in unique_items:
+            for item in items_to_enqueue:
                 item_id, yt_link, title, _ = item
-                status_info = existing_status.get(item_id)
-                if yt_link and (not status_info or status_info[0] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]):
-                    self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
+                self.download_queue.put((priority, time.time_ns(), item_id, yt_link, title))
             self.queue_updated.emit()
 
     def _worker_loop(self):
@@ -270,12 +274,7 @@ class VideoDownloadManager(BaseDownloadManager):
                 self.queue_updated.emit()
 
     def _download_video(self, item_id: str, yt_link: str):
-        configured_path = APP_CONFIG.get("video_offline_path")
-        if configured_path:
-            base_dir = os.path.expanduser(configured_path)
-        else:
-            base_dir = str(self.download_dir)
-
+        base_dir = str(self.download_dir)
         os.makedirs(base_dir, exist_ok=True)
         output_template = os.path.join(base_dir, f"{item_id}.%(ext)s")
 
@@ -293,11 +292,10 @@ class VideoDownloadManager(BaseDownloadManager):
             'nocheckcertificate': True,
             'noplaylist': True,
         }
+
         cookies_file = PathsManager.get_cookies_file()
         if cookies_file.exists():
             ydl_opts['cookiefile'] = str(cookies_file)
-        else:
-            ydl_opts['cookiesfrombrowser'] = ('firefox', )
 
         def my_hook(d):
             if not self._is_running or self.cancel_current_event.is_set():
@@ -355,4 +353,23 @@ class VideoDownloadManager(BaseDownloadManager):
                                 pass
                 except Exception:
                     pass
+                raise e
+
+            # Fallback na ciasteczka przeglądarki jeśli Fast-Path nie powiódł się
+            if not cookies_file.exists():
+                try:
+                    ydl_opts_browser = dict(ydl_opts)
+                    ydl_opts_browser['cookiesfrombrowser'] = ('firefox',)
+                    with yt_dlp.YoutubeDL(ydl_opts_browser) as ydl_b:
+                        info = ydl_b.extract_info(yt_link, download=True)
+                        filename = ydl_b.prepare_filename(info)
+                        if os.path.exists(filename):
+                            file_size = os.path.getsize(filename)
+                            resolution = info.get('resolution', quality_str)
+                            self._update_status(item_id, DownloadStatus.COMPLETED, file_path=filename, size=file_size, resolution=resolution)
+                            logger.log(f"Pobrano wideo offline dla: {item_id} ({resolution}, {file_size} bajtów) [Fallback Firefox]")
+                            return
+                except Exception:
+                    pass
+
             raise e

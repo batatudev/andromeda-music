@@ -65,16 +65,23 @@ class AudioDownloadManager(BaseDownloadManager):
     def add_to_queue(self, item_id: str, title: str, high_priority: bool = False):
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT status, is_hidden FROM downloads WHERE item_id = ?", (item_id,))
+        cursor.execute("SELECT status, file_path, is_hidden FROM downloads WHERE item_id = ?", (item_id,))
         row = cursor.fetchone()
 
-        if row and row[0] in [DownloadStatus.COMPLETED, DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING]:
-            if row[0] == DownloadStatus.COMPLETED and row[1] == 1:
-                cursor.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (item_id,))
-                conn.commit()
-                self.queue_updated.emit()
-            conn.close()
-            return
+        if row:
+            status, file_path, is_hidden = row[0], row[1], row[2]
+            if status == DownloadStatus.COMPLETED:
+                if file_path and os.path.exists(file_path):
+                    if is_hidden == 1:
+                        cursor.execute("UPDATE downloads SET is_hidden = 0 WHERE item_id = ?", (item_id,))
+                        conn.commit()
+                        self.queue_updated.emit()
+                    conn.close()
+                    return
+                # Plik zniknął z dysku — zezwalamy na ponowne pobranie
+            elif status in [DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING]:
+                conn.close()
+                return
 
         priority = 1 if high_priority else 10
         cursor.execute(
@@ -101,28 +108,29 @@ class AudioDownloadManager(BaseDownloadManager):
 
         conn = PathsManager.get_db_connection(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT item_id, status, is_hidden FROM downloads")
-        existing_status = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
+        cursor.execute("SELECT item_id, status, file_path, is_hidden FROM downloads")
+        existing_status = {row[0]: (row[1], row[2], row[3]) for row in cursor.fetchall()}
 
         inserts = []
         updates = []
-        added_count = 0
+        items_to_enqueue = []
         added_at = int(time.time())
 
         for item in unique_items:
             item_id, title = item
             status_info = existing_status.get(item_id)
             if status_info:
-                status, is_hidden = status_info
-                if status in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                    # Ukończone pliki pozostają w swoim obecnym stanie (nie odznaczamy is_hidden w tle!)
+                status, file_path, is_hidden = status_info
+                if status == DownloadStatus.COMPLETED and file_path and os.path.exists(file_path):
+                    continue
+                elif status in [DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
                     continue
                 else:
                     updates.append((DownloadStatus.QUEUED, 0, added_at, item_id))
-                    added_count += 1
+                    items_to_enqueue.append(item)
             else:
                 inserts.append((item_id, title, DownloadStatus.QUEUED, added_at, 0))
-                added_count += 1
+                items_to_enqueue.append(item)
 
         if inserts:
             cursor.executemany(
@@ -138,13 +146,11 @@ class AudioDownloadManager(BaseDownloadManager):
         conn.commit()
         conn.close()
 
-        if added_count > 0:
+        if items_to_enqueue:
             priority = 1 if high_priority else 10
-            for item in unique_items:
+            for item in items_to_enqueue:
                 item_id, title = item
-                status_info = existing_status.get(item_id)
-                if not status_info or status_info[0] not in [DownloadStatus.COMPLETED, DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED]:
-                    self.download_queue.put((priority, time.time(), item_id, title))
+                self.download_queue.put((priority, time.time(), item_id, title))
             self.queue_updated.emit()
 
     def _worker_loop(self):

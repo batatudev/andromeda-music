@@ -34,7 +34,6 @@ class DownloadsView(QWidget):
         self.filter_buttons = {}
         self.item_widgets = {}
         self.raw_tasks = []
-        self._pending_reload = False
 
         self._init_ui()
         self._connect_signals()
@@ -289,16 +288,16 @@ class DownloadsView(QWidget):
         self.main_layout.addStretch()
 
     def _connect_signals(self):
-        self.v_mgr.queue_updated.connect(self.load)
+        self.v_mgr.queue_updated.connect(lambda: self.load(force=True))
         self.v_mgr.download_status_changed.connect(self._on_video_status_changed)
         self.v_mgr.download_progress.connect(self._on_video_progress)
 
-        self.a_mgr.queue_updated.connect(self.load)
+        self.a_mgr.queue_updated.connect(lambda: self.load(force=True))
         self.a_mgr.download_status_changed.connect(self._on_audio_status_changed)
         self.a_mgr.download_progress.connect(self._on_audio_progress)
 
     def _open_downloads_dir(self):
-        dest_dir = PathsManager.get_data_dir()
+        dest_dir = PathsManager.get_server_data_dir()
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest_dir)))
 
     def _set_status_filter(self, status_key):
@@ -390,11 +389,13 @@ class DownloadsView(QWidget):
         dlg.accept()
         self.main_window.start_bulk_download('playlist', pid, pname, media_type)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.load(force=True)
+
     def load(self, *args, force=False, **kwargs):
         if not force and not self.isVisible():
-            self._pending_reload = True
             return
-        self._pending_reload = False
 
         if self.a_mgr.is_snoozed:
             self.btn_snooze_audio.setText(tr("downloads.resume_audio", "Wznów audio"))
@@ -431,7 +432,7 @@ class DownloadsView(QWidget):
 
         # OBLICZANIE FIZYCZNEGO DYSKU (NVMe OFFLINE)
         try:
-            total_b, used_b, free_b = shutil.disk_usage(str(PathsManager.get_data_dir()))
+            total_b, used_b, free_b = shutil.disk_usage(str(PathsManager.get_server_data_dir()))
             total_gb = total_b / (1024 ** 3)
             used_gb = used_b / (1024 ** 3)
             free_gb = free_b / (1024 ** 3)
@@ -453,7 +454,6 @@ class DownloadsView(QWidget):
         )
         self.storage_stats_lbl.setText(stats_txt)
 
-        # PARSOWANIE ZADAŃ WRAZ ZE ZNACZNIKIEM added_at
         tasks = []
         for r in a_rows:
             i_id = r[0]
@@ -601,7 +601,6 @@ class DownloadsView(QWidget):
             self.list_layout.addWidget(w)
             self.item_widgets[f"{m_type}_{i_id}"] = w
 
-        # CZYSTY NAPIS PRZYCISKU ZAŁADUJ WIĘCEJ
         total_completed = len(completed_tasks)
         if total_completed > self.completed_limit:
             self.btn_load_more.setText(
@@ -611,21 +610,16 @@ class DownloadsView(QWidget):
         else:
             self.btn_load_more.hide()
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        if getattr(self, '_pending_reload', False):
-            self.load(force=True)
-
     def _on_video_status_changed(self, item_id, status):
         key = f"video_{item_id}"
         if key in self.item_widgets:
             if status == "":
-                self.load()
+                self.load(force=True)
             else:
                 self.item_widgets[key].update_status(status)
                 self._update_pill_counts()
         else:
-            self.load()
+            self.load(force=True)
 
     def _on_video_progress(self, item_id, pct, stats_str=""):
         key = f"video_{item_id}"
@@ -636,12 +630,12 @@ class DownloadsView(QWidget):
         key = f"audio_{item_id}"
         if key in self.item_widgets:
             if status == "":
-                self.load()
+                self.load(force=True)
             else:
                 self.item_widgets[key].update_status(status)
                 self._update_pill_counts()
         else:
-            self.load()
+            self.load(force=True)
 
     def _on_audio_progress(self, item_id, pct, stats_str=""):
         key = f"audio_{item_id}"
