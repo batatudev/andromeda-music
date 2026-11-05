@@ -18,7 +18,8 @@ def fetch_purl_from_remote_header(api_client, item_id: str) -> str | None:
             return None
 
         headers = {'Range': 'bytes=0-262144'}
-        resp = requests.get(stream_url, headers=headers, timeout=4.0, stream=True)
+        session = getattr(api_client, 'session', requests)
+        resp = session.get(stream_url, headers=headers, timeout=4.0, stream=True)
         if resp.status_code not in (200, 206):
             return None
 

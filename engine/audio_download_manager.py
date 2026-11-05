@@ -78,7 +78,6 @@ class AudioDownloadManager(BaseDownloadManager):
                         self.queue_updated.emit()
                     conn.close()
                     return
-                # Plik zniknął z dysku — zezwalamy na ponowne pobranie
             elif status in [DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING]:
                 conn.close()
                 return
@@ -207,7 +206,8 @@ class AudioDownloadManager(BaseDownloadManager):
         final_file = os.path.join(self.music_dir, f"{item_id}.mp3")
 
         try:
-            response = requests.get(stream_url, stream=True, timeout=10)
+            session = getattr(self.api_client, 'session', requests)
+            response = session.get(stream_url, stream=True, timeout=10)
             response.raise_for_status()
 
             total_size = int(response.headers.get('content-length', 0))

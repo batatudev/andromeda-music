@@ -69,10 +69,17 @@ def run():
 
     _ = qta.icon("fa5s.music")
 
+    ignore_ssl = APP_CONFIG.get("ignore_ssl", False)
+
     if APP_CONFIG["url"]:
-        c = NavidromeClient(APP_CONFIG["url"], APP_CONFIG["username"], APP_CONFIG["password"])
+        c = NavidromeClient(
+            APP_CONFIG["url"],
+            APP_CONFIG["username"],
+            APP_CONFIG["password"],
+            ignore_ssl=ignore_ssl
+        )
     else:
-        c = NavidromeClient("http://localhost", "", "")
+        c = NavidromeClient("http://localhost", "", "", ignore_ssl=False)
 
     w = MainWindow(c)
     w.showMaximized()

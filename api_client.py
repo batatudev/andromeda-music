@@ -12,18 +12,27 @@ from config import APP_NAME
 from utils import logger
 from core.models import Song, Album, Artist
 
-
 class NavidromeClient:
-    def __init__(self, url: str, user: str, password: str):
+    def __init__(self, url: str, user: str, password: str, ignore_ssl: bool = False):
         self.url = url.rstrip('/')
         self.user = user
         self.password = password
+        self.ignore_ssl = ignore_ssl
         self.api_version = "1.16.1"
         self.client_name = APP_NAME.replace(" ", "")
         self.failures = 0
         self.circuit_breaker_until = 0
 
         self.session = requests.Session()
+        if self.ignore_ssl:
+            self.session.verify = False
+            try:
+                import urllib3
+                from urllib3.exceptions import InsecureRequestWarning
+                urllib3.disable_warnings(InsecureRequestWarning)
+            except Exception:
+                pass
+
         adapter = HTTPAdapter(pool_connections=30, pool_maxsize=30)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
@@ -71,11 +80,12 @@ class NavidromeClient:
         query = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{self.url}/rest/getCoverArt?id={cover_id}&size={size}&{query}"
 
-    def get_stream_url(self, song_id: str) -> str:
+    def get_stream_url(self, song_id: str, format: str = None) -> str:
         if not song_id:
             return ""
         params = self._get_auth_params()
-        params['format'] = 'mp3'
+        if format:
+            params['format'] = format
         query = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{self.url}/rest/stream?id={song_id}&{query}"
 

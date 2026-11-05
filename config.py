@@ -19,7 +19,8 @@ DEFAULT_DEMO_SERVER = {
     "name": "Navidrome Public Demo",
     "url": "https://demo.navidrome.org",
     "username": "demo",
-    "password": "demo"
+    "password": "demo",
+    "ignore_ssl": False
 }
 
 class Pages(IntEnum):
@@ -42,6 +43,7 @@ APP_CONFIG = {
     "url": DEFAULT_DEMO_SERVER["url"],
     "username": DEFAULT_DEMO_SERVER["username"],
     "password": DEFAULT_DEMO_SERVER["password"],
+    "ignore_ssl": False,
     "theme_mode": "system",
     "language": "pl",
     "dark_mode": True,
@@ -87,6 +89,7 @@ def set_active_server(server_id: str):
         APP_CONFIG["url"] = server.get("url", "")
         APP_CONFIG["username"] = server.get("username", "")
         APP_CONFIG["password"] = server.get("password", "")
+        APP_CONFIG["ignore_ssl"] = server.get("ignore_ssl", False)
         PathsManager.set_active_server_id(server_id)
         save_config()
 
@@ -147,8 +150,6 @@ def load_config():
     cfg = configparser.ConfigParser()
     config_path = PathsManager.get_config_file()
 
-    # First-Run initialization: jeśli plik w ~/.config/<APP_ID> nie istnieje,
-    # zainicjalizuj go automatycznie z szablonu w katalogu programu (config.ini lub config.example.ini)
     if not config_path.exists():
         root_dir = Path(__file__).resolve().parent
         bundled_cfg = root_dir / "config.ini"
@@ -183,24 +184,28 @@ def load_config():
             s_url = cfg[sec].get("url", "")
             s_user = cfg[sec].get("username", "")
             s_pwd = cfg[sec].get("password", "")
+            s_ssl = cfg[sec].getboolean("ignore_ssl", fallback=False)
             servers_list.append({
                 "id": s_id,
                 "name": s_name,
                 "url": s_url,
                 "username": s_user,
-                "password": s_pwd
+                "password": s_pwd,
+                "ignore_ssl": s_ssl
             })
     elif "Navidrome" in cfg and cfg["Navidrome"].get("url"):
         legacy_url = cfg["Navidrome"].get("url", "")
         legacy_user = cfg["Navidrome"].get("username", "")
         legacy_pwd = cfg["Navidrome"].get("password", "")
+        legacy_ssl = cfg["Navidrome"].getboolean("ignore_ssl", fallback=False)
         active_server_id = "default"
         servers_list.append({
             "id": "default",
             "name": "Główny Serwer",
             "url": legacy_url,
             "username": legacy_user,
-            "password": legacy_pwd
+            "password": legacy_pwd,
+            "ignore_ssl": legacy_ssl
         })
     else:
         servers_list.append(DEFAULT_DEMO_SERVER.copy())
@@ -221,6 +226,7 @@ def load_config():
     APP_CONFIG["url"] = active_server.get("url", "")
     APP_CONFIG["username"] = active_server.get("username", "")
     APP_CONFIG["password"] = active_server.get("password", "")
+    APP_CONFIG["ignore_ssl"] = active_server.get("ignore_ssl", False)
     PathsManager.set_active_server_id(active_server_id)
 
     if "Theme" in cfg:
@@ -270,13 +276,15 @@ def save_config():
             "name": s.get("name", s["id"]),
             "url": s.get("url", ""),
             "username": s.get("username", ""),
-            "password": s.get("password", "")
+            "password": s.get("password", ""),
+            "ignore_ssl": str(s.get("ignore_ssl", False))
         }
 
     cfg["Navidrome"] = {
         "url": APP_CONFIG["url"],
         "username": APP_CONFIG["username"],
-        "password": APP_CONFIG["password"]
+        "password": APP_CONFIG["password"],
+        "ignore_ssl": str(APP_CONFIG.get("ignore_ssl", False))
     }
 
     cfg["Theme"] = {

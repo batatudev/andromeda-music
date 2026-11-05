@@ -5,7 +5,7 @@ import sys
 import uuid
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
-    QLineEdit, QPushButton, QSizePolicy, QComboBox, QMessageBox
+    QLineEdit, QPushButton, QSizePolicy, QComboBox, QMessageBox, QCheckBox
 )
 from PySide6.QtCore import Qt, QCoreApplication
 
@@ -125,7 +125,6 @@ class TabServer(QWidget):
             }}
         """
 
-        # Dwukolumnowa siatka formularza gwarantująca identyczny punkt startu X
         form_grid = QGridLayout()
         form_grid.setHorizontalSpacing(20)
         form_grid.setVerticalSpacing(12)
@@ -142,7 +141,6 @@ class TabServer(QWidget):
             lbl.setStyleSheet(f"font-weight: bold; color: {THEME['text_main']}; background: transparent;")
             return lbl
 
-        # Rząd 0: Aktywny profil
         lbl_profile = make_label(tr("settings.server.active_profile", "Aktywny profil:"))
         self.combo_servers = QComboBox()
         self.combo_servers.setStyleSheet(input_style)
@@ -151,7 +149,6 @@ class TabServer(QWidget):
         form_grid.addWidget(lbl_profile, 0, 0)
         form_grid.addWidget(self.combo_servers, 0, 1)
 
-        # Rząd 1: Przyciski akcji profilu (idealnie wewnątrz Kolumny 1)
         actions_widget = QWidget()
         actions_widget.setStyleSheet("background: transparent;")
         actions_lay = QHBoxLayout(actions_widget)
@@ -180,13 +177,11 @@ class TabServer(QWidget):
         actions_lay.addStretch()
         form_grid.addWidget(actions_widget, 1, 1)
 
-        # Rząd 2: Subtelna linia podziału
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setStyleSheet(f"background-color: {THEME['border']}; max-height: 1px; margin: 6px 0px 8px 0px;")
         form_grid.addWidget(line, 2, 0, 1, 2)
 
-        # Rząd 3: Nazwa profilu
         lbl_name = make_label(tr("settings.server.profile_name", "Nazwa profilu:"))
         self.inp_name = QLineEdit()
         self.inp_name.setStyleSheet(input_style)
@@ -194,7 +189,6 @@ class TabServer(QWidget):
         form_grid.addWidget(lbl_name, 3, 0)
         form_grid.addWidget(self.inp_name, 3, 1)
 
-        # Rząd 4: Adres URL
         lbl_url = make_label(tr("settings.server.url", "Adres URL:"))
         self.inp_url = QLineEdit()
         self.inp_url.setStyleSheet(input_style)
@@ -202,7 +196,6 @@ class TabServer(QWidget):
         form_grid.addWidget(lbl_url, 4, 0)
         form_grid.addWidget(self.inp_url, 4, 1)
 
-        # Rząd 5: Użytkownik
         lbl_user = make_label(tr("settings.server.user", "Użytkownik:"))
         self.inp_user = QLineEdit()
         self.inp_user.setStyleSheet(input_style)
@@ -210,7 +203,6 @@ class TabServer(QWidget):
         form_grid.addWidget(lbl_user, 5, 0)
         form_grid.addWidget(self.inp_user, 5, 1)
 
-        # Rząd 6: Hasło
         lbl_pwd = make_label(tr("settings.server.pass", "Hasło:"))
         self.inp_pwd = QLineEdit()
         self.inp_pwd.setEchoMode(QLineEdit.Password)
@@ -219,9 +211,36 @@ class TabServer(QWidget):
         form_grid.addWidget(lbl_pwd, 6, 0)
         form_grid.addWidget(self.inp_pwd, 6, 1)
 
+        self.cb_ignore_ssl = QCheckBox(tr("settings.server.ignore_ssl", "Ignoruj błędy certyfikatów SSL (Self-Signed)"))
+        self.cb_ignore_ssl.setCursor(Qt.PointingHandCursor)
+        self.cb_ignore_ssl.setStyleSheet(f"""
+            QCheckBox {{
+                color: {THEME['text_main']};
+                font-size: 13px;
+                font-weight: 500;
+                spacing: 10px;
+                background: transparent;
+                padding: 4px 0px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 1px solid {THEME['border']};
+                background-color: {THEME['bg_main']};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {THEME['nav_hover']};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {THEME['accent']};
+                border-color: {THEME['accent']};
+            }}
+        """)
+        form_grid.addWidget(self.cb_ignore_ssl, 7, 1)
+
         self.server_layout.addLayout(form_grid)
 
-        # Dolny pasek akcji (Testowanie i Zapis)
         btn_test = QPushButton(tr("settings.server.test", "Testuj połączenie"))
         btn_test.setStyleSheet(f"""
             QPushButton {{
@@ -317,6 +336,7 @@ class TabServer(QWidget):
             self.inp_url.setText(server.get("url", ""))
             self.inp_user.setText(server.get("username", ""))
             self.inp_pwd.setText(server.get("password", ""))
+            self.cb_ignore_ssl.setChecked(bool(server.get("ignore_ssl", False)))
 
     def _create_new_server(self):
         new_id = f"server_{str(uuid.uuid4())[:6]}"
@@ -325,7 +345,8 @@ class TabServer(QWidget):
             "name": f"Nowy Serwer ({self.combo_servers.count() + 1})",
             "url": "http://",
             "username": "",
-            "password": ""
+            "password": "",
+            "ignore_ssl": False
         }
         add_or_update_server(new_server)
         self._populate_server_profiles()
@@ -353,6 +374,7 @@ class TabServer(QWidget):
             self.inp_url.setText(DEFAULT_DEMO_SERVER["url"])
             self.inp_user.setText(DEFAULT_DEMO_SERVER["username"])
             self.inp_pwd.setText(DEFAULT_DEMO_SERVER["password"])
+            self.cb_ignore_ssl.setChecked(False)
 
         self.lbl_status.setText(tr("settings.server.demo_loaded", "Załadowano dane serwera demonstracyjnego."))
         self.lbl_status.setStyleSheet(f"color: {THEME['accent']}; background: transparent; font-weight: bold;")
@@ -387,8 +409,9 @@ class TabServer(QWidget):
         test_url = self.inp_url.text().strip()
         test_user = self.inp_user.text().strip()
         test_pwd = self.inp_pwd.text()
+        test_ignore_ssl = self.cb_ignore_ssl.isChecked()
 
-        temp_client = NavidromeClient(test_url, test_user, test_pwd)
+        temp_client = NavidromeClient(test_url, test_user, test_pwd, ignore_ssl=test_ignore_ssl)
         ok = temp_client.ping()
 
         if ok:
@@ -408,7 +431,8 @@ class TabServer(QWidget):
             "name": self.inp_name.text().strip() or sid,
             "url": self.inp_url.text().strip(),
             "username": self.inp_user.text().strip(),
-            "password": self.inp_pwd.text()
+            "password": self.inp_pwd.text(),
+            "ignore_ssl": self.cb_ignore_ssl.isChecked()
         }
 
         add_or_update_server(updated_server)
@@ -417,6 +441,7 @@ class TabServer(QWidget):
         self.settings_view._initial_settings["url"] = updated_server["url"]
         self.settings_view._initial_settings["username"] = updated_server["username"]
         self.settings_view._initial_settings["password"] = updated_server["password"]
+        self.settings_view._initial_settings["ignore_ssl"] = updated_server["ignore_ssl"]
 
         save_config()
         os.execl(sys.executable, sys.executable, *sys.argv)

@@ -59,7 +59,8 @@ class CacheManager:
                 return
 
             try:
-                res = requests.get(url, stream=True, timeout=(3.0, 10.0))
+                session = getattr(self.engine.client, 'session', requests)
+                res = session.get(url, stream=True, timeout=(3.0, 10.0))
                 res.raise_for_status()
                 with open(part_path, "wb") as f:
                     for chunk in res.iter_content(chunk_size=65536):

@@ -38,6 +38,7 @@
   "settings.server.url": "Server URL:",
   "settings.server.user": "Username:",
   "settings.server.pass": "Password:",
+  "settings.server.ignore_ssl": "Ignore SSL certificate errors (Self-Signed)",
   "settings.server.test": "Test Connection",
   "settings.server.testing": "Connecting...",
   "settings.server.success": "Connected successfully!",
