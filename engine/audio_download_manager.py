@@ -13,9 +13,25 @@ from engine.base_download_manager import BaseDownloadManager, DownloadStatus
 
 AudioDownloadStatus = DownloadStatus
 
+AUDIO_MIME_MAP = {
+    'audio/flac': 'flac',
+    'audio/x-flac': 'flac',
+    'audio/opus': 'opus',
+    'audio/x-opus': 'opus',
+    'audio/ogg': 'ogg',
+    'audio/vorbis': 'ogg',
+    'audio/mp4': 'm4a',
+    'audio/x-m4a': 'm4a',
+    'audio/aac': 'm4a',
+    'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
+    'audio/wav': 'wav',
+    'audio/x-wav': 'wav',
+}
+
 class AudioDownloadManager(BaseDownloadManager):
     """
-    Menedżer pobierania plików audio (MP3) w tle.
+    Menedżer pobierania plików audio w tle z automatycznym wykrywaniem rozszerzenia.
     """
     def __init__(self, api_client: NavidromeClient):
         self.api_client = api_client
@@ -203,12 +219,15 @@ class AudioDownloadManager(BaseDownloadManager):
             raise Exception("Nie można uzyskać URL strumienia.")
 
         temp_file = os.path.join(self.music_dir, f"{item_id}.tmp")
-        final_file = os.path.join(self.music_dir, f"{item_id}.mp3")
 
         try:
             session = getattr(self.api_client, 'session', requests)
             response = session.get(stream_url, stream=True, timeout=10)
             response.raise_for_status()
+
+            content_type = response.headers.get('content-type', '').split(';')[0].strip().lower()
+            detected_ext = AUDIO_MIME_MAP.get(content_type, 'mp3')
+            final_file = os.path.join(self.music_dir, f"{item_id}.{detected_ext}")
 
             total_size = int(response.headers.get('content-length', 0))
             downloaded = 0
@@ -253,7 +272,7 @@ class AudioDownloadManager(BaseDownloadManager):
 
             os.rename(temp_file, final_file)
             self._update_status(item_id, DownloadStatus.COMPLETED, final_file, downloaded)
-            logger.log(f"Pobrano audio: {item_id}")
+            logger.log(f"Pobrano audio: {item_id} ({detected_ext.upper()})")
 
         except Exception as e:
             if os.path.exists(temp_file):

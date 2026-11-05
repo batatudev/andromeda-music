@@ -69,6 +69,11 @@
   "settings.video.blur": "Blur:",
 
   "settings.offline.header": "Download Settings",
+  "settings.offline.audio_quality": "Audio Stream Quality:",
+  "settings.offline.audio_quality_raw": "Original (Lossless / Direct FLAC)",
+  "settings.offline.audio_quality_320": "High (MP3 320 kb/s)",
+  "settings.offline.audio_quality_192": "Standard (MP3 192 kb/s)",
+  "settings.offline.audio_quality_128": "Low Bandwidth (MP3 128 kb/s)",
   "settings.offline.auto_play": "Auto-play Video:",
   "settings.offline.quality": "Video Quality:",
   "settings.offline.video_favs": "Auto-download Liked Videos:",

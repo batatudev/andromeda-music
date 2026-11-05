@@ -38,6 +38,18 @@ class TabOffline(QWidget):
             f"border: 1px solid {THEME['border']}; border-radius: 6px; padding: 8px 12px; height: 22px; font-size: 13px;"
         )
 
+        self.combo_audio_quality = QComboBox()
+        self.combo_audio_quality.addItem(tr("settings.offline.audio_quality_raw", "Oryginalna (Bezstratna / Direct FLAC)"), "raw")
+        self.combo_audio_quality.addItem(tr("settings.offline.audio_quality_320", "Wysoka (MP3 320 kb/s)"), "320")
+        self.combo_audio_quality.addItem(tr("settings.offline.audio_quality_192", "Standardowa (MP3 192 kb/s)"), "192")
+        self.combo_audio_quality.addItem(tr("settings.offline.audio_quality_128", "Oszczędna (MP3 128 kb/s)"), "128")
+        self.combo_audio_quality.setStyleSheet(input_style)
+
+        current_quality = APP_CONFIG.get("audio_stream_quality", "raw")
+        q_idx = self.combo_audio_quality.findData(current_quality)
+        if q_idx >= 0:
+            self.combo_audio_quality.setCurrentIndex(q_idx)
+
         self.combo_smart_auto = QComboBox()
         self.combo_smart_auto.addItems([
             tr("settings.disabled", "Wyłączona"),
@@ -130,6 +142,7 @@ class TabOffline(QWidget):
             r.addWidget(widget)
             parent_layout.addLayout(r)
 
+        add_row(offline_layout, tr("settings.offline.audio_quality", "Jakość dźwięku (Strumieniowanie):"), self.combo_audio_quality)
         add_row(offline_layout, tr("settings.offline.auto_play", "Autoodtwarzanie wideo:"), self.combo_smart_auto)
         add_row(offline_layout, tr("settings.offline.quality", "Jakość wideo:"), self.combo_off_quality)
         add_row(offline_layout, tr("settings.offline.video_favs", "Pobieranie wideo z polubionych:"), self.combo_auto_favs)
@@ -226,6 +239,8 @@ class TabOffline(QWidget):
             pass
 
     def _save_o_conf(self):
+        selected_q = self.combo_audio_quality.currentData() or "raw"
+        APP_CONFIG["audio_stream_quality"] = selected_q
         APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
         APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
         APP_CONFIG["video_auto_dl_favs"] = (self.combo_auto_favs.currentIndex() == 1)
@@ -233,6 +248,7 @@ class TabOffline(QWidget):
         APP_CONFIG["hide_undownloaded_offline"] = (self.combo_hide_offline.currentIndex() == 1)
 
         save_config()
+        self.settings_view._initial_settings["audio_stream_quality"] = APP_CONFIG["audio_stream_quality"]
         self.settings_view._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
         self.settings_view._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
         self.settings_view._initial_settings["video_auto_dl_favs"] = APP_CONFIG["video_auto_dl_favs"]

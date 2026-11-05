@@ -8,7 +8,7 @@ import requests
 import time
 from requests.adapters import HTTPAdapter
 
-from config import APP_NAME
+from config import APP_NAME, APP_CONFIG
 from utils import logger
 from core.models import Song, Album, Artist
 
@@ -80,12 +80,22 @@ class NavidromeClient:
         query = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{self.url}/rest/getCoverArt?id={cover_id}&size={size}&{query}"
 
-    def get_stream_url(self, song_id: str, format: str = None) -> str:
+    def get_stream_url(self, song_id: str, format: str = None, max_bit_rate: int = None) -> str:
         if not song_id:
             return ""
         params = self._get_auth_params()
+        quality = APP_CONFIG.get("audio_stream_quality", "raw")
+
         if format:
             params['format'] = format
+            if max_bit_rate:
+                params['maxBitRate'] = max_bit_rate
+        elif quality == "raw":
+            params['format'] = 'raw'
+        elif quality in ["320", "192", "128"]:
+            params['format'] = 'mp3'
+            params['maxBitRate'] = quality
+
         query = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{self.url}/rest/stream?id={song_id}&{query}"
 

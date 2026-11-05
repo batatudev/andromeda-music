@@ -133,6 +133,7 @@ class SettingsView(QWidget):
             "url": APP_CONFIG.get("url", ""),
             "username": APP_CONFIG.get("username", ""),
             "password": APP_CONFIG.get("password", ""),
+            "ignore_ssl": APP_CONFIG.get("ignore_ssl", False),
             "theme_mode": APP_CONFIG.get("theme_mode", "system"),
             "language": APP_CONFIG.get("language", "pl"),
             "accent": APP_CONFIG.get("accent", "#aa00ff"),
@@ -144,10 +145,12 @@ class SettingsView(QWidget):
             "video_static_opacity": APP_CONFIG.get("video_static_opacity", 50),
             "video_static_blur": APP_CONFIG.get("video_static_blur", 75),
             "dev_mode": APP_CONFIG.get("dev_mode", False),
+            "video_offline_path": APP_CONFIG.get("video_offline_path", ""),
             "video_offline_quality": APP_CONFIG.get("video_offline_quality", "1080p"),
             "video_smart_auto_play": APP_CONFIG.get("video_smart_auto_play", False),
             "video_auto_dl_favs": APP_CONFIG.get("video_auto_dl_favs", False),
             "video_auto_dl_playlists": list(APP_CONFIG.get("video_auto_dl_playlists", [])),
+            "audio_stream_quality": APP_CONFIG.get("audio_stream_quality", "raw"),
             "audio_auto_dl_favs": APP_CONFIG.get("audio_auto_dl_favs", False),
             "audio_auto_dl_playlists": list(APP_CONFIG.get("audio_auto_dl_playlists", [])),
             "hide_undownloaded_offline": APP_CONFIG.get("hide_undownloaded_offline", False)
@@ -160,6 +163,7 @@ class SettingsView(QWidget):
             self.tab_server.inp_url.setText(APP_CONFIG.get("url", ""))
             self.tab_server.inp_user.setText(APP_CONFIG.get("username", ""))
             self.tab_server.inp_pwd.setText(APP_CONFIG.get("password", ""))
+            self.tab_server.cb_ignore_ssl.setChecked(bool(APP_CONFIG.get("ignore_ssl", False)))
 
         if hasattr(self, 'tab_theme'):
             mode = APP_CONFIG.get("theme_mode", "system")
@@ -189,6 +193,11 @@ class SettingsView(QWidget):
                 slider.blockSignals(False)
 
         if hasattr(self, 'tab_offline'):
+            cur_q = APP_CONFIG.get("audio_stream_quality", "raw")
+            q_idx = self.tab_offline.combo_audio_quality.findData(cur_q)
+            if q_idx >= 0:
+                self.tab_offline.combo_audio_quality.setCurrentIndex(q_idx)
+
             self.tab_offline.combo_smart_auto.setCurrentIndex(1 if APP_CONFIG.get("video_smart_auto_play", False) else 0)
             self.tab_offline.combo_off_quality.setCurrentText(APP_CONFIG.get("video_offline_quality", "1080p"))
             self.tab_offline.combo_auto_favs.setCurrentIndex(1 if APP_CONFIG.get("video_auto_dl_favs", False) else 0)

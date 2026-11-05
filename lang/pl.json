@@ -69,6 +69,11 @@
   "settings.video.blur": "Rozmycie:",
 
   "settings.offline.header": "Ustawienia pobierania",
+  "settings.offline.audio_quality": "Jakość dźwięku (Strumieniowanie):",
+  "settings.offline.audio_quality_raw": "Oryginalna (Bezstratna / Direct FLAC)",
+  "settings.offline.audio_quality_320": "Wysoka (MP3 320 kb/s)",
+  "settings.offline.audio_quality_192": "Standardowa (MP3 192 kb/s)",
+  "settings.offline.audio_quality_128": "Oszczędna (MP3 128 kb/s)",
   "settings.offline.auto_play": "Autoodtwarzanie wideo:",
   "settings.offline.quality": "Jakość wideo:",
   "settings.offline.video_favs": "Pobieranie wideo z polubionych:",

@@ -62,6 +62,7 @@ APP_CONFIG = {
     "video_smart_auto_play": False,
     "video_auto_dl_favs": False,
     "video_auto_dl_playlists": [],
+    "audio_stream_quality": "raw",
     "audio_auto_dl_favs": False,
     "audio_auto_dl_playlists": [],
     "hide_undownloaded_offline": False
@@ -258,6 +259,7 @@ def load_config():
         APP_CONFIG["video_auto_dl_playlists"] = [p.strip() for p in dl_pl.split(",") if p.strip()]
 
     if "AudioOffline" in cfg:
+        APP_CONFIG["audio_stream_quality"] = cfg["AudioOffline"].get("stream_quality", fallback="raw")
         APP_CONFIG["audio_auto_dl_favs"] = cfg["AudioOffline"].getboolean("auto_dl_favs", fallback=False)
         a_dl_pl = cfg["AudioOffline"].get("auto_dl_playlists", fallback="")
         APP_CONFIG["audio_auto_dl_playlists"] = [p.strip() for p in a_dl_pl.split(",") if p.strip()]
@@ -314,6 +316,7 @@ def save_config():
     }
 
     cfg["AudioOffline"] = {
+        "stream_quality": APP_CONFIG.get("audio_stream_quality", "raw"),
         "auto_dl_favs": str(APP_CONFIG.get("audio_auto_dl_favs", False)),
         "auto_dl_playlists": ",".join(APP_CONFIG.get("audio_auto_dl_playlists", [])),
         "hide_undownloaded_offline": str(APP_CONFIG.get("hide_undownloaded_offline", False))
