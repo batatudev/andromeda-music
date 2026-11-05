@@ -1,106 +1,41 @@
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: .gitignore
-# OPIS ZMIAN: Dodano wykluczenia dla prywatnej konfiguracji config.ini, ciasteczek i plików WAL
-
-ai_bundler.py
-_AI_CURRENT_CODE.txt
-.cursorrules
-.commandcode/
-AGENTS.md
-materialy/
-andromeda-music-tester-preview.tar.gz
-
-# Prywatna konfiguracja użytkownika i dane sesyjne
+# User configuration and secrets
 config.ini
 cookies.txt
+
+# Databases and SQLite WAL
+*.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite3
 
-.aider*
-# Byte-compiled / optimized / DLL files
+# Temporary download fragments
+*.part
+*.tmp
+
+# Byte-compiled / cache files
 __pycache__/
-*.py[codz]
+*.py[cod]
 *$py.class
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-*.lcov
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Logs and databases
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Environments
-.env
-.envrc
-.venv
-env/
+# Python virtual environments
+.venv/
 venv/
-ENV/
-env.bak/
-venv.bak/
+env/
 
-# IDE & editors
-.spyderproject
-.spyproject
-.ropeproject
+# Distribution & release packages
+*.tar.gz
+build/
+dist/
+
+# IDEs, tools and internal notes
 .idea/
 .vscode/
-tempCodeRunnerFile.py
+.cursorrules
+.commandcode/
+.aider*
+materialy/
+_AI_CURRENT_CODE.txt
 
-# Ruff / type checkers
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-.ruff_cache/
+# Special Script
+ai_bundler.py
