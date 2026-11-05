@@ -183,16 +183,56 @@ class MainWindow(QMainWindow):
         self._active_toast = toast
         toast.show_toast()
 
-    def _on_video_error_occurred(self, error_type, message):
-        icon_str = "fa5s.exclamation-triangle"
-        icon_color = "#e67e22" if error_type == "UNAVAILABLE" else "#e74c3c"
-        title = tr("health.warning", "Ostrzeżenie") if error_type == "UNAVAILABLE" else tr("health.rate_limit", "Ograniczenie YouTube")
+    def _on_video_error_occurred(self, error_type, custom_msg=""):
+        if error_type == "INVALID_LINK":
+            title = tr("toast.yt_title_invalid_link", "Błędny link YouTube")
+            msg = custom_msg or tr("toast.yt_msg_invalid_link", "Podany link YouTube ma nieprawidłowy format. Sprawdź poprawność adresu lub przypisz nowy.")
+            icon_str = "fa5s.unlink"
+            icon_color = "#e67e22"
+            duration = 6000
+        elif error_type == "BLOCKED_OR_REMOVED":
+            title = tr("toast.yt_title_blocked_or_removed", "Teledysk zablokowany")
+            msg = custom_msg or tr("toast.yt_msg_blocked_or_removed", "Film został usunięty, zablokowany terytorialnie lub oznaczony jako prywatny.")
+            icon_str = "fa5s.ban"
+            icon_color = "#e74c3c"
+            duration = 6000
+        elif error_type in ("RATE_LIMIT", "BOT_CHECK"):
+            title = tr("toast.yt_title_rate_limit_ip", "Blokada IP (HTTP 429)")
+            msg = custom_msg or tr("toast.yt_msg_rate_limit_ip", "YouTube nałożył limit zapytań na Twój adres IP lub wymaga weryfikacji bota. Dodaj cookies.txt.")
+            icon_str = "fa5s.shield-alt"
+            icon_color = "#c0392b"
+            duration = 8000
+        elif error_type == "RATE_LIMIT_DL":
+            title = tr("toast.yt_title_rate_limit_dl", "Limit pobierania wideo")
+            msg = custom_msg or tr("toast.yt_msg_rate_limit_dl", "YouTube nałożył limit zapytań (HTTP 429). Kolejka pobierania wideo została wstrzymana na 1 godzinę.")
+            icon_str = "fa5s.shield-alt"
+            icon_color = "#c0392b"
+            duration = 8000
+        elif error_type == "AGE_RESTRICTED":
+            title = tr("toast.yt_title_age_restricted", "Ograniczenie wiekowe")
+            msg = custom_msg or tr("toast.yt_msg_age_restricted", "Teledysk wymaga konta 18+. Dodaj plik cookies.txt z zalogowanego konta.")
+            icon_str = "fa5s.user-shield"
+            icon_color = "#f39c12"
+            duration = 7000
+        elif error_type == "NETWORK_TIMEOUT":
+            title = tr("toast.yt_title_network_error", "Błąd sieci")
+            msg = custom_msg or tr("toast.yt_msg_network_error", "Przekroczono limit czasu połączenia z YouTube. Sprawdź stabilność łącza internetowego.")
+            icon_str = "fa5s.wifi"
+            icon_color = "#7f8c8d"
+            duration = 6000
+        else:
+            title = tr("health.warning", "Ostrzeżenie")
+            msg = custom_msg or tr("toast.yt_video_unavailable", "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio.")
+            icon_str = "fa5s.exclamation-triangle"
+            icon_color = "#e67e22"
+            duration = 6000
+
         self.show_toast(
-            message,
+            msg,
             title=title,
             icon_str=icon_str,
             icon_color=icon_color,
-            duration=7000
+            duration=duration
         )
 
     def resizeEvent(self, event):

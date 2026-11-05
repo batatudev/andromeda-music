@@ -150,7 +150,17 @@
 
   "health.warning": "Ostrzeżenie",
   "health.rate_limit": "Ograniczenie YouTube",
-  "toast.yt_rate_limit_player": "YouTube wymaga weryfikacji lub nałożył limit zapytań (HTTP 429). Odtwarzam wyłącznie audio. Dodaj plik cookies.txt w katalogu danych.",
-  "toast.yt_rate_limit_download": "YouTube nałożył limit zapytań (HTTP 429). Kolejka pobierania wideo została wstrzymana na 1 godzinę.",
+  "toast.yt_title_invalid_link": "Błędny link YouTube",
+  "toast.yt_msg_invalid_link": "Podany link YouTube ma nieprawidłowy format. Sprawdź poprawność adresu lub przypisz nowy.",
+  "toast.yt_title_blocked_or_removed": "Teledysk zablokowany",
+  "toast.yt_msg_blocked_or_removed": "Film został usunięty, zablokowany terytorialnie lub oznaczony jako prywatny.",
+  "toast.yt_title_rate_limit_ip": "Blokada IP (HTTP 429)",
+  "toast.yt_msg_rate_limit_ip": "YouTube nałożył limit zapytań na Twój adres IP lub wymaga weryfikacji bota. Dodaj cookies.txt.",
+  "toast.yt_title_rate_limit_dl": "Limit pobierania wideo",
+  "toast.yt_msg_rate_limit_dl": "YouTube nałożył limit zapytań (HTTP 429). Kolejka pobierania wideo została wstrzymana na 1 godzinę.",
+  "toast.yt_title_age_restricted": "Ograniczenie wiekowe",
+  "toast.yt_msg_age_restricted": "Teledysk wymaga konta 18+. Dodaj plik cookies.txt z zalogowanego konta.",
+  "toast.yt_title_network_error": "Błąd sieci",
+  "toast.yt_msg_network_error": "Przekroczono limit czasu połączenia z YouTube. Sprawdź stabilność łącza internetowego.",
   "toast.yt_video_unavailable": "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio."
 }

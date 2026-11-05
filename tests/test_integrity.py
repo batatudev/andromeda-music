@@ -244,8 +244,13 @@ class IntegrityTestSuite:
         self.assert_equal(token, expected_token, "Subsonic API: token 't' zgodny ze standardem md5(password + salt)")
 
     def test_yt_error_classifier(self):
-        print("\n--- 6. TEST KLASYFIKATORA BŁĘDÓW YOUTUBE (YtErrorClassifier) ---")
+        print("\n--- 6. TEST PRECYZYJNEGO KLASYFIKATORA BŁĘDÓW YOUTUBE ---")
 
+        self.assert_equal(
+            classify_yt_error("ERROR: 'not_a_real_url' is not a valid URL. Set --default-search 'gvsearch' to search."),
+            YtErrorType.INVALID_LINK,
+            "YtClassifier: wykrywanie nieprawidłowego formatu URL (INVALID_LINK)"
+        )
         self.assert_equal(
             classify_yt_error("HTTP Error 429: Too Many Requests"),
             YtErrorType.RATE_LIMIT,
@@ -258,18 +263,18 @@ class IntegrityTestSuite:
         )
         self.assert_equal(
             classify_yt_error("ERROR: [youtube] 00000000000: This video is unavailable"),
-            YtErrorType.UNAVAILABLE,
+            YtErrorType.BLOCKED_OR_REMOVED,
             "YtClassifier: wykrywanie wideo niedostępnego ('This video is unavailable')"
         )
         self.assert_equal(
             classify_yt_error("ERROR: [youtube] Video unavailable. This video is private."),
-            YtErrorType.UNAVAILABLE,
+            YtErrorType.BLOCKED_OR_REMOVED,
             "YtClassifier: wykrywanie wideo prywatnego / zablokowanego"
         )
         self.assert_equal(
             classify_yt_error("ERROR: Sign in to confirm your age. This video may be inappropriate for some users."),
             YtErrorType.AGE_RESTRICTED,
-            "YtClassifier: wykrywanie ograniczenia wiekowego"
+            "YtClassifier: wykrywanie ograniczenia wiekowego (AGE_RESTRICTED)"
         )
         self.assert_equal(
             classify_yt_error("urllib.error.URLError: <urlopen error timed out>"),

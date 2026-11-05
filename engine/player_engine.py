@@ -9,7 +9,6 @@ from PySide6.QtMultimedia import QMediaPlayer
 from config import APP_CONFIG
 from utils import logger
 from core.enums import EngineState, VideoResolution
-from core.i18n import tr
 
 try:
     import yt_dlp
@@ -175,12 +174,8 @@ class PlayerEngine(QObject):
     def is_shuffled(self, val):
         self.queue_mgr.is_shuffled = val
 
-    def _on_download_rate_limit(self, err_msg):
-        msg = tr(
-            "toast.yt_rate_limit_download",
-            "YouTube nałożył limit zapytań (HTTP 429). Kolejka pobierania wideo została wstrzymana na 1 godzinę."
-        )
-        self.video_error_occurred.emit("RATE_LIMIT", msg)
+    def _on_download_rate_limit(self, err_type):
+        self.video_error_occurred.emit("RATE_LIMIT_DL", "")
 
     def _on_sync_timeout(self):
         if getattr(self, '_sync_start_active', False):

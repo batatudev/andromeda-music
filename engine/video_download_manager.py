@@ -8,7 +8,6 @@ from PySide6.QtCore import Signal
 from config import APP_CONFIG
 from utils import logger
 from core.paths import PathsManager
-from core.i18n import tr
 from engine.base_download_manager import BaseDownloadManager, DownloadStatus
 from engine.yt_resolver import YtErrorType, classify_yt_error
 
@@ -277,7 +276,7 @@ class VideoDownloadManager(BaseDownloadManager):
                                 "Automatyczne uśpienie kolejki wideo na 1h (Circuit Breaker)"
                             )
                             self.set_snooze(1)
-                            self.rate_limit_detected.emit(str(e))
+                            self.rate_limit_detected.emit(err_type)
                     else:
                         self._update_status(item_id, DownloadStatus.QUEUED)
                         self.download_queue.put((10, time.time(), item_id, yt_link, title))
@@ -373,7 +372,7 @@ class VideoDownloadManager(BaseDownloadManager):
                 raise e
 
             err_type = classify_yt_error(e)
-            if err_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK):
+            if err_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK, YtErrorType.INVALID_LINK, YtErrorType.BLOCKED_OR_REMOVED):
                 raise e
 
             # Fallback na ciasteczka przeglądarki jeśli Fast-Path nie powiódł się

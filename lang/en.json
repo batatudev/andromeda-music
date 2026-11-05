@@ -150,7 +150,17 @@
 
   "health.warning": "Warning",
   "health.rate_limit": "YouTube Restriction",
-  "toast.yt_rate_limit_player": "YouTube requires verification or rate limit reached (HTTP 429). Playing audio only. Add cookies.txt in the data folder.",
-  "toast.yt_rate_limit_download": "YouTube rate limit reached (HTTP 429). Video download queue paused for 1 hour.",
+  "toast.yt_title_invalid_link": "Invalid YouTube Link",
+  "toast.yt_msg_invalid_link": "The YouTube URL has an invalid format. Please check the address or assign a new one.",
+  "toast.yt_title_blocked_or_removed": "Video Blocked",
+  "toast.yt_msg_blocked_or_removed": "The video has been removed, region-blocked, or marked as private.",
+  "toast.yt_title_rate_limit_ip": "IP Rate Limit (HTTP 429)",
+  "toast.yt_msg_rate_limit_ip": "YouTube rate-limited your IP address or requires bot verification. Add cookies.txt to bypass.",
+  "toast.yt_title_rate_limit_dl": "Video Download Limit",
+  "toast.yt_msg_rate_limit_dl": "YouTube rate limit reached (HTTP 429). Video download queue paused for 1 hour.",
+  "toast.yt_title_age_restricted": "Age Restricted",
+  "toast.yt_msg_age_restricted": "This video requires age 18+ verification. Add cookies.txt from a logged-in account.",
+  "toast.yt_title_network_error": "Network Error",
+  "toast.yt_msg_network_error": "Connection to YouTube timed out. Please check your internet connection.",
   "toast.yt_video_unavailable": "Music video is unavailable or restricted. Playing audio only."
 }
