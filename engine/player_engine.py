@@ -38,6 +38,7 @@ class PlayerEngine(QObject):
     loading_changed = Signal(bool)
 
     video_ready = Signal(str)
+    video_resolve_failed = Signal(str)
     has_video_signal = Signal(bool)
     video_ready_to_show = Signal()
     audio_track_cached = Signal(str, str)
@@ -139,6 +140,7 @@ class PlayerEngine(QObject):
         self.player.playbackStateChanged.connect(self._playback_state_changed)
 
         self.video_ready.connect(self._on_video_resolved)
+        self.video_resolve_failed.connect(self._on_video_resolve_failed)
         self.video_player.playingChanged.connect(self._on_video_playing_changed)
 
     @property
@@ -253,6 +255,9 @@ class PlayerEngine(QObject):
 
     def _on_video_resolved(self, direct_url):
         self.yt_resolver.on_video_resolved(direct_url)
+
+    def _on_video_resolve_failed(self, error_type):
+        self.yt_resolver.on_video_resolve_failed(error_type)
 
     def _sync_video(self):
         if getattr(self, 'video_killed_for_track', False):

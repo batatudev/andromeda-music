@@ -257,9 +257,14 @@ class IntegrityTestSuite:
             "YtClassifier: wykrywanie weryfikacji bota (BotGuard / Cloudflare)"
         )
         self.assert_equal(
+            classify_yt_error("ERROR: [youtube] 00000000000: This video is unavailable"),
+            YtErrorType.UNAVAILABLE,
+            "YtClassifier: wykrywanie wideo niedostępnego ('This video is unavailable')"
+        )
+        self.assert_equal(
             classify_yt_error("ERROR: [youtube] Video unavailable. This video is private."),
             YtErrorType.UNAVAILABLE,
-            "YtClassifier: wykrywanie wideo prywatnego / niedostępnego"
+            "YtClassifier: wykrywanie wideo prywatnego / zablokowanego"
         )
         self.assert_equal(
             classify_yt_error("ERROR: Sign in to confirm your age. This video may be inappropriate for some users."),

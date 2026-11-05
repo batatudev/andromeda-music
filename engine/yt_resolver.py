@@ -33,7 +33,14 @@ def classify_yt_error(error_or_msg) -> str:
         return YtErrorType.BOT_CHECK
     if "sign in to confirm your age" in msg or "age-restricted" in msg or "age restricted" in msg:
         return YtErrorType.AGE_RESTRICTED
-    if "video unavailable" in msg or "private video" in msg or "not available in your country" in msg or "has been removed" in msg or "members-only" in msg:
+    if (
+        "unavailable" in msg
+        or "not available" in msg
+        or "private video" in msg
+        or "has been removed" in msg
+        or "members-only" in msg
+        or "does not exist" in msg
+    ):
         return YtErrorType.UNAVAILABLE
     if "timed out" in msg or "timeout" in msg or "connection reset" in msg or "network is unreachable" in msg:
         return YtErrorType.NETWORK_TIMEOUT
@@ -180,7 +187,7 @@ class YTResolver:
 
             if not self.engine.current_yt_link or current_event.is_set():
                 if self.engine.resolve_id == current_resolve_id:
-                    self.on_video_resolved("", error_type=None)
+                    self.engine.video_resolve_failed.emit(YtErrorType.UNAVAILABLE)
                 return
 
             start_time = time.time()
@@ -246,8 +253,13 @@ class YTResolver:
                 except Exception as e:
                     last_error_type = classify_yt_error(e)
 
-            # KROK 3: Bezpieczny fallback na ciasteczka przeglądarek (z pomijaniem zablokowanych baz SQLite)
-            if not success_url and not current_event.is_set() and not cookies_file.exists():
+            # KROK 3: Bezpieczny fallback na ciasteczka przeglądarek (pomijany, jeśli wideo nie istnieje)
+            if (
+                not success_url
+                and not current_event.is_set()
+                and not cookies_file.exists()
+                and last_error_type != YtErrorType.UNAVAILABLE
+            ):
                 browsers = ['firefox', 'chrome', 'brave', 'chromium']
                 for browser in browsers:
                     if current_event.is_set():
@@ -271,8 +283,12 @@ class YTResolver:
             if current_event.is_set():
                 return
 
-            # KROK 4: Awaryjny fallback na klienta TV (pomijany przy HTTP 429 na całym IP)
-            if not success_url and not current_event.is_set() and last_error_type != YtErrorType.RATE_LIMIT:
+            # KROK 4: Awaryjny fallback na klienta TV (pomijany, jeśli wideo nie istnieje lub mamy limit IP)
+            if (
+                not success_url
+                and not current_event.is_set()
+                and last_error_type not in (YtErrorType.RATE_LIMIT, YtErrorType.UNAVAILABLE)
+            ):
                 try:
                     ydl_opts_tv = self._build_base_ydl_opts(h_limit, abort_check)
                     ydl_opts_tv['extractor_args'] = {'youtube': {'player_client': ['tv']}}
@@ -292,19 +308,21 @@ class YTResolver:
                 if success_url:
                     self.engine.video_ready.emit(success_url)
                 else:
-                    logger.log(f"yt-dlp: Wszystkie metody pozyskania wideo zawiodły (Klasyfikacja: {last_error_type or 'Brak'}).")
-                    self.on_video_resolved("", error_type=last_error_type)
+                    final_err = last_error_type or YtErrorType.UNAVAILABLE
+                    logger.log(f"yt-dlp: Rozwiązanie wideo zakończone niepowodzeniem (Klasyfikacja: {final_err}).")
+                    self.engine.video_resolve_failed.emit(final_err)
 
         threading.Thread(target=fetch, daemon=True).start()
 
-    def on_video_resolved(self, direct_url, error_type=None):
+    def on_video_resolved(self, direct_url):
         if not direct_url:
-            self._handle_video_failure(error_type)
+            self.on_video_resolve_failed(YtErrorType.UNAVAILABLE)
             return
         self.engine.video_stream_start_time = time.time()
         self.engine.video_player.setSource(QUrl(direct_url))
 
-    def _handle_video_failure(self, error_type=None):
+    def on_video_resolve_failed(self, error_type=None):
+        """Wykonywane bezpiecznie w głównym wątku GUI PySide6."""
         # 1. Natychmiastowe zabezpieczenie i odblokowanie odtwarzania audio
         if getattr(self.engine, '_sync_start_active', False):
             self.engine.sync_timeout_timer.stop()
@@ -328,9 +346,6 @@ class YTResolver:
         self._notify_user_of_failure(error_type)
 
     def _notify_user_of_failure(self, error_type=None):
-        if not error_type:
-            return
-
         now = time.time()
         if error_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK):
             if (now - self._last_rate_limit_toast_time) > 600:
@@ -340,7 +355,7 @@ class YTResolver:
                     "YouTube wymaga weryfikacji lub nałożył limit zapytań (HTTP 429). Odtwarzam wyłącznie audio. Dodaj plik cookies.txt w katalogu danych."
                 )
                 self.engine.video_error_occurred.emit("RATE_LIMIT", msg)
-        elif error_type in (YtErrorType.UNAVAILABLE, YtErrorType.AGE_RESTRICTED):
+        else:
             msg = tr(
                 "toast.yt_video_unavailable",
                 "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio."
