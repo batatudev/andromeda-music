@@ -9,6 +9,7 @@ from PySide6.QtMultimedia import QMediaPlayer
 from config import APP_CONFIG
 from utils import logger
 from core.enums import EngineState, VideoResolution
+from core.i18n import tr
 
 try:
     import yt_dlp
@@ -40,6 +41,7 @@ class PlayerEngine(QObject):
     has_video_signal = Signal(bool)
     video_ready_to_show = Signal()
     audio_track_cached = Signal(str, str)
+    video_error_occurred = Signal(str, str)
 
     loop_mode_changed = Signal(bool)
     shuffle_mode_changed = Signal(bool)
@@ -68,6 +70,8 @@ class PlayerEngine(QObject):
         self.queue_mgr.queue_cleared.connect(self.queue_cleared.emit)
         self.queue_mgr.loop_mode_changed.connect(self.loop_mode_changed.emit)
         self.queue_mgr.shuffle_mode_changed.connect(self.shuffle_mode_changed.emit)
+
+        self.video_download_manager.rate_limit_detected.connect(self._on_download_rate_limit)
 
         self.current_yt_link = None
         self.video_needs_sync_on_load = False
@@ -168,6 +172,13 @@ class PlayerEngine(QObject):
     @is_shuffled.setter
     def is_shuffled(self, val):
         self.queue_mgr.is_shuffled = val
+
+    def _on_download_rate_limit(self, err_msg):
+        msg = tr(
+            "toast.yt_rate_limit_download",
+            "YouTube nałożył limit zapytań (HTTP 429). Kolejka pobierania wideo została wstrzymana na 1 godzinę."
+        )
+        self.video_error_occurred.emit("RATE_LIMIT", msg)
 
     def _on_sync_timeout(self):
         if getattr(self, '_sync_start_active', False):
@@ -316,7 +327,7 @@ class PlayerEngine(QObject):
                 offline_path = None
             else:
                 offline_path = self.video_download_manager.get_video_path(song.item_id)
-                
+
             if offline_path:
                 logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
                 self._activate_sync_timer()
@@ -389,12 +400,20 @@ class PlayerEngine(QObject):
                 if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
                     self.video_player.play()
         elif s == QMediaPlayer.MediaStatus.InvalidMedia:
+            logger.decision("VIDEO PIPELINE", "Wykryto InvalidMedia na strumieniu wideo", "Soft-Fallback do trybu czystego audio")
             if getattr(self, '_sync_start_active', False):
                 self.sync_timeout_timer.stop()
                 self._sync_start_active = False
                 self.loading_changed.emit(False)
                 if getattr(self, '_audio_loaded_for_sync', False):
                     self.player.play()
+            self.video_killed_for_track = True
+            self.current_engine_state = EngineState.VIDEO_DISABLED
+            self.video_player.stop()
+            self.video_player.setSource(QUrl(""))
+            self.video_player.setPlaybackRate(1.0)
+            self._deactivate_sync_timer()
+            self.has_video_signal.emit(False)
 
     def _on_video_playing_changed(self, is_playing):
         if is_playing:
@@ -497,7 +516,7 @@ class PlayerEngine(QObject):
         self.current_video_resolution = self.arf_manager.prepare_track_resolution(
             self.player.position()
         )
-        
+
         if "--force-res" in sys.argv:
             try:
                 idx = sys.argv.index("--force-res")
@@ -507,7 +526,7 @@ class PlayerEngine(QObject):
                     self.arf_active_res = forced_res
             except Exception:
                 pass
-                
+
         self.video_killed_for_track = False
         self.video_stream_start_time = time.time()
         self.h_sync_count = 0

@@ -9,6 +9,7 @@ from config import APP_CONFIG
 from utils import logger
 from core.enums import EngineState, VideoResolution
 from core.paths import PathsManager
+from core.i18n import tr
 
 try:
     import yt_dlp
@@ -16,9 +17,32 @@ try:
 except ImportError:
     HAS_YTDLP = False
 
+class YtErrorType:
+    RATE_LIMIT = "RATE_LIMIT"
+    BOT_CHECK = "BOT_CHECK"
+    UNAVAILABLE = "UNAVAILABLE"
+    AGE_RESTRICTED = "AGE_RESTRICTED"
+    NETWORK_TIMEOUT = "NETWORK_TIMEOUT"
+    UNKNOWN = "UNKNOWN"
+
+def classify_yt_error(error_or_msg) -> str:
+    msg = str(error_or_msg).lower()
+    if "429" in msg or "too many requests" in msg or "rate-limit" in msg or "rate limit" in msg:
+        return YtErrorType.RATE_LIMIT
+    if "confirm you're not a bot" in msg or "bot verification" in msg or "automated traffic" in msg or "captcha" in msg:
+        return YtErrorType.BOT_CHECK
+    if "sign in to confirm your age" in msg or "age-restricted" in msg or "age restricted" in msg:
+        return YtErrorType.AGE_RESTRICTED
+    if "video unavailable" in msg or "private video" in msg or "not available in your country" in msg or "has been removed" in msg or "members-only" in msg:
+        return YtErrorType.UNAVAILABLE
+    if "timed out" in msg or "timeout" in msg or "connection reset" in msg or "network is unreachable" in msg:
+        return YtErrorType.NETWORK_TIMEOUT
+    return YtErrorType.UNKNOWN
+
 class YTResolver:
     def __init__(self, engine):
         self.engine = engine
+        self._last_rate_limit_toast_time = 0
 
     def get_cached_url(self, h_limit):
         info = getattr(self.engine, '_current_yt_info_dict', None)
@@ -46,12 +70,12 @@ class YTResolver:
         return {
             'format': f'bestvideo[height<={h_limit}][vcodec^=avc1]/best[height<={h_limit}]/best',
             'quiet': True,
+            'no_warnings': True,
             'noplaylist': True,
             'nocheckcertificate': True,
             'match_filter': abort_check,
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            }
+            'retries': 1,
+            'socket_timeout': 5.0,
         }
 
     def prefetch_video_url(self, song):
@@ -155,6 +179,8 @@ class YTResolver:
                         self.engine.has_video_signal.emit(True)
 
             if not self.engine.current_yt_link or current_event.is_set():
+                if self.engine.resolve_id == current_resolve_id:
+                    self.on_video_resolved("", error_type=None)
                 return
 
             start_time = time.time()
@@ -187,6 +213,7 @@ class YTResolver:
                 return None
 
             success_url = None
+            last_error_type = None
             cookies_file = PathsManager.get_cookies_file()
 
             # KROK 1: Priorytetowy plik cookies.txt (jeśli został dostarczony)
@@ -202,7 +229,8 @@ class YTResolver:
                 except ValueError:
                     return
                 except Exception as e:
-                    logger.log(f"Błąd użycia cookies.txt: {e}")
+                    last_error_type = classify_yt_error(e)
+                    logger.log(f"Błąd użycia cookies.txt ({last_error_type}): {e}")
 
             # KROK 2: Fast-Path (Szybkie pobieranie bez ciasteczek)
             if not success_url and not current_event.is_set():
@@ -215,8 +243,8 @@ class YTResolver:
                             self.engine._current_yt_info_dict = info
                 except ValueError:
                     return
-                except Exception:
-                    pass
+                except Exception as e:
+                    last_error_type = classify_yt_error(e)
 
             # KROK 3: Bezpieczny fallback na ciasteczka przeglądarek (z pomijaniem zablokowanych baz SQLite)
             if not success_url and not current_event.is_set() and not cookies_file.exists():
@@ -236,14 +264,15 @@ class YTResolver:
                     except ValueError:
                         return
                     except Exception as e:
+                        last_error_type = classify_yt_error(e)
                         logger.log(f"Fallback przeglądarki {browser} pominięty: {e}")
                         continue
 
             if current_event.is_set():
                 return
 
-            # KROK 4: Awaryjny fallback na klienta TV
-            if not success_url and not current_event.is_set():
+            # KROK 4: Awaryjny fallback na klienta TV (pomijany przy HTTP 429 na całym IP)
+            if not success_url and not current_event.is_set() and last_error_type != YtErrorType.RATE_LIMIT:
                 try:
                     ydl_opts_tv = self._build_base_ydl_opts(h_limit, abort_check)
                     ydl_opts_tv['extractor_args'] = {'youtube': {'player_client': ['tv']}}
@@ -255,6 +284,7 @@ class YTResolver:
                 except ValueError:
                     return
                 except Exception as e:
+                    last_error_type = classify_yt_error(e)
                     logger.log(f"Awaryjny klient TV zawiódł: {e}")
 
             if self.engine.resolve_id == current_resolve_id:
@@ -262,19 +292,57 @@ class YTResolver:
                 if success_url:
                     self.engine.video_ready.emit(success_url)
                 else:
-                    logger.log("yt-dlp: Wszystkie metody pozyskania strumienia wideo zawiodły.")
-                    self.engine.video_ready.emit("")
+                    logger.log(f"yt-dlp: Wszystkie metody pozyskania wideo zawiodły (Klasyfikacja: {last_error_type or 'Brak'}).")
+                    self.on_video_resolved("", error_type=last_error_type)
 
         threading.Thread(target=fetch, daemon=True).start()
 
-    def on_video_resolved(self, direct_url):
+    def on_video_resolved(self, direct_url, error_type=None):
         if not direct_url:
-            if getattr(self.engine, '_sync_start_active', False):
-                self.engine.sync_timeout_timer.stop()
-                self.engine._sync_start_active = False
-                self.engine.loading_changed.emit(False)
-                if getattr(self.engine, '_audio_loaded_for_sync', False):
-                    self.engine.player.play()
+            self._handle_video_failure(error_type)
             return
         self.engine.video_stream_start_time = time.time()
         self.engine.video_player.setSource(QUrl(direct_url))
+
+    def _handle_video_failure(self, error_type=None):
+        # 1. Natychmiastowe zabezpieczenie i odblokowanie odtwarzania audio
+        if getattr(self.engine, '_sync_start_active', False):
+            self.engine.sync_timeout_timer.stop()
+            self.engine._sync_start_active = False
+            self.engine.loading_changed.emit(False)
+            if getattr(self.engine, '_audio_loaded_for_sync', False):
+                self.engine.player.play()
+        else:
+            self.engine.loading_changed.emit(False)
+
+        # 2. Deterministyczne wygaszenie warstwy wideo dla utworu (Soft Fallback)
+        self.engine.video_killed_for_track = True
+        self.engine.current_engine_state = EngineState.VIDEO_DISABLED
+        self.engine.video_player.stop()
+        self.engine.video_player.setSource(QUrl(""))
+        self.engine.video_player.setPlaybackRate(1.0)
+        self.engine._deactivate_sync_timer()
+        self.engine.has_video_signal.emit(False)
+
+        # 3. Informacyjne powiadomienie użytkownika (z mechanizmem Cooldown)
+        self._notify_user_of_failure(error_type)
+
+    def _notify_user_of_failure(self, error_type=None):
+        if not error_type:
+            return
+
+        now = time.time()
+        if error_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK):
+            if (now - self._last_rate_limit_toast_time) > 600:
+                self._last_rate_limit_toast_time = now
+                msg = tr(
+                    "toast.yt_rate_limit_player",
+                    "YouTube wymaga weryfikacji lub nałożył limit zapytań (HTTP 429). Odtwarzam wyłącznie audio. Dodaj plik cookies.txt w katalogu danych."
+                )
+                self.engine.video_error_occurred.emit("RATE_LIMIT", msg)
+        elif error_type in (YtErrorType.UNAVAILABLE, YtErrorType.AGE_RESTRICTED):
+            msg = tr(
+                "toast.yt_video_unavailable",
+                "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio."
+            )
+            self.engine.video_error_occurred.emit("UNAVAILABLE", msg)

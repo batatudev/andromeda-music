@@ -146,5 +146,11 @@
   "dialogs.yt_link_title": "Link YouTube",
   "dialogs.yt_link_placeholder": "Wklej link YouTube...",
   "dialogs.yt_remove_override": "Usuń własny link",
-  "dialogs.yt_missing_notice": "Ten utwór nie ma przypisanego linku YouTube."
+  "dialogs.yt_missing_notice": "Ten utwór nie ma przypisanego linku YouTube.",
+
+  "health.warning": "Ostrzeżenie",
+  "health.rate_limit": "Ograniczenie YouTube",
+  "toast.yt_rate_limit_player": "YouTube wymaga weryfikacji lub nałożył limit zapytań (HTTP 429). Odtwarzam wyłącznie audio. Dodaj plik cookies.txt w katalogu danych.",
+  "toast.yt_rate_limit_download": "YouTube nałożył limit zapytań (HTTP 429). Kolejka pobierania wideo została wstrzymana na 1 godzinę.",
+  "toast.yt_video_unavailable": "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio."
 }

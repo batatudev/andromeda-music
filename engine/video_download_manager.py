@@ -4,10 +4,13 @@ os.environ["QT_API"] = "pyside6"
 import time
 import sqlite3
 import queue
+from PySide6.QtCore import Signal
 from config import APP_CONFIG
 from utils import logger
 from core.paths import PathsManager
+from core.i18n import tr
 from engine.base_download_manager import BaseDownloadManager, DownloadStatus
+from engine.yt_resolver import YtErrorType, classify_yt_error
 
 try:
     import yt_dlp
@@ -17,8 +20,11 @@ except ImportError:
 
 class VideoDownloadManager(BaseDownloadManager):
     """
-    Menedżer pobierania teledysków z YouTube (yt-dlp) w tle.
+    Menedżer pobierania teledysków z YouTube (yt-dlp) w tle
+    z automatycznym wyłącznikiem obciążenia (Circuit Breaker) przy limitach HTTP 429.
     """
+    rate_limit_detected = Signal(str)
+
     def __init__(self):
         super().__init__(
             db_path=PathsManager.get_video_db_path(),
@@ -144,7 +150,6 @@ class VideoDownloadManager(BaseDownloadManager):
                         self.queue_updated.emit()
                     conn.close()
                     return
-                # Plik zniknął z dysku — zezwalamy na ponowne pobranie
             elif status in [DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING]:
                 conn.close()
                 return
@@ -260,10 +265,19 @@ class VideoDownloadManager(BaseDownloadManager):
             try:
                 self._download_video(item_id, yt_link)
             except Exception as e:
-                logger.log(f"Video Download Error ({item_id}): {e}")
+                err_type = classify_yt_error(e)
+                logger.log(f"Video Download Error ({item_id}) [{err_type}]: {e}")
                 if self._is_running:
                     if not self.cancel_current_event.is_set():
                         self._update_status(item_id, DownloadStatus.ERROR)
+                        if err_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK):
+                            logger.decision(
+                                "YT-DOWNLOAD",
+                                f"Wykryto limit zapytań / antybot ({err_type})",
+                                "Automatyczne uśpienie kolejki wideo na 1h (Circuit Breaker)"
+                            )
+                            self.set_snooze(1)
+                            self.rate_limit_detected.emit(str(e))
                     else:
                         self._update_status(item_id, DownloadStatus.QUEUED)
                         self.download_queue.put((10, time.time(), item_id, yt_link, title))
@@ -289,8 +303,11 @@ class VideoDownloadManager(BaseDownloadManager):
             'format': f'bestvideo[height<={h_limit}][vcodec^=avc1][ext=mp4]/best[height<={h_limit}][vcodec^=avc1][ext=mp4]/best',
             'outtmpl': output_template,
             'quiet': True,
+            'no_warnings': True,
             'nocheckcertificate': True,
             'noplaylist': True,
+            'retries': 2,
+            'socket_timeout': 10.0,
         }
 
         cookies_file = PathsManager.get_cookies_file()
@@ -353,6 +370,10 @@ class VideoDownloadManager(BaseDownloadManager):
                                 pass
                 except Exception:
                     pass
+                raise e
+
+            err_type = classify_yt_error(e)
+            if err_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK):
                 raise e
 
             # Fallback na ciasteczka przeglądarki jeśli Fast-Path nie powiódł się

@@ -146,5 +146,11 @@
   "dialogs.yt_link_title": "YouTube Link",
   "dialogs.yt_link_placeholder": "Paste YouTube link...",
   "dialogs.yt_remove_override": "Remove Custom Link",
-  "dialogs.yt_missing_notice": "No YouTube link assigned to this track."
+  "dialogs.yt_missing_notice": "No YouTube link assigned to this track.",
+
+  "health.warning": "Warning",
+  "health.rate_limit": "YouTube Restriction",
+  "toast.yt_rate_limit_player": "YouTube requires verification or rate limit reached (HTTP 429). Playing audio only. Add cookies.txt in the data folder.",
+  "toast.yt_rate_limit_download": "YouTube rate limit reached (HTTP 429). Video download queue paused for 1 hour.",
+  "toast.yt_video_unavailable": "Music video is unavailable or restricted. Playing audio only."
 }

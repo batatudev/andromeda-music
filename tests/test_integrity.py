@@ -24,8 +24,8 @@ from engine.queue_manager import QueueManager
 from core.paths import PathsManager
 from core.i18n import tr, _translator
 from api_client import NavidromeClient
+from engine.yt_resolver import YtErrorType, classify_yt_error
 import utils
-
 
 class IntegrityTestSuite:
     def __init__(self):
@@ -243,6 +243,40 @@ class IntegrityTestSuite:
         expected_token = hashlib.md5(("securepass123" + salt).encode("utf-8")).hexdigest()
         self.assert_equal(token, expected_token, "Subsonic API: token 't' zgodny ze standardem md5(password + salt)")
 
+    def test_yt_error_classifier(self):
+        print("\n--- 6. TEST KLASYFIKATORA BŁĘDÓW YOUTUBE (YtErrorClassifier) ---")
+
+        self.assert_equal(
+            classify_yt_error("HTTP Error 429: Too Many Requests"),
+            YtErrorType.RATE_LIMIT,
+            "YtClassifier: wykrywanie błędu HTTP 429 (Rate Limit)"
+        )
+        self.assert_equal(
+            classify_yt_error("ERROR: Sign in to confirm you're not a bot. This helps protect our community."),
+            YtErrorType.BOT_CHECK,
+            "YtClassifier: wykrywanie weryfikacji bota (BotGuard / Cloudflare)"
+        )
+        self.assert_equal(
+            classify_yt_error("ERROR: [youtube] Video unavailable. This video is private."),
+            YtErrorType.UNAVAILABLE,
+            "YtClassifier: wykrywanie wideo prywatnego / niedostępnego"
+        )
+        self.assert_equal(
+            classify_yt_error("ERROR: Sign in to confirm your age. This video may be inappropriate for some users."),
+            YtErrorType.AGE_RESTRICTED,
+            "YtClassifier: wykrywanie ograniczenia wiekowego"
+        )
+        self.assert_equal(
+            classify_yt_error("urllib.error.URLError: <urlopen error timed out>"),
+            YtErrorType.NETWORK_TIMEOUT,
+            "YtClassifier: wykrywanie przekroczenia limitu czasu sieci (Timeout)"
+        )
+        self.assert_equal(
+            classify_yt_error("Some completely unexpected generic exception"),
+            YtErrorType.UNKNOWN,
+            "YtClassifier: poprawny fallback dla nieznanych błędów"
+        )
+
     def run_all(self):
         print("================================================================")
         print("     ANDROMEDA MUSIC — PAKIET TESTÓW INTEGRALNOŚCI (v14.20+)     ")
@@ -253,6 +287,7 @@ class IntegrityTestSuite:
         self.test_database_and_wal_mode()
         self.test_i18n_symmetry_and_fallbacks()
         self.test_subsonic_auth_protocol()
+        self.test_yt_error_classifier()
 
         print("\n================================================================")
         print(f" WYNIKI: Wszystkich testów: {self.passed + self.failed} | Zaliczono: {self.passed} | Błędy: {self.failed}")
@@ -264,7 +299,6 @@ class IntegrityTestSuite:
                 print(f"  - {err}")
             return 1
         return 0
-
 
 if __name__ == "__main__":
     suite = IntegrityTestSuite()

@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
         self.engine.queue_cleared.connect(self._on_queue_cleared)
         self.engine.video_ready_to_show.connect(self._show_video_layer)
         self.engine.loading_changed.connect(self._on_loading_changed)
+        self.engine.video_error_occurred.connect(self._on_video_error_occurred)
 
         self.engine.video_download_manager.download_status_changed.connect(
             lambda item_id, status: self.offline_status_changed.emit(item_id, status)
@@ -181,6 +182,18 @@ class MainWindow(QMainWindow):
         toast = ToastNotification(self, message, title=title, icon_str=icon_str, icon_color=icon_color, duration=duration)
         self._active_toast = toast
         toast.show_toast()
+
+    def _on_video_error_occurred(self, error_type, message):
+        icon_str = "fa5s.exclamation-triangle"
+        icon_color = "#e67e22" if error_type == "UNAVAILABLE" else "#e74c3c"
+        title = tr("health.warning", "Ostrzeżenie") if error_type == "UNAVAILABLE" else tr("health.rate_limit", "Ograniczenie YouTube")
+        self.show_toast(
+            message,
+            title=title,
+            icon_str=icon_str,
+            icon_color=icon_color,
+            duration=7000
+        )
 
     def resizeEvent(self, event):
         if hasattr(self, 'sidebar_ctrl'):
