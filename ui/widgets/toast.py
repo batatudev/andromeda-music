@@ -4,13 +4,12 @@ os.environ["QT_API"] = "pyside6"
 import qtawesome as qta
 
 from PySide6.QtWidgets import (
-    QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QGraphicsDropShadowEffect
+    QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QGraphicsOpacityEffect
 )
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QColor
 
 from config import THEME
-
 
 class ToastNotification(QFrame):
     """
@@ -38,7 +37,6 @@ class ToastNotification(QFrame):
         text_main = THEME.get("text_main", "#ffffff")
         text_muted = THEME.get("text_muted", "#888888")
 
-        from PySide6.QtWidgets import QGraphicsOpacityEffect
         self.setStyleSheet(f"""
             #ToastNotification {{
                 background-color: {bg};
@@ -116,14 +114,17 @@ class ToastNotification(QFrame):
         parent = self.parent()
         if parent is None:
             return
-        self.adjustSize()
-        pw = parent.width()
-        w = max(540, self.sizeHint().width() + 30)
-        w = min(w, pw - 40)
-        self.resize(w, 46)
-        x = (pw - w) // 2
-        y = 20
-        self.move(x, y)
+        try:
+            self.adjustSize()
+            pw = parent.width()
+            w = max(540, self.sizeHint().width() + 30)
+            w = min(w, pw - 40)
+            self.resize(w, 46)
+            x = (pw - w) // 2
+            y = 20
+            self.move(x, y)
+        except RuntimeError:
+            pass
 
     def _start_fade_out(self):
         """Uruchamia animację Fade-Out i usuwa widget po jej zakończeniu."""
@@ -137,8 +138,14 @@ class ToastNotification(QFrame):
 
     def _cleanup(self):
         """Usuwa widget ze stosu po zakończeniu animacji wyjścia."""
-        self.hide()
-        self.deleteLater()
+        parent = self.parent()
+        if parent is not None and getattr(parent, '_active_toast', None) is self:
+            parent._active_toast = None
+        try:
+            self.hide()
+            self.deleteLater()
+        except RuntimeError:
+            pass
 
     def mousePressEvent(self, event):
         """Zamknięcie po kliknięciu."""

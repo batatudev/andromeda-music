@@ -171,17 +171,23 @@ class MainWindow(QMainWindow):
         return w
 
     def show_toast(self, message: str, title: str = "Powiadomienie", icon_str: str = "fa5s.info-circle", icon_color: str = None, duration: int = 5000):
-        if getattr(self, '_active_toast', None):
+        old_toast = getattr(self, '_active_toast', None)
+        if old_toast is not None:
             try:
-                self._active_toast.hide()
-                self._active_toast.deleteLater()
-            except Exception:
+                old_toast.hide()
+                old_toast.deleteLater()
+            except (RuntimeError, Exception):
                 pass
             self._active_toast = None
 
         toast = ToastNotification(self, message, title=title, icon_str=icon_str, icon_color=icon_color, duration=duration)
         self._active_toast = toast
+        toast.destroyed.connect(lambda: self._on_toast_destroyed(toast))
         toast.show_toast()
+
+    def _on_toast_destroyed(self, toast_ref=None):
+        if getattr(self, '_active_toast', None) is toast_ref:
+            self._active_toast = None
 
     def _on_video_error_occurred(self, error_type, custom_msg=""):
         if error_type == "INVALID_LINK":
@@ -238,8 +244,22 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         if hasattr(self, 'sidebar_ctrl'):
             self.sidebar_ctrl.handle_resize(self.width())
-        if getattr(self, '_active_toast', None) and self._active_toast.isVisible():
-            self._active_toast._reposition()
+        toast = getattr(self, '_active_toast', None)
+        if toast is not None:
+            try:
+                import shiboken6
+                is_valid = shiboken6.isValid(toast)
+            except Exception:
+                is_valid = True
+
+            if is_valid:
+                try:
+                    if toast.isVisible():
+                        toast._reposition()
+                except RuntimeError:
+                    self._active_toast = None
+            else:
+                self._active_toast = None
         super().resizeEvent(event)
 
     def closeEvent(self, event):
@@ -635,10 +655,10 @@ class MainWindow(QMainWindow):
             if self.engine.queue and self.engine.idx >= 0:
                 song = self.engine.queue[self.engine.idx]
                 fresh_link = song.yt_link
-                if not fresh_link and hasattr(self, 'client') and self.client:
+                if not fresh_link and hasattr(self.engine, 'client') and self.engine.client:
                     from engine.header_tag_extractor import check_and_cache_remote_header
                     fresh_link = check_and_cache_remote_header(
-                        self.client, song, getattr(self.engine, 'video_download_manager', None)
+                        self.engine.client, song, getattr(self.engine, 'video_download_manager', None)
                     )
                 self.engine.current_yt_link = fresh_link
                 self.engine.video_killed_for_track = False
