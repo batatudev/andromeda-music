@@ -162,5 +162,7 @@
   "toast.yt_msg_age_restricted": "Teledysk wymaga konta 18+. Dodaj plik cookies.txt z zalogowanego konta.",
   "toast.yt_title_network_error": "Błąd sieci",
   "toast.yt_msg_network_error": "Przekroczono limit czasu połączenia z YouTube. Sprawdź stabilność łącza internetowego.",
-  "toast.yt_video_unavailable": "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio."
+  "toast.yt_video_unavailable": "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio.",
+  "toast.yt_override_saved": "Zapisano własny link YouTube.",
+  "toast.yt_override_cleared": "Usunięto własny link YouTube. Przywrócono domyślne źródło."
 }

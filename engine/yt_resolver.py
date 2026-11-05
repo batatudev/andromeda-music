@@ -198,16 +198,16 @@ class YTResolver:
         self.engine.current_engine_state = EngineState.RESOLVING_YTDLP
 
         def fetch():
-            if not self.engine.current_yt_link:
-                if hasattr(self.engine, 'client') and self.engine.client and self.engine.queue and self.engine.idx < len(self.engine.queue):
-                    song = self.engine.queue[self.engine.idx]
+            # Zawsze upewnij się, że używamy najbardziej aktualnego linku z utworu
+            if self.engine.queue and 0 <= self.engine.idx < len(self.engine.queue):
+                song = self.engine.queue[self.engine.idx]
+                fresh_link = song.yt_link
+                if not fresh_link and hasattr(self.engine, 'client') and self.engine.client:
                     from engine.header_tag_extractor import check_and_cache_remote_header
-                    found_url = check_and_cache_remote_header(
+                    fresh_link = check_and_cache_remote_header(
                         self.engine.client, song, getattr(self.engine, 'video_download_manager', None)
                     )
-                    if found_url:
-                        self.engine.current_yt_link = found_url
-                        self.engine.has_video_signal.emit(True)
+                self.engine.current_yt_link = fresh_link
 
             if not self.engine.current_yt_link or current_event.is_set():
                 if self.engine.resolve_id == current_resolve_id:

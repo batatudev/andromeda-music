@@ -634,14 +634,23 @@ class MainWindow(QMainWindow):
             self._ensure_video_output()
             if self.engine.queue and self.engine.idx >= 0:
                 song = self.engine.queue[self.engine.idx]
+                fresh_link = song.yt_link
+                if not fresh_link and hasattr(self, 'client') and self.client:
+                    from engine.header_tag_extractor import check_and_cache_remote_header
+                    fresh_link = check_and_cache_remote_header(
+                        self.client, song, getattr(self.engine, 'video_download_manager', None)
+                    )
+                self.engine.current_yt_link = fresh_link
+                self.engine.video_killed_for_track = False
+
                 offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
                 if offline_path:
                     self.engine.load_and_play_video(force_mid_track=True)
                     return
-            if self.engine.current_yt_link:
-                self.engine.load_and_play_video(force_mid_track=True)
-            else:
-                self.now_playing_view.set_media_mode("audio")
+                if fresh_link:
+                    self.engine.load_and_play_video(force_mid_track=True)
+                    return
+            self.now_playing_view.set_media_mode("audio")
         else:
             self._current_mask_state = False
             self.now_playing_view.set_buffering_state(False)

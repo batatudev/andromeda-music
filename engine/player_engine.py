@@ -174,6 +174,45 @@ class PlayerEngine(QObject):
     def is_shuffled(self, val):
         self.queue_mgr.is_shuffled = val
 
+    def handle_yt_link_changed(self, song_id):
+        """
+        Reaktywne odświeżenie po zapisaniu lub usunięciu własnego linku YouTube.
+        Czyści cache i natychmiast synchronizuje odtwarzacz wideo.
+        """
+        sid = str(song_id) if song_id is not None else ""
+        if self.prefetched_song_id and str(self.prefetched_song_id) == sid:
+            self.prefetched_song_id = None
+            self.prefetched_yt_url = None
+            self.prefetched_yt_info_dict = None
+        self._current_yt_info_dict = None
+
+        cur_song = self.queue_mgr.current_song()
+        if cur_song and str(cur_song.item_id) == sid:
+            self.video_killed_for_track = False
+            fresh_link = cur_song.yt_link
+            if not fresh_link and hasattr(self, 'client') and self.client:
+                from engine.header_tag_extractor import check_and_cache_remote_header
+                fresh_link = check_and_cache_remote_header(
+                    self.client, cur_song, getattr(self, 'video_download_manager', None)
+                )
+
+            self.current_yt_link = fresh_link
+            offline_path = self.video_download_manager.get_video_path(sid)
+            has_video = bool(fresh_link or offline_path)
+            self.has_video_signal.emit(has_video)
+
+            is_video_playing = (self.video_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
+            is_video_loading = getattr(self, '_sync_start_active', False) or (self.current_engine_state == EngineState.RESOLVING_YTDLP)
+
+            if is_video_playing or is_video_loading:
+                self.video_player.stop()
+                self.video_player.setSource(QUrl(""))
+                if fresh_link:
+                    self.load_and_play_video(force_mid_track=True)
+                else:
+                    self.current_engine_state = EngineState.VIDEO_DISABLED
+                    self.has_video_signal.emit(False)
+
     def _on_download_rate_limit(self, err_type):
         self.video_error_occurred.emit("RATE_LIMIT_DL", "")
 
@@ -323,6 +362,16 @@ class PlayerEngine(QObject):
     def load_and_play_video(self, force_mid_track=False):
         song = self.queue_mgr.current_song()
         if song:
+            # Zawsze upewnij się, że używamy najbardziej aktualnego linku
+            fresh_link = song.yt_link
+            if not fresh_link and hasattr(self, 'client') and self.client:
+                from engine.header_tag_extractor import check_and_cache_remote_header
+                fresh_link = check_and_cache_remote_header(
+                    self.client, song, getattr(self, 'video_download_manager', None)
+                )
+            self.current_yt_link = fresh_link
+            self.video_killed_for_track = False
+
             if "--force-live" in sys.argv:
                 offline_path = None
             else:

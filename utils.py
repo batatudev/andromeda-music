@@ -10,9 +10,11 @@ from core.models import MediaItem, Song, Album, Artist
 _YT_LINK_OVERRIDES: dict = {}
 
 def _set_yt_link_override(item_id: str, url):
+    sid = str(item_id) if item_id is not None else ""
     if url:
-        _YT_LINK_OVERRIDES[item_id] = url
+        _YT_LINK_OVERRIDES[sid] = str(url).strip()
     else:
+        _YT_LINK_OVERRIDES.pop(sid, None)
         _YT_LINK_OVERRIDES.pop(item_id, None)
 
 class Worker(QRunnable):

@@ -162,5 +162,7 @@
   "toast.yt_msg_age_restricted": "This video requires age 18+ verification. Add cookies.txt from a logged-in account.",
   "toast.yt_title_network_error": "Network Error",
   "toast.yt_msg_network_error": "Connection to YouTube timed out. Please check your internet connection.",
-  "toast.yt_video_unavailable": "Music video is unavailable or restricted. Playing audio only."
+  "toast.yt_video_unavailable": "Music video is unavailable or restricted. Playing audio only.",
+  "toast.yt_override_saved": "Custom YouTube link saved.",
+  "toast.yt_override_cleared": "Removed custom YouTube link. Restored default source."
 }

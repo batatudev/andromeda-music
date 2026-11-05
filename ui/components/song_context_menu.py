@@ -172,7 +172,7 @@ class SongContextMenu:
     def _set_yt_link_dialog(song_item):
         from utils import _YT_LINK_OVERRIDES
         song = song_item.song
-        current_override = _YT_LINK_OVERRIDES.get(song.item_id, "")
+        current_override = _YT_LINK_OVERRIDES.get(str(song.item_id), "")
         current_from_comment = song.yt_link if not current_override else None
 
         dlg = QDialog(song_item)
@@ -258,17 +258,31 @@ class SongContextMenu:
                 status_lbl.setText("Wprowadź prawidłowy link (youtube.com lub youtu.be).")
                 return
             win = _get_window(song_item)
-            if win:
+            if win and hasattr(win, 'engine'):
                 win.engine.video_download_manager.save_yt_link_override(
                     song.item_id, url, song.title
+                )
+                win.engine.handle_yt_link_changed(song.item_id)
+                win.show_toast(
+                    tr("toast.yt_override_saved", "Zapisano własny link YouTube."),
+                    title=tr("dialogs.yt_link_title", "Link YouTube"),
+                    icon_str="fa5s.check-circle",
+                    icon_color=THEME.get("accent", "#1db954")
                 )
             song_item._update_dl_status_icon()
             dlg.accept()
 
         def clear_override():
             win = _get_window(song_item)
-            if win:
+            if win and hasattr(win, 'engine'):
                 win.engine.video_download_manager.delete_yt_link_override(song.item_id)
+                win.engine.handle_yt_link_changed(song.item_id)
+                win.show_toast(
+                    tr("toast.yt_override_cleared", "Usunięto własny link YouTube. Przywrócono domyślne źródło."),
+                    title=tr("dialogs.yt_link_title", "Link YouTube"),
+                    icon_str="fa5s.undo",
+                    icon_color=THEME.get("accent", "#1db954")
+                )
             song_item._update_dl_status_icon()
             dlg.accept()
 
