@@ -216,11 +216,14 @@ class SongContextMenu:
 
         info_lbl = QLabel()
         info_lbl.setWordWrap(True)
+        lbl_yt = tr("dialogs.yt_link_label", "Link YouTube:")
+        lbl_tag = tr("dialogs.yt_tag_label", "Link z tagów:")
+
         if current_override:
-            info_lbl.setText(f"<b>Link YouTube:</b> {current_override}")
+            info_lbl.setText(f"<b>{lbl_yt}</b> {current_override}")
             info_lbl.setStyleSheet(f"color: {THEME['accent']}; background: transparent;")
         elif current_from_comment:
-            info_lbl.setText(f"<b>Link z tagów:</b> {current_from_comment}")
+            info_lbl.setText(f"<b>{lbl_tag}</b> {current_from_comment}")
             info_lbl.setStyleSheet(f"color: {THEME['text_muted']}; background: transparent;")
         else:
             info_lbl.setText(tr("dialogs.yt_missing_notice", "Ten utwór nie ma przypisanego linku YouTube."))
@@ -255,7 +258,7 @@ class SongContextMenu:
                 status_lbl.setText(tr("dialogs.yt_missing_notice", "Ten utwór nie ma przypisanego linku YouTube."))
                 return
             if not ('youtube.com/watch' in url or 'youtu.be/' in url):
-                status_lbl.setText("Wprowadź prawidłowy link (youtube.com lub youtu.be).")
+                status_lbl.setText(tr("dialogs.yt_invalid_input", "Wprowadź prawidłowy link (youtube.com lub youtu.be)."))
                 return
             win = _get_window(song_item)
             if win and hasattr(win, 'engine'):
@@ -338,8 +341,12 @@ class SongContextMenu:
                 cover_id=song.cover_id
             )
             song_item._update_dl_status_icon()
+            msg_toast = tr(
+                "downloads.added_to_queue",
+                "Dodano \"{title}\" do kolejki pobierania."
+            ).format(title=song.title)
             win.show_toast(
-                f"Dodano \"{song.title}\" do kolejki pobierania.",
+                msg_toast,
                 title=tr("downloads.section_video", "Teledyski (Wideo)"),
                 icon_str="fa5s.film",
                 icon_color="#e74c3c"
@@ -351,13 +358,17 @@ class SongContextMenu:
     def _download_audio(song_item):
         win = _get_window(song_item)
         if not win or not hasattr(win, 'engine') or not hasattr(win.engine, 'audio_download_manager'):
-            QMessageBox.warning(song_item, "Błąd", "Audio Download Manager nie jest dostępny.")
+            QMessageBox.warning(
+                song_item,
+                tr("dialogs.error", "Błąd"),
+                tr("downloads.manager_unavailable", "Audio Download Manager nie jest dostępny.")
+            )
             return
 
         mgr = win.engine.audio_download_manager
         if mgr.is_downloaded(song_item.song.item_id):
             win.show_toast(
-                "Ten utwór jest już pobrany na dysk.",
+                tr("downloads.already_downloaded", "Ten utwór jest już pobrany na dysk."),
                 title=tr("downloads.section_audio", "Muzyka (Audio)"),
                 icon_str="fa5s.check-circle",
                 icon_color=THEME["accent"]
@@ -366,8 +377,12 @@ class SongContextMenu:
 
         mgr.add_to_queue(song_item.song.item_id, song_item.song.title, high_priority=True)
         song_item._update_dl_status_icon()
+        msg_toast = tr(
+            "downloads.added_to_queue",
+            "Dodano \"{title}\" do kolejki pobierania."
+        ).format(title=song_item.song.title)
         win.show_toast(
-            f"Dodano \"{song_item.song.title}\" do kolejki pobierania.",
+            msg_toast,
             title=tr("downloads.section_audio", "Muzyka (Audio)"),
             icon_str="fa5s.music",
             icon_color=THEME["accent"]

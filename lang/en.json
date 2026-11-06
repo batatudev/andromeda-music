@@ -281,5 +281,13 @@
   "player.next": "Next",
   "player.loop": "Repeat",
   "player.mute": "Mute",
-  "player.favorite": "Favorite track"
+  "player.favorite": "Favorite track",
+
+  "dialogs.yt_link_label": "YouTube Link:",
+  "dialogs.yt_tag_label": "Tag Link:",
+  "dialogs.yt_invalid_input": "Enter a valid link (youtube.com or youtu.be).",
+  "downloads.added_to_queue": "Added \"{title}\" to download queue.",
+  "downloads.already_downloaded": "This track is already downloaded to disk.",
+  "downloads.manager_unavailable": "Audio Download Manager is not available.",
+  "dialogs.error": "Error"
 }

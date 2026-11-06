@@ -281,5 +281,13 @@
   "player.next": "Następny",
   "player.loop": "Powtarzanie",
   "player.mute": "Wycisz",
-  "player.favorite": "Polub utwór"
+  "player.favorite": "Polub utwór",
+
+  "dialogs.yt_link_label": "Link YouTube:",
+  "dialogs.yt_tag_label": "Link z tagów:",
+  "dialogs.yt_invalid_input": "Wprowadź prawidłowy link (youtube.com lub youtu.be).",
+  "downloads.added_to_queue": "Dodano \"{title}\" do kolejki pobierania.",
+  "downloads.already_downloaded": "Ten utwór jest już pobrany na dysk.",
+  "downloads.manager_unavailable": "Audio Download Manager nie jest dostępny.",
+  "dialogs.error": "Błąd"
 }
