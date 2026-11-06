@@ -301,5 +301,11 @@
   "playlists.unnamed": "Untitled",
   "playlists.title_singular": "Playlist",
   "playlists.toast_created": "Created playlist \"{name}\" and added track.",
-  "playlists.toast_added": "Added \"{title}\" to playlist \"{name}\"."
+  "playlists.toast_added": "Added \"{title}\" to playlist \"{name}\".",
+
+  "common.music_videos": "Music Videos",
+  "common.music": "Music",
+  "settings.offline.select_playlists_title": "Select Playlists",
+  "settings.offline.sync_hint": "Select playlists for automatic offline download.",
+  "dialogs.playlist_sync_counter": "Selected: {selected} of {total}"
 }

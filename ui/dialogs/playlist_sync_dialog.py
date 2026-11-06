@@ -185,9 +185,10 @@ class PlaylistSyncModal(QWidget):
             lbl_empty.setStyleSheet(f"color: {THEME.get('text_muted', '#888888')}; font-size: 13px; margin-top: 30px; background: transparent;")
             self.pl_list_layout.addWidget(lbl_empty)
         else:
+            fallback_unnamed = tr("playlists.unnamed", "Bez nazwy")
             for pl in self.playlists:
                 pl_id = pl.get('id')
-                pl_name = pl.get('name', 'Bez nazwy')
+                pl_name = pl.get('name') or fallback_unnamed
 
                 cb = QCheckBox(pl_name)
                 cb.setStyleSheet(cb_style)
@@ -273,7 +274,10 @@ class PlaylistSyncModal(QWidget):
     def _update_counter(self):
         selected_cnt = sum(1 for cb in self.checkboxes.values() if cb.isChecked())
         total_cnt = len(self.checkboxes)
-        self.lbl_count.setText(f"Zaznaczono: {selected_cnt} z {total_cnt}")
+        msg = tr("dialogs.playlist_sync_counter", "Zaznaczono: {selected} z {total}").format(
+            selected=selected_cnt, total=total_cnt
+        )
+        self.lbl_count.setText(msg)
 
     def paintEvent(self, event):
         painter = QPainter(self)
