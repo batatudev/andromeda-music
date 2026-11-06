@@ -177,5 +177,12 @@
   "settings.dev.header": "Developer Options",
   "settings.dev.mode": "Developer Mode:",
   "settings.dev.enabled": "Enabled",
-  "settings.dev.disabled": "Disabled"
+  "settings.dev.disabled": "Disabled",
+
+  "artists.title": "All Artists",
+  "albums.title": "All Albums",
+  "tracks.title": "All Tracks",
+  "favs.title": "Favorite Tracks",
+  "favs.empty": "No liked tracks found",
+  "common.loading": "Loading..."
 }

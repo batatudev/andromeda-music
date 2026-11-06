@@ -177,5 +177,12 @@
   "settings.dev.header": "Opcje dla programistów",
   "settings.dev.mode": "Tryb dewelopera:",
   "settings.dev.enabled": "Włączony",
-  "settings.dev.disabled": "Wyłączony"
+  "settings.dev.disabled": "Wyłączony",
+
+  "artists.title": "Wszyscy Artyści",
+  "albums.title": "Wszystkie Albumy",
+  "tracks.title": "Wszystkie Utwory",
+  "favs.title": "Twoje ulubione utwory",
+  "favs.empty": "Brak polubionych utworów",
+  "common.loading": "Wczytywanie..."
 }
