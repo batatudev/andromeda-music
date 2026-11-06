@@ -295,5 +295,11 @@
   "song_item.status_both": "Downloaded Audio & Video",
   "song_item.status_audio": "Downloaded Audio",
   "song_item.status_video": "Downloaded Video",
-  "song_item.status_cloud": "Available in Cloud (Online)"
+  "song_item.status_cloud": "Available in Cloud (Online)",
+
+  "playlists.empty": "No playlists created yet.",
+  "playlists.unnamed": "Untitled",
+  "playlists.title_singular": "Playlist",
+  "playlists.toast_created": "Created playlist \"{name}\" and added track.",
+  "playlists.toast_added": "Added \"{title}\" to playlist \"{name}\"."
 }

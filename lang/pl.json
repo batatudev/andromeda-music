@@ -295,5 +295,11 @@
   "song_item.status_both": "Pobrane Audio i Wideo",
   "song_item.status_audio": "Pobrane Audio",
   "song_item.status_video": "Pobrane Wideo",
-  "song_item.status_cloud": "Dostępne w chmurze (Online)"
+  "song_item.status_cloud": "Dostępne w chmurze (Online)",
+
+  "playlists.empty": "Brak utworzonych playlist.",
+  "playlists.unnamed": "Bez nazwy",
+  "playlists.title_singular": "Playlista",
+  "playlists.toast_created": "Utworzono playlistę \"{name}\" i dodano utwór.",
+  "playlists.toast_added": "Dodano \"{title}\" do playlisty \"{name}\"."
 }

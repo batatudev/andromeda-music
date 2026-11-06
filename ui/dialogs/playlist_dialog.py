@@ -267,8 +267,9 @@ class PlaylistDialog(QWidget):
                 self.pl_list_layout.addWidget(lbl_empty)
                 return
 
+            fallback_unnamed = tr("playlists.unnamed", "Bez nazwy")
             for pl in playlists:
-                pl_name = pl.get('name', 'Bez nazwy')
+                pl_name = pl.get('name') or fallback_unnamed
                 pl_id = pl.get('id')
 
                 btn = QPushButton()
@@ -336,9 +337,13 @@ class PlaylistDialog(QWidget):
             if self.on_playlists_changed:
                 self.on_playlists_changed()
             if hasattr(self.main_window, 'show_toast'):
+                msg = tr(
+                    "playlists.toast_created",
+                    "Utworzono playlistę \"{name}\" i dodano utwór."
+                ).format(name=name)
                 self.main_window.show_toast(
-                    f"Utworzono playlistę \"{name}\" i dodano utwór.",
-                    title="Playlista",
+                    msg,
+                    title=tr("playlists.title_singular", "Playlista"),
                     icon_str="fa5s.check-circle",
                     icon_color=THEME.get("accent", "#1db954")
                 )
@@ -361,9 +366,13 @@ class PlaylistDialog(QWidget):
 
         def on_ready(_):
             if hasattr(self.main_window, 'show_toast'):
+                msg = tr(
+                    "playlists.toast_added",
+                    "Dodano \"{title}\" do playlisty \"{name}\"."
+                ).format(title=self.song.title, name=pl_name)
                 self.main_window.show_toast(
-                    f"Dodano \"{self.song.title}\" do playlisty \"{pl_name}\".",
-                    title="Playlista",
+                    msg,
+                    title=tr("playlists.title_singular", "Playlista"),
                     icon_str="fa5s.check-circle",
                     icon_color=THEME.get("accent", "#1db954")
                 )
