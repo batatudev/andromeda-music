@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: views/view_search.py
-# OPIS ZMIAN: Oczyszczenie pola wyszukiwania ze zbędnych dopisków i pełne wdrożenie i18n przez tr()
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 )
@@ -16,7 +12,6 @@ from core.enums import MediaType
 from ui.widgets import FlowLayout
 from ui.components import SongItem, MediaCard
 from core.i18n import tr
-
 from views.library_base import LibraryScrollArea
 
 class SearchView(LibraryScrollArea):
@@ -115,7 +110,7 @@ class SearchView(LibraryScrollArea):
             songs = data.get('song', [])
 
             if artists:
-                artists_txt = tr("menu.artists", "Artyści")
+                artists_txt = tr("search.artists", "Artyści")
                 self.results_layout.addWidget(QLabel(artists_txt, font=QFont("Sans", 20, QFont.Bold)))
                 flow_arts = FlowLayout(spacing=25)
                 for a in artists:
@@ -138,7 +133,7 @@ class SearchView(LibraryScrollArea):
                 self.results_layout.addSpacing(20)
 
             if albums:
-                albums_txt = tr("menu.albums", "Albumy")
+                albums_txt = tr("search.albums", "Albumy")
                 self.results_layout.addWidget(QLabel(albums_txt, font=QFont("Sans", 20, QFont.Bold)))
                 flow_albs = FlowLayout(spacing=25)
                 for a in albums:
@@ -162,7 +157,7 @@ class SearchView(LibraryScrollArea):
                 self.results_layout.addSpacing(20)
 
             if songs:
-                tracks_txt = tr("menu.tracks", "Utwory")
+                tracks_txt = tr("search.tracks", "Utwory")
                 self.results_layout.addWidget(QLabel(tracks_txt, font=QFont("Sans", 20, QFont.Bold)))
                 sc = QWidget()
                 vl = QVBoxLayout(sc)

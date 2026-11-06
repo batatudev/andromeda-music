@@ -164,5 +164,13 @@
   "toast.yt_msg_network_error": "Connection to YouTube timed out. Please check your internet connection.",
   "toast.yt_video_unavailable": "Music video is unavailable or restricted. Playing audio only.",
   "toast.yt_override_saved": "Custom YouTube link saved.",
-  "toast.yt_override_cleared": "Removed custom YouTube link. Restored default source."
+  "toast.yt_override_cleared": "Removed custom YouTube link. Restored default source.",
+
+  "search.placeholder": "What do you want to play?",
+  "search.prompt": "Type to start searching...",
+  "search.searching": "Searching library...",
+  "search.no_results": "No results found for",
+  "search.artists": "Artists",
+  "search.albums": "Albums",
+  "search.tracks": "Tracks"
 }

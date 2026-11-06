@@ -164,5 +164,13 @@
   "toast.yt_msg_network_error": "Przekroczono limit czasu połączenia z YouTube. Sprawdź stabilność łącza internetowego.",
   "toast.yt_video_unavailable": "Teledysk jest niedostępny lub zablokowany. Odtwarzam wyłącznie utwór audio.",
   "toast.yt_override_saved": "Zapisano własny link YouTube.",
-  "toast.yt_override_cleared": "Usunięto własny link YouTube. Przywrócono domyślne źródło."
+  "toast.yt_override_cleared": "Usunięto własny link YouTube. Przywrócono domyślne źródło.",
+  
+  "search.placeholder": "Czego chcesz posłuchać?",
+  "search.prompt": "Wpisz tekst, aby rozpocząć wyszukiwanie...",
+  "search.searching": "Szukam w bibliotece...",
+  "search.no_results": "Brak wyników dla hasła",
+  "search.artists": "Artyści",
+  "search.albums": "Albumy",
+  "search.tracks": "Utwory"
 }
