@@ -28,6 +28,11 @@
     </ul>
   </description>
 
+  <branding>
+    <color type="primary" scheme_preference="light">#aa00ff</color>
+    <color type="primary" scheme_preference="dark">#aa00ff</color>
+  </branding>
+
   <launchable type="desktop-id">io.github.batatudev.AndromedaMusic.desktop</launchable>
 
   <url type="homepage">https://github.com/batatudev/andromeda-music</url>
@@ -78,6 +83,11 @@
     <category>Player</category>
     <category>Music</category>
   </categories>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
 
   <content_rating type="oars-1.1"/>
 </component>
