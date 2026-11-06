@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.batatudev.AndromedaMusic</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Andromeda Music</name>
+  <summary>High-performance music player and ambient video visualizer</summary>
+
+  <description>
+    <p>
+      Andromeda Music is a native, modern, open-source Linux music player designed from the ground up
+      for high fidelity, cinematic ambiance, and rock-solid stability. It natively connects to self-hosted
+      Navidrome and Subsonic music servers while seamlessly pulling and caching synchronized YouTube music videos.
+    </p>
+    <p>
+      Unlike web-wrapped Electron players that consume hundreds of megabytes of RAM and lack deep OS integration,
+      Andromeda Music is written natively in Python 3 and PySide6 (Qt6). Utilizing direct hardware-accelerated
+      Qt RHI / QML MultiEffect GLSL shaders, it delivers a live, blurred ambient backdrop with almost zero CPU overhead.
+    </p>
+    <p>Key Features:</p>
+    <ul>
+      <li>Hi-Fi lossless audio streaming (FLAC, ALAC, Opus, AAC, MP3) with direct playback</li>
+      <li>Hardware-accelerated ambient video blurring powered by QML MultiEffect GLSL shaders</li>
+      <li>Automatic Resolution Fallback (ARF 3.1) preventing audio stutter during network lag</li>
+      <li>Offline storage and transfer manager with multi-server cache partitioning</li>
+      <li>Full Linux desktop integration via MPRIS2, PipeWire audio routing, and XDG standards</li>
+      <li>Optimized for both desktop environments (KDE, GNOME) and tiling window managers (Hyprland, Sway)</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.batatudev.AndromedaMusic.desktop</launchable>
+
+  <url type="homepage">https://github.com/batatudev/andromeda-music</url>
+  <url type="bugtracker">https://github.com/batatudev/andromeda-music/issues</url>
+  <url type="vcs-browser">https://github.com/batatudev/andromeda-music</url>
+
+  <developer id="io.github.batatudev">
+    <name>batatudev</name>
+  </developer>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Cinematic playback view with live hardware-accelerated ambient video blur</caption>
+      <image>https://raw.githubusercontent.com/batatudev/andromeda-music/main/assets/screenshots/now_playing.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Responsive music library and albums view</caption>
+      <image>https://raw.githubusercontent.com/batatudev/andromeda-music/main/assets/screenshots/home_grid.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Zenith-style offline download and storage center</caption>
+      <image>https://raw.githubusercontent.com/batatudev/andromeda-music/main/assets/screenshots/downloads_view.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="1.0.0-rc1" date="2026-11-06">
+      <description>
+        <p>Release Candidate 1 ("Sirrah") featuring:</p>
+        <ul>
+          <li>Hi-Fi direct audio streaming without forced server-side transcoding</li>
+          <li>Hardware-accelerated QML MultiEffect video ambient pipeline</li>
+          <li>Zenith-style transfer and storage center with multi-state filters</li>
+          <li>Subsonic REST API v1.16.1 compliance with circuit breaker protection</li>
+          <li>Full MPRIS2 D-Bus remote control integration</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <provides>
+    <binary>andromeda-music</binary>
+  </provides>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+    <category>Music</category>
+  </categories>
+
+  <content_rating type="oars-1.1"/>
+</component>

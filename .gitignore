@@ -36,8 +36,10 @@ tests/results/
 tests/benchmarks/results/
 benchmark_report.md
 
-# Special Script
+# Special Files
 ai_bundler.py
+_AI_CURRENT_CODE.txt
+
 
 # Packaging and releases
 build_release/

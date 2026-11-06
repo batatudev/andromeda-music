@@ -1,0 +1,52 @@
+name: Bug Report
+description: Create a report to help us improve Andromeda Music
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Please check existing issues before submitting.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Linux Distribution & Desktop Environment
+      placeholder: e.g. Fedora 41 (KDE Plasma 6 / Wayland) or Arch Linux (Hyprland)
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python & PySide6 Version
+      placeholder: e.g. Python 3.12.3 / PySide6 6.7.2
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Open Andromeda Music
+        2. Click on 'Now Playing'
+        3. Switch to video playback
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal / Error Logs
+      description: Paste relevant logs from terminal or ~/.local/share/andromeda-music/logs/.
+      render: shell
