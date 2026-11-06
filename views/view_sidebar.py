@@ -10,7 +10,6 @@ from config import THEME, Pages
 from ui.widgets import HoverIconButton, SmoothScrollArea
 from core.i18n import tr
 
-
 class SidebarWidget(QFrame):
     page_requested = Signal(int)
     back_requested = Signal()
@@ -49,6 +48,7 @@ class SidebarWidget(QFrame):
         self.btn_toggle_side.setObjectName("NavBtn")
         self.btn_toggle_side.setFixedSize(36, 36)
         self.btn_toggle_side.setCursor(Qt.PointingHandCursor)
+        self.btn_toggle_side.setToolTip(tr("sidebar.toggle", "Zwiń / Rozwiń panel"))
         self.btn_toggle_side.clicked.connect(self.toggle_sidebar_requested.emit)
 
         self.btn_back = QPushButton()
@@ -57,6 +57,7 @@ class SidebarWidget(QFrame):
         self.btn_back.setObjectName("NavBtn")
         self.btn_back.setFixedSize(36, 36)
         self.btn_back.setCursor(Qt.PointingHandCursor)
+        self.btn_back.setToolTip(tr("sidebar.back", "Wstecz"))
         self.btn_back.clicked.connect(self.back_requested.emit)
 
         self.btn_refresh = QPushButton()
@@ -65,6 +66,7 @@ class SidebarWidget(QFrame):
         self.btn_refresh.setObjectName("NavBtn")
         self.btn_refresh.setFixedSize(36, 36)
         self.btn_refresh.setCursor(Qt.PointingHandCursor)
+        self.btn_refresh.setToolTip(tr("sidebar.refresh", "Odśwież"))
         self.btn_refresh.clicked.connect(self.refresh_requested.emit)
 
         nav_lay.addWidget(self.btn_toggle_side)

@@ -271,5 +271,9 @@
   "dev.telemetry_win.dl_active": "Active Downloads:",
   "dev.telemetry_win.dl_queue": "Queued Downloads:",
   "dev.telemetry_win.dl_speed": "Download Speed:",
-  "dev.telemetry_win.dl_health": "Engine Status:"
+  "dev.telemetry_win.dl_health": "Engine Status:",
+
+  "sidebar.toggle": "Collapse / Expand Sidebar",
+  "sidebar.back": "Back",
+  "sidebar.refresh": "Refresh"
 }

@@ -271,5 +271,9 @@
   "dev.telemetry_win.dl_active": "Aktywne pobierania:",
   "dev.telemetry_win.dl_queue": "Oczekujące:",
   "dev.telemetry_win.dl_speed": "Prędkość pobierania:",
-  "dev.telemetry_win.dl_health": "Status silnika:"
+  "dev.telemetry_win.dl_health": "Status silnika:",
+
+  "sidebar.toggle": "Zwiń / Rozwiń panel",
+  "sidebar.back": "Wstecz",
+  "sidebar.refresh": "Odśwież"
 }
