@@ -212,5 +212,23 @@
   "dev.telemetry.graphics_engine": "Silnik graficzny (Qt):",
   "dev.telemetry.target_server": "Serwer docelowy:",
   "dev.telemetry.audio_channel": "Kanał audio:",
-  "common.none": "Brak"
+  "common.none": "Brak",
+
+  "downloads.storage_title": "Zarządzanie pamięcią masową i magazynem offline",
+  "downloads.btn_open_folder": "Otwórz folder offline",
+  "downloads.calculating_storage": "Obliczanie rozmiaru pamięci...",
+  "downloads.storage_stats_template": "<b>Muzyka Audio:</b> {a_cnt} utworów ({a_mb:.1f} MB) &nbsp;&bull;&nbsp; <b>Teledyski Wideo:</b> {v_cnt} filmów ({v_mb:.1f} MB) &nbsp;&bull;&nbsp; <b>Dysk urządzenia:</b> {used_gb:.1f} GB / {total_gb:.1f} GB ({pct}%) &bull; <b>{free_gb:.1f} GB wolne</b>",
+  "downloads.queue_title": "Kolejka i status transferów",
+  "downloads.btn_clear_completed": "Wyczyść ukończone",
+  "downloads.filter_all": "Wszystkie",
+  "downloads.filter_downloading": "W trakcie",
+  "downloads.filter_queued": "W kolejce",
+  "downloads.filter_completed": "Ukończone",
+  "downloads.filter_error": "Błędy",
+  "downloads.source_all": "Wszystko",
+  "downloads.source_audio": "Tylko Audio",
+  "downloads.source_video": "Tylko Wideo",
+  "downloads.btn_load_more": "Załaduj więcej",
+  "downloads.empty_tasks": "Brak zadań w wybranej kategorii.",
+  "downloads.load_more_format": "Załaduj więcej • Wyświetlono {shown} z {total} ukończonych"
 }

@@ -212,5 +212,23 @@
   "dev.telemetry.graphics_engine": "Graphics Engine (Qt):",
   "dev.telemetry.target_server": "Target Server:",
   "dev.telemetry.audio_channel": "Audio Channel:",
-  "common.none": "None"
+  "common.none": "None",
+
+  "downloads.storage_title": "Offline Storage & Media Management",
+  "downloads.btn_open_folder": "Open Offline Folder",
+  "downloads.calculating_storage": "Calculating storage size...",
+  "downloads.storage_stats_template": "<b>Audio Music:</b> {a_cnt} tracks ({a_mb:.1f} MB) &nbsp;&bull;&nbsp; <b>Music Videos:</b> {v_cnt} videos ({v_mb:.1f} MB) &nbsp;&bull;&nbsp; <b>Device Storage:</b> {used_gb:.1f} GB / {total_gb:.1f} GB ({pct}%) &bull; <b>{free_gb:.1f} GB free</b>",
+  "downloads.queue_title": "Transfer Queue & Status",
+  "downloads.btn_clear_completed": "Clear Completed",
+  "downloads.filter_all": "All",
+  "downloads.filter_downloading": "Downloading",
+  "downloads.filter_queued": "Queued",
+  "downloads.filter_completed": "Completed",
+  "downloads.filter_error": "Errors",
+  "downloads.source_all": "All",
+  "downloads.source_audio": "Audio Only",
+  "downloads.source_video": "Video Only",
+  "downloads.btn_load_more": "Load More",
+  "downloads.empty_tasks": "No tasks in the selected category.",
+  "downloads.load_more_format": "Load More • Displaying {shown} of {total} completed"
 }
