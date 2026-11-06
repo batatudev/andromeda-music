@@ -188,5 +188,19 @@
 
   "dev.title": "Developer Mode",
   "dev.tab_telemetry": "Telemetry",
-  "dev.tab_logs": "Memory & Logs"
+  "dev.tab_logs": "Memory & Logs",
+
+  "dev.logs.cache_title": "Cover Art Cache",
+  "dev.logs.calculating_size": "Calculating size...",
+  "dev.logs.clear_cache": "Clear Cache",
+  "dev.logs.cache_size_format": "Current size on disk: <b>{size:.2f} MB</b>",
+  "dev.logs.paths_title": "System Paths (XDG)",
+  "dev.logs.path_config": "Configuration:",
+  "dev.logs.path_covers": "Covers:",
+  "dev.logs.path_error_log": "Error Log:",
+  "dev.logs.path_telemetry": "Telemetry Dump:",
+  "dev.logs.log_title": "Event Log",
+  "dev.logs.btn_refresh": "Refresh",
+  "dev.logs.btn_open_file": "Open File",
+  "dev.logs.btn_clear_history": "Clear History"
 }

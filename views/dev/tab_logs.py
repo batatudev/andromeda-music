@@ -12,6 +12,7 @@ from PySide6.QtGui import QDesktopServices
 from config import THEME
 from utils import logger, telemetry_recorder
 from core.paths import PathsManager
+from core.i18n import tr
 
 class TabLogs(QWidget):
     def __init__(self, dev_view):
@@ -33,19 +34,19 @@ class TabLogs(QWidget):
         cache_layout = QVBoxLayout(cache_group)
         cache_layout.setSpacing(10)
 
-        cache_title = QLabel("Pamięć Podręczna Okładek")
+        cache_title = QLabel(tr("dev.logs.cache_title", "Pamięć podręczna okładek"))
         cache_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
         cache_layout.addWidget(cache_title)
 
-        self.cache_size_lbl = QLabel("Obliczanie rozmiaru...")
+        self.cache_size_lbl = QLabel(tr("dev.logs.calculating_size", "Obliczanie rozmiaru..."))
         self.cache_size_lbl.setStyleSheet(
             f"color: {THEME['text_muted']}; font-size: 13px; background: transparent; margin-bottom: 6px;"
         )
         cache_layout.addWidget(self.cache_size_lbl)
 
-        btn_clear_cache = QPushButton("Opróżnij Cache")
+        btn_clear_cache = QPushButton(tr("dev.logs.clear_cache", "Opróżnij cache"))
         btn_clear_cache.setMinimumWidth(180)
         btn_clear_cache.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         btn_clear_cache.setStyleSheet(f"""
@@ -73,7 +74,7 @@ class TabLogs(QWidget):
         path_layout = QVBoxLayout(path_group)
         path_layout.setSpacing(10)
 
-        path_title = QLabel("Ścieżki Systemowe (XDG)")
+        path_title = QLabel(tr("dev.logs.paths_title", "Ścieżki systemowe (XDG)"))
         path_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
@@ -84,11 +85,16 @@ class TabLogs(QWidget):
         log_path = logger.log_file
         tele_path = telemetry_recorder.log_file
 
+        lbl_cfg = tr("dev.logs.path_config", "Konfiguracja:")
+        lbl_covers = tr("dev.logs.path_covers", "Okładki:")
+        lbl_err = tr("dev.logs.path_error_log", "Dziennik błędów:")
+        lbl_tele = tr("dev.logs.path_telemetry", "Zrzut telemetrii:")
+
         paths_txt = (
-            f"<b>Konfiguracja:</b> {cfg_path}<br><br>"
-            f"<b>Okładki:</b> {cache_path}<br><br>"
-            f"<b>Dziennik Błędów:</b> {log_path}<br><br>"
-            f"<b>Zrzut Telemetrii:</b> {tele_path}"
+            f"<b>{lbl_cfg}</b> {cfg_path}<br><br>"
+            f"<b>{lbl_covers}</b> {cache_path}<br><br>"
+            f"<b>{lbl_err}</b> {log_path}<br><br>"
+            f"<b>{lbl_tele}</b> {tele_path}"
         )
         paths_lbl = QLabel(paths_txt)
         paths_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 13px; background: transparent;")
@@ -103,7 +109,7 @@ class TabLogs(QWidget):
         log_layout = QVBoxLayout(log_group)
         log_layout.setSpacing(10)
 
-        log_title = QLabel("Dziennik Zdarzeń")
+        log_title = QLabel(tr("dev.logs.log_title", "Dziennik zdarzeń"))
         log_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
@@ -141,19 +147,19 @@ class TabLogs(QWidget):
             }}
         """
 
-        btn_refresh_logs = QPushButton("Odśwież")
+        btn_refresh_logs = QPushButton(tr("dev.logs.btn_refresh", "Odśwież"))
         btn_refresh_logs.setMinimumWidth(90)
         btn_refresh_logs.setCursor(Qt.PointingHandCursor)
         btn_refresh_logs.setStyleSheet(btn_style_nav)
         btn_refresh_logs.clicked.connect(self._refresh_logs)
 
-        btn_open_logs = QPushButton("Otwórz plik")
+        btn_open_logs = QPushButton(tr("dev.logs.btn_open_file", "Otwórz plik"))
         btn_open_logs.setMinimumWidth(100)
         btn_open_logs.setCursor(Qt.PointingHandCursor)
         btn_open_logs.setStyleSheet(btn_style_nav)
         btn_open_logs.clicked.connect(self._open_logs)
 
-        btn_clear_logs = QPushButton("Wyczyść historię")
+        btn_clear_logs = QPushButton(tr("dev.logs.btn_clear_history", "Wyczyść historię"))
         btn_clear_logs.setMinimumWidth(120)
         btn_clear_logs.setCursor(Qt.PointingHandCursor)
         btn_clear_logs.setStyleSheet(f"""
@@ -193,7 +199,8 @@ class TabLogs(QWidget):
                     if not os.path.islink(fp):
                         total_size += os.path.getsize(fp)
         mb = total_size / (1024 * 1024)
-        self.cache_size_lbl.setText(f"Aktualny rozmiar na dysku: <b>{mb:.2f} MB</b>")
+        msg_template = tr("dev.logs.cache_size_format", "Aktualny rozmiar na dysku: <b>{size:.2f} MB</b>")
+        self.cache_size_lbl.setText(msg_template.format(size=mb))
 
     def _clear_cache(self):
         cache_dir = str(PathsManager.get_images_cache_dir())

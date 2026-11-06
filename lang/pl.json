@@ -188,5 +188,19 @@
 
   "dev.title": "Tryb dewelopera",
   "dev.tab_telemetry": "Telemetria",
-  "dev.tab_logs": "Pamięć i logi"
+  "dev.tab_logs": "Pamięć i logi",
+
+  "dev.logs.cache_title": "Pamięć podręczna okładek",
+  "dev.logs.calculating_size": "Obliczanie rozmiaru...",
+  "dev.logs.clear_cache": "Opróżnij cache",
+  "dev.logs.cache_size_format": "Aktualny rozmiar na dysku: <b>{size:.2f} MB</b>",
+  "dev.logs.paths_title": "Ścieżki systemowe (XDG)",
+  "dev.logs.path_config": "Konfiguracja:",
+  "dev.logs.path_covers": "Okładki:",
+  "dev.logs.path_error_log": "Dziennik błędów:",
+  "dev.logs.path_telemetry": "Zrzut telemetrii:",
+  "dev.logs.log_title": "Dziennik zdarzeń",
+  "dev.logs.btn_refresh": "Odśwież",
+  "dev.logs.btn_open_file": "Otwórz plik",
+  "dev.logs.btn_clear_history": "Wyczyść historię"
 }
