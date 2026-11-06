@@ -1,41 +1,56 @@
-# User configuration and secrets
-config.ini
-cookies.txt
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 
-# Databases and SQLite WAL
+# Caching and local data storage
 *.db
 *.db-wal
 *.db-shm
 *.sqlite
 *.sqlite3
-
-# Temporary download fragments
 *.part
 *.tmp
 
-# Byte-compiled / cache files
-__pycache__/
-*.py[cod]
-*$py.class
+# User-specific credentials and secrets (CRITICAL: Never commit)
+config.ini
+cookies.txt
 
-# Python virtual environments
+# Server-partitioned runtime data and caches
+servers/
+logs/
+*.log
+*.csv
+
+# Python Virtual Environments
 .venv/
 venv/
+ENV/
 env/
+.python-version
 
-# Distribution & release packages
-*.tar.gz
-build/
-dist/
-
-# IDEs, tools and internal notes
-.idea/
-.vscode/
-.cursorrules
-.commandcode/
-.aider*
-materialy/
-_AI_CURRENT_CODE.txt
+# Benchmark profiles and generated results
+bench_profiles/
+tests/results/
+tests/benchmarks/results/
+benchmark_report.md
 
 # Special Script
 ai_bundler.py
+
+# Packaging and releases
+build_release/
+dist/
+build/
+*.egg-info/
+*.tar.gz
+
+# IDEs, code editors and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
