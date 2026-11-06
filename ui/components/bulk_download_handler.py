@@ -1,10 +1,6 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-# WERSJA PROJEKTU: 14.20
-# MODYFIKOWANY PLIK: ui/components/bulk_download_handler.py
-# OPIS ZMIAN: Oczyszczenie komunikatów potwierdzeń i wdrożenie i18n przez tr()
-
 from PySide6.QtWidgets import QMessageBox
 from config import APP_CONFIG, THEME
 from core.models import MediaItem
@@ -125,11 +121,12 @@ class BulkDownloadHandler:
                 est_mb = count * avg_mb
                 est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
 
-                msg = (
-                    f"Znaleziono {count} utworów z teledyskami.\n"
-                    f"Szacowany rozmiar: ~{est_str} ({quality}).\n\n"
-                    f"Rozpocząć pobieranie?"
+                template = tr(
+                    "dialogs.bulk_video_confirm",
+                    "Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar: ~{est_str} ({quality}).\n\nRozpocząć pobieranie?"
                 )
+                msg = template.format(count=count, est_str=est_str, quality=quality)
+                
                 ans = QMessageBox.question(
                     main_window,
                     tr("dialogs.confirm", "Potwierdzenie pobierania"),
@@ -145,8 +142,10 @@ class BulkDownloadHandler:
                             items_to_add.append((s.item_id, link, s.title, s.cover_id))
                     if items_to_add:
                         main_window.engine.video_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
+                    
+                    toast_msg = tr("downloads.added_multiple_to_queue", "Dodano {count} zadań do kolejki.").format(count=len(items_to_add))
                     main_window.show_toast(
-                        f"Dodano {len(items_to_add)} zadań do kolejki.",
+                        toast_msg,
                         title=tr("downloads.section_video", "Teledyski (Wideo)"),
                         icon_str="fa5s.film",
                         icon_color="#e74c3c"
@@ -160,11 +159,12 @@ class BulkDownloadHandler:
                 est_mb = count * avg_mb
                 est_str = f"{est_mb / 1024:.2f} GB" if est_mb > 1024 else f"{est_mb} MB"
 
-                msg = (
-                    f"Znaleziono {count} utworów audio.\n"
-                    f"Szacowany rozmiar: ~{est_str}.\n\n"
-                    f"Rozpocząć pobieranie?"
+                template = tr(
+                    "dialogs.bulk_audio_confirm",
+                    "Znaleziono {count} utworów audio.\nSzacowany rozmiar: ~{est_str}.\n\nRozpocząć pobieranie?"
                 )
+                msg = template.format(count=count, est_str=est_str)
+                
                 ans = QMessageBox.question(
                     main_window,
                     tr("dialogs.confirm", "Potwierdzenie pobierania"),
@@ -176,8 +176,10 @@ class BulkDownloadHandler:
                     items_to_add = [(s.item_id, s.title) for s in valid_songs]
                     if items_to_add:
                         main_window.engine.audio_download_manager.add_to_queue_bulk(items_to_add, high_priority=False)
+                    
+                    toast_msg = tr("downloads.added_multiple_to_queue", "Dodano {count} zadań do kolejki.").format(count=len(items_to_add))
                     main_window.show_toast(
-                        f"Dodano {len(items_to_add)} zadań do kolejki.",
+                        toast_msg,
                         title=tr("downloads.section_audio", "Muzyka (Audio)"),
                         icon_str="fa5s.music",
                         icon_color=THEME.get("accent", "#1db954")

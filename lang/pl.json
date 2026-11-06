@@ -307,5 +307,12 @@
   "common.music": "Muzyka",
   "settings.offline.select_playlists_title": "Wybierz playlisty",
   "settings.offline.sync_hint": "Zaznacz playlisty do automatycznego pobierania offline.",
-  "dialogs.playlist_sync_counter": "Zaznaczono: {selected} z {total}"
+  "dialogs.playlist_sync_counter": "Zaznaczono: {selected} z {total}",
+
+  "dialogs.bulk_no_songs": "Nie znaleziono utworów do pobrania.",
+  "dialogs.bulk_no_links": "Znalezione utwory nie posiadają linków do wideo.",
+  "dialogs.bulk_video_confirm": "Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar: ~{est_str} ({quality}).\n\nRozpocząć pobieranie?",
+  "dialogs.bulk_audio_confirm": "Znaleziono {count} utworów audio.\nSzacowany rozmiar: ~{est_str}.\n\nRozpocząć pobieranie?",
+  "dialogs.confirm": "Potwierdzenie pobierania",
+  "downloads.added_multiple_to_queue": "Dodano {count} zadań do kolejki."
 }
