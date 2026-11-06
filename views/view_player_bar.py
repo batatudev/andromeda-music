@@ -10,7 +10,6 @@ from config import THEME
 from ui.widgets import ClickableFrame, RoundedImage, ClickableElidedLabel, HoverIconButton, PremiumSlider, ClickableLabel
 from core.i18n import tr
 
-
 class PlayerBarWidget(ClickableFrame):
     play_pause_requested = Signal()
     next_requested = Signal()
@@ -84,6 +83,7 @@ class PlayerBarWidget(ClickableFrame):
 
         self.pb_fav_btn = HoverIconButton('fa5.heart', default_color=THEME["text_muted"], icon_size=16)
         self.pb_fav_btn.setFixedSize(32, 32)
+        self.pb_fav_btn.setToolTip(tr("player.favorite", "Polub utwór"))
         self.pb_fav_btn.setStyleSheet(
             f"QPushButton {{ background: transparent; border: none; border-radius: 16px; }} "
             f"QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}"
@@ -135,16 +135,19 @@ class PlayerBarWidget(ClickableFrame):
         self.btn_prev = HoverIconButton('fa5s.step-backward', icon_size=16)
         self.btn_prev.setFixedSize(36, 36)
         self.btn_prev.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.btn_prev.setToolTip(tr("player.prev", "Poprzedni"))
 
         self.btn_play = QPushButton(qta.icon('fa5s.play', color=THEME["play_color"]), "")
         self.btn_play.setObjectName("PlayPauseBtn")
         self.btn_play.setFixedSize(46, 46)
         self.btn_play.setIconSize(QSize(20, 20))
         self.btn_play.setCursor(Qt.PointingHandCursor)
+        self.btn_play.setToolTip(tr("player.play", "Odtwarzaj"))
 
         self.btn_next = HoverIconButton('fa5s.step-forward', icon_size=16)
         self.btn_next.setFixedSize(36, 36)
         self.btn_next.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.btn_next.setToolTip(tr("player.next", "Następny"))
 
         self.btn_skip_f = HoverIconButton('fa5s.forward', icon_size=16)
         self.btn_skip_f.setFixedSize(36, 36)
@@ -154,6 +157,7 @@ class PlayerBarWidget(ClickableFrame):
         self.btn_loop = HoverIconButton('fa5s.sync-alt', icon_size=16)
         self.btn_loop.setFixedSize(36, 36)
         self.btn_loop.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.btn_loop.setToolTip(tr("player.loop", "Powtarzanie"))
 
         self.btn_video_toggle = HoverIconButton('fa5s.video', icon_size=16)
         self.btn_video_toggle.setFixedSize(36, 36)
@@ -219,6 +223,7 @@ class PlayerBarWidget(ClickableFrame):
         self.btn_mute = HoverIconButton('fa5s.volume-up', icon_size=16)
         self.btn_mute.setFixedSize(36, 36)
         self.btn_mute.setStyleSheet(f"{btn_base} QPushButton:hover {{ background: {THEME['btn_hover_bg']}; }}")
+        self.btn_mute.setToolTip(tr("player.mute", "Wycisz"))
 
         self.v_s = PremiumSlider(Qt.Horizontal)
         self.v_s.setFixedWidth(100)
@@ -267,6 +272,7 @@ class PlayerBarWidget(ClickableFrame):
         if not self._is_loading:
             icon = 'fa5s.pause' if is_playing else 'fa5s.play'
             self.btn_play.setIcon(qta.icon(icon, color=THEME["play_color"]))
+            self.btn_play.setToolTip(tr("player.pause", "Wstrzymaj") if is_playing else tr("player.play", "Odtwarzaj"))
 
     def _toggle_time_display(self):
         self._show_remaining_time = not self._show_remaining_time

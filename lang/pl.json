@@ -275,5 +275,11 @@
 
   "sidebar.toggle": "Zwiń / Rozwiń panel",
   "sidebar.back": "Wstecz",
-  "sidebar.refresh": "Odśwież"
+  "sidebar.refresh": "Odśwież",
+
+  "player.prev": "Poprzedni",
+  "player.next": "Następny",
+  "player.loop": "Powtarzanie",
+  "player.mute": "Wycisz",
+  "player.favorite": "Polub utwór"
 }

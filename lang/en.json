@@ -275,5 +275,11 @@
 
   "sidebar.toggle": "Collapse / Expand Sidebar",
   "sidebar.back": "Back",
-  "sidebar.refresh": "Refresh"
+  "sidebar.refresh": "Refresh",
+
+  "player.prev": "Previous",
+  "player.next": "Next",
+  "player.loop": "Repeat",
+  "player.mute": "Mute",
+  "player.favorite": "Favorite track"
 }
