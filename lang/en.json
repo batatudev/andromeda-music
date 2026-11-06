@@ -230,5 +230,10 @@
   "downloads.source_video": "Video Only",
   "downloads.btn_load_more": "Load More",
   "downloads.empty_tasks": "No tasks in the selected category.",
-  "downloads.load_more_format": "Load More • Displaying {shown} of {total} completed"
+  "downloads.load_more_format": "Load More • Displaying {shown} of {total} completed",
+
+  "common.more": "More",
+  "common.less": "Less",
+  "common.tracks_count": "tracks",
+  "common.albums_count": "albums"
 }

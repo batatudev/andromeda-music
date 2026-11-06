@@ -230,5 +230,10 @@
   "downloads.source_video": "Tylko Wideo",
   "downloads.btn_load_more": "Załaduj więcej",
   "downloads.empty_tasks": "Brak zadań w wybranej kategorii.",
-  "downloads.load_more_format": "Załaduj więcej • Wyświetlono {shown} z {total} ukończonych"
+  "downloads.load_more_format": "Załaduj więcej • Wyświetlono {shown} z {total} ukończonych",
+
+  "common.more": "Więcej",
+  "common.less": "Mniej",
+  "common.tracks_count": "utworów",
+  "common.albums_count": "albumów"
 }

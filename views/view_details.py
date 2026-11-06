@@ -118,7 +118,7 @@ class DetailsView(LibraryScrollArea):
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
 
-            tracks_label = tr("menu.tracks", "utworów").lower()
+            tracks_label = tr("common.tracks_count", "utworów")
 
             if data[0] == MediaType.PLAYLIST:
                 pl = data[1]
@@ -201,15 +201,15 @@ class DetailsView(LibraryScrollArea):
                         self.main_window.loader.load(self.main_window.client.get_cover_art_url(item_cid), item)
             else:
                 _, art, albs, songs = data
-                albums_label = tr("menu.albums", "albumów").lower()
+                albums_label = tr("common.albums_count", "albumów")
                 h = MediaHeader(art.title, f"{len(albs)} {albums_label}  •  {len(songs)} {tracks_label}")
                 h.play_clicked.connect(lambda: self.main_window.engine.play_list(songs, 0))
                 if art.cover_id:
                     self.main_window.loader.load(self.main_window.client.get_cover_art_url(art.cover_id), h)
                 self.content_layout.addWidget(h)
 
-                more_txt = "Więcej"
-                less_txt = "Mniej"
+                more_txt = tr("common.more", "Więcej")
+                less_txt = tr("common.less", "Mniej")
 
                 if albs:
                     hl = QHBoxLayout()
