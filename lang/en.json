@@ -184,5 +184,9 @@
   "tracks.title": "All Tracks",
   "favs.title": "Favorite Tracks",
   "favs.empty": "No liked tracks found",
-  "common.loading": "Loading..."
+  "common.loading": "Loading...",
+
+  "dev.title": "Developer Mode",
+  "dev.tab_telemetry": "Telemetry",
+  "dev.tab_logs": "Memory & Logs"
 }

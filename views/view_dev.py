@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from config import THEME
+from core.i18n import tr
 from views.dev.tab_telemetry import TabTelemetry
 from views.dev.tab_logs import TabLogs
 
@@ -44,7 +45,7 @@ class DevModeView(QWidget):
         center_lay.setSpacing(18)
 
         header_lay = QHBoxLayout()
-        lbl_title = QLabel("Tryb Dewelopera")
+        lbl_title = QLabel(tr("dev.title", "Tryb dewelopera"))
         lbl_title.setStyleSheet(
             f"font-size: 32px; font-weight: bold; color: {THEME['text_main']}; background: transparent;"
         )
@@ -63,8 +64,8 @@ class DevModeView(QWidget):
         self.stacked_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         tabs_info = [
-            ("Telemetria", TabTelemetry),
-            ("Pamięć i Logi", TabLogs)
+            (tr("dev.tab_telemetry", "Telemetria"), TabTelemetry),
+            (tr("dev.tab_logs", "Pamięć i logi"), TabLogs)
         ]
 
         for i, (name, WidgetClass) in enumerate(tabs_info):

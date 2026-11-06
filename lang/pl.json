@@ -184,5 +184,9 @@
   "tracks.title": "Wszystkie Utwory",
   "favs.title": "Twoje ulubione utwory",
   "favs.empty": "Brak polubionych utworów",
-  "common.loading": "Wczytywanie..."
+  "common.loading": "Wczytywanie...",
+
+  "dev.title": "Tryb dewelopera",
+  "dev.tab_telemetry": "Telemetria",
+  "dev.tab_logs": "Pamięć i logi"
 }
