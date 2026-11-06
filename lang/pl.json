@@ -289,5 +289,11 @@
   "downloads.added_to_queue": "Dodano \"{title}\" do kolejki pobierania.",
   "downloads.already_downloaded": "Ten utwór jest już pobrany na dysk.",
   "downloads.manager_unavailable": "Audio Download Manager nie jest dostępny.",
-  "dialogs.error": "Błąd"
+  "dialogs.error": "Błąd",
+
+  "context.more_options": "Więcej opcji",
+  "song_item.status_both": "Pobrane Audio i Wideo",
+  "song_item.status_audio": "Pobrane Audio",
+  "song_item.status_video": "Pobrane Wideo",
+  "song_item.status_cloud": "Dostępne w chmurze (Online)"
 }

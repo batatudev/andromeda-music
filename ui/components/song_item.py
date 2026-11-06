@@ -14,6 +14,7 @@ from ui.widgets import (
     HoverIconButton, get_cached_icon
 )
 from core.enums import MediaType
+from core.i18n import tr
 
 _MAIN_WINDOW_REF = None
 _SEARCH_ATTEMPTED = False
@@ -183,19 +184,19 @@ class SongItem(QFrame):
                 self.btn_play_next = HoverIconButton('fa5s.angle-double-up', icon_size=14, parent=self)
                 self.btn_play_next.setObjectName("SongPlayNextBtn")
                 self.btn_play_next.setFixedSize(32, 32)
-                self.btn_play_next.setToolTip("Odtwórz jako następny")
+                self.btn_play_next.setToolTip(tr("context.play_next", "Odtwórz jako następny"))
                 self.btn_play_next.clicked.connect(lambda: self.play_next_clicked.emit(self.song))
 
                 self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14, parent=self)
                 self.btn_add_pl.setObjectName("SongAddPlBtn")
                 self.btn_add_pl.setFixedSize(32, 32)
-                self.btn_add_pl.setToolTip("Dodaj do playlisty")
+                self.btn_add_pl.setToolTip(tr("context.add_playlist", "Dodaj do playlisty"))
                 self.btn_add_pl.clicked.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
 
                 self.btn_remove = HoverIconButton('fa5s.times', icon_size=14, parent=self)
                 self.btn_remove.setObjectName("SongRemoveBtn")
                 self.btn_remove.setFixedSize(32, 32)
-                self.btn_remove.setToolTip("Usuń z kolejki")
+                self.btn_remove.setToolTip(tr("context.remove_queue", "Usuń z kolejki"))
                 self.btn_remove.clicked.connect(lambda: self.remove_clicked.emit(self.song))
 
                 layout.addWidget(self.btn_play_next)
@@ -206,19 +207,19 @@ class SongItem(QFrame):
                 self.btn_add = HoverIconButton('fa5s.plus', icon_size=14, parent=self)
                 self.btn_add.setObjectName("SongAddBtn")
                 self.btn_add.setFixedSize(32, 32)
-                self.btn_add.setToolTip("Dodaj do kolejki")
+                self.btn_add.setToolTip(tr("context.add_queue", "Dodaj do kolejki"))
                 self.btn_add.clicked.connect(lambda: self.add_to_queue_clicked.emit(self.song))
 
                 self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14, parent=self)
                 self.btn_add_pl.setObjectName("SongAddPlBtn")
                 self.btn_add_pl.setFixedSize(32, 32)
-                self.btn_add_pl.setToolTip("Dodaj do playlisty")
+                self.btn_add_pl.setToolTip(tr("context.add_playlist", "Dodaj do playlisty"))
                 self.btn_add_pl.clicked.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
 
                 self.btn_remove_pl = HoverIconButton('fa5s.times', icon_size=14, parent=self)
                 self.btn_remove_pl.setObjectName("SongRemoveBtn")
                 self.btn_remove_pl.setFixedSize(32, 32)
-                self.btn_remove_pl.setToolTip("Usuń z playlisty")
+                self.btn_remove_pl.setToolTip(tr("context.remove_playlist", "Usuń z playlisty"))
                 self.btn_remove_pl.clicked.connect(lambda: self.remove_from_playlist_clicked.emit(self.song, self.playlist_index))
 
                 layout.addWidget(self.btn_add)
@@ -229,13 +230,13 @@ class SongItem(QFrame):
                 self.btn_add_pl = HoverIconButton('fa5s.folder-plus', icon_size=14, parent=self)
                 self.btn_add_pl.setObjectName("SongAddPlBtn")
                 self.btn_add_pl.setFixedSize(32, 32)
-                self.btn_add_pl.setToolTip("Dodaj do playlisty")
+                self.btn_add_pl.setToolTip(tr("context.add_playlist", "Dodaj do playlisty"))
                 self.btn_add_pl.clicked.connect(lambda: self.add_to_playlist_clicked.emit(self.song))
 
                 self.btn_add = HoverIconButton('fa5s.plus', icon_size=14, parent=self)
                 self.btn_add.setObjectName("SongAddBtn")
                 self.btn_add.setFixedSize(32, 32)
-                self.btn_add.setToolTip("Dodaj do kolejki")
+                self.btn_add.setToolTip(tr("context.add_queue", "Dodaj do kolejki"))
                 self.btn_add.clicked.connect(lambda: self.add_to_queue_clicked.emit(self.song))
 
                 layout.addWidget(self.btn_add_pl)
@@ -255,7 +256,7 @@ class SongItem(QFrame):
         self.btn_more = HoverIconButton('fa5s.ellipsis-h', icon_size=14, parent=self)
         self.btn_more.setObjectName("SongMoreBtn")
         self.btn_more.setFixedSize(32, 32)
-        self.btn_more.setToolTip("Więcej opcji")
+        self.btn_more.setToolTip(tr("context.more_options", "Więcej opcji"))
         self.btn_more.clicked.connect(self._show_context_menu)
         layout.addWidget(self.btn_more)
 
@@ -327,16 +328,16 @@ class SongItem(QFrame):
 
         if has_audio and has_video:
             self.dl_status_lbl.setPixmap(_get_status_pixmap("both"))
-            self.dl_status_lbl.setToolTip("Pobrane Audio i Wideo")
+            self.dl_status_lbl.setToolTip(tr("song_item.status_both", "Pobrane Audio i Wideo"))
         elif has_audio:
             self.dl_status_lbl.setPixmap(_get_status_pixmap("audio"))
-            self.dl_status_lbl.setToolTip("Pobrane Audio")
+            self.dl_status_lbl.setToolTip(tr("song_item.status_audio", "Pobrane Audio"))
         elif has_video:
             self.dl_status_lbl.setPixmap(_get_status_pixmap("video"))
-            self.dl_status_lbl.setToolTip("Pobrane Wideo")
+            self.dl_status_lbl.setToolTip(tr("song_item.status_video", "Pobrane Wideo"))
         else:
             self.dl_status_lbl.setPixmap(_get_status_pixmap("cloud"))
-            self.dl_status_lbl.setToolTip("Dostępne w chmurze (Online)")
+            self.dl_status_lbl.setToolTip(tr("song_item.status_cloud", "Dostępne w chmurze (Online)"))
 
         if is_offline and not has_audio:
             if hide_undownloaded:

@@ -289,5 +289,11 @@
   "downloads.added_to_queue": "Added \"{title}\" to download queue.",
   "downloads.already_downloaded": "This track is already downloaded to disk.",
   "downloads.manager_unavailable": "Audio Download Manager is not available.",
-  "dialogs.error": "Error"
+  "dialogs.error": "Error",
+
+  "context.more_options": "More options",
+  "song_item.status_both": "Downloaded Audio & Video",
+  "song_item.status_audio": "Downloaded Audio",
+  "song_item.status_video": "Downloaded Video",
+  "song_item.status_cloud": "Available in Cloud (Online)"
 }
