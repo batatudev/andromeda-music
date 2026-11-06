@@ -8,6 +8,13 @@ os.environ["PULSE_PROP_application.icon_name"] = "multimedia-audio-player"
 os.environ["PULSE_PROP_media.role"] = "music"
 
 import sys
+
+# Obsługa natychmiastowej diagnostyki CLI bez uruchamiania interfejsu graficznego
+if "--diagnostics" in sys.argv or "--sysinfo" in sys.argv:
+    from core.system_health import SystemHealthChecker
+    SystemHealthChecker.print_diagnostics()
+    sys.exit(0)
+
 from PySide6.QtGui import QIcon, QSurfaceFormat
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer
