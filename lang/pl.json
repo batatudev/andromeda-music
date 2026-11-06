@@ -202,5 +202,15 @@
   "dev.logs.log_title": "Dziennik zdarzeń",
   "dev.logs.btn_refresh": "Odśwież",
   "dev.logs.btn_open_file": "Otwórz plik",
-  "dev.logs.btn_clear_history": "Wyczyść historię"
+  "dev.logs.btn_clear_history": "Wyczyść historię",
+
+  "dev.telemetry.diag_title": "Panel diagnostyczny",
+  "dev.telemetry.btn_open_window": "Otwórz okno telemetrii",
+  "dev.telemetry.data_title": "Dane telemetryczne",
+  "dev.telemetry.btn_export_csv": "Eksportuj telemetrię na Pulpit (.csv)",
+  "dev.telemetry.env_title": "Środowisko uruchomieniowe",
+  "dev.telemetry.graphics_engine": "Silnik graficzny (Qt):",
+  "dev.telemetry.target_server": "Serwer docelowy:",
+  "dev.telemetry.audio_channel": "Kanał audio:",
+  "common.none": "Brak"
 }

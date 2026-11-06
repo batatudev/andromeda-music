@@ -202,5 +202,15 @@
   "dev.logs.log_title": "Event Log",
   "dev.logs.btn_refresh": "Refresh",
   "dev.logs.btn_open_file": "Open File",
-  "dev.logs.btn_clear_history": "Clear History"
+  "dev.logs.btn_clear_history": "Clear History",
+
+  "dev.telemetry.diag_title": "Diagnostics Panel",
+  "dev.telemetry.btn_open_window": "Open Telemetry Window",
+  "dev.telemetry.data_title": "Telemetry Data",
+  "dev.telemetry.btn_export_csv": "Export Telemetry to Desktop (.csv)",
+  "dev.telemetry.env_title": "Runtime Environment",
+  "dev.telemetry.graphics_engine": "Graphics Engine (Qt):",
+  "dev.telemetry.target_server": "Target Server:",
+  "dev.telemetry.audio_channel": "Audio Channel:",
+  "common.none": "None"
 }

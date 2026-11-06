@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QTimer
 
 from config import THEME, APP_CONFIG
 from utils import telemetry_recorder
+from core.i18n import tr
 from views.dev.telemetry_window import TelemetryWindow
 
 class TabTelemetry(QWidget):
@@ -33,13 +34,13 @@ class TabTelemetry(QWidget):
         live_layout = QVBoxLayout(live_group)
         live_layout.setSpacing(12)
 
-        live_title = QLabel("Panel Diagnostyczny")
+        live_title = QLabel(tr("dev.telemetry.diag_title", "Panel diagnostyczny"))
         live_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
         live_layout.addWidget(live_title)
 
-        btn_open_telemetry = QPushButton("Otwórz okno telemetrii")
+        btn_open_telemetry = QPushButton(tr("dev.telemetry.btn_open_window", "Otwórz okno telemetrii"))
         btn_open_telemetry.setMinimumWidth(240)
         btn_open_telemetry.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         btn_open_telemetry.setStyleSheet(f"""
@@ -67,13 +68,13 @@ class TabTelemetry(QWidget):
         rec_layout = QVBoxLayout(rec_group)
         rec_layout.setSpacing(12)
 
-        rec_title = QLabel("Dane telemetryczne")
+        rec_title = QLabel(tr("dev.telemetry.data_title", "Dane telemetryczne"))
         rec_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
         rec_layout.addWidget(rec_title)
 
-        btn_export = QPushButton("Eksportuj telemetrię na Pulpit (.csv)")
+        btn_export = QPushButton(tr("dev.telemetry.btn_export_csv", "Eksportuj telemetrię na Pulpit (.csv)"))
         btn_export.setMinimumWidth(260)
         btn_export.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         btn_export.setStyleSheet(f"""
@@ -111,16 +112,22 @@ class TabTelemetry(QWidget):
         sys_layout = QVBoxLayout(sys_group)
         sys_layout.setSpacing(12)
 
-        sys_title = QLabel("Środowisko Uruchomieniowe")
+        sys_title = QLabel(tr("dev.telemetry.env_title", "Środowisko uruchomieniowe"))
         sys_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 4px; background: transparent;"
         )
         sys_layout.addWidget(sys_title)
 
+        lbl_engine = tr("dev.telemetry.graphics_engine", "Silnik graficzny (Qt):")
+        lbl_target = tr("dev.telemetry.target_server", "Serwer docelowy:")
+        lbl_audio = tr("dev.telemetry.audio_channel", "Kanał audio:")
+        none_str = tr("common.none", "Brak")
+        server_url = APP_CONFIG.get('url', none_str) or none_str
+
         info_txt = f"""
-        <b>Silnik graficzny (Qt):</b> {os.environ.get('QT_API', 'pyside6').upper()}<br><br>
-        <b>Serwer Docelowy:</b> {APP_CONFIG.get('url', 'Brak')}<br><br>
-        <b>Kanał Audio:</b> PulseAudio (Role=music)
+        <b>{lbl_engine}</b> {os.environ.get('QT_API', 'pyside6').upper()}<br><br>
+        <b>{lbl_target}</b> {server_url}<br><br>
+        <b>{lbl_audio}</b> PulseAudio (Role=music)
         """
         sys_lbl = QLabel(info_txt)
         sys_lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 13px; background: transparent;")
