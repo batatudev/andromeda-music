@@ -172,5 +172,10 @@
   "search.no_results": "No results found for",
   "search.artists": "Artists",
   "search.albums": "Albums",
-  "search.tracks": "Tracks"
+  "search.tracks": "Tracks",
+
+  "settings.dev.header": "Developer Options",
+  "settings.dev.mode": "Developer Mode:",
+  "settings.dev.enabled": "Enabled",
+  "settings.dev.disabled": "Disabled"
 }

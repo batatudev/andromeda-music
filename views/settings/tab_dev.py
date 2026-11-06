@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from config import APP_CONFIG, save_config, THEME
+from core.i18n import tr
 
 class TabDev(QWidget):
     def __init__(self, settings_view):
@@ -26,7 +27,7 @@ class TabDev(QWidget):
         dev_layout = QVBoxLayout(dev_group)
         dev_layout.setSpacing(14)
 
-        lbl_d_title = QLabel("Opcje dla programistów")
+        lbl_d_title = QLabel(tr("settings.dev.header", "Opcje dla programistów"))
         lbl_d_title.setStyleSheet(
             f"font-weight: bold; font-size: 18px; color: {THEME['text_main']}; margin-bottom: 8px; background: transparent;"
         )
@@ -38,7 +39,10 @@ class TabDev(QWidget):
         )
 
         self.combo_dev = QComboBox()
-        self.combo_dev.addItems(["Wyłączony", "Włączony"])
+        self.combo_dev.addItems([
+            tr("settings.dev.disabled", "Wyłączony"),
+            tr("settings.dev.enabled", "Włączony")
+        ])
         self.combo_dev.setCurrentIndex(1 if APP_CONFIG.get("dev_mode", False) else 0)
         self.combo_dev.setStyleSheet(input_style)
 
@@ -55,9 +59,9 @@ class TabDev(QWidget):
             r.addWidget(widget)
             parent_layout.addLayout(r)
 
-        add_row(dev_layout, "Dev mode:", self.combo_dev)
+        add_row(dev_layout, tr("settings.dev.mode", "Tryb dewelopera:"), self.combo_dev)
 
-        btn_save_dev = QPushButton("Zapisz i Restartuj")
+        btn_save_dev = QPushButton(tr("settings.save_restart", "Zapisz i restartuj"))
         btn_save_dev.setStyleSheet(f"""
             QPushButton {{
                 background-color: {THEME['accent']};

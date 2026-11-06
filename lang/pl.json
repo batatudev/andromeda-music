@@ -172,5 +172,10 @@
   "search.no_results": "Brak wyników dla hasła",
   "search.artists": "Artyści",
   "search.albums": "Albumy",
-  "search.tracks": "Utwory"
+  "search.tracks": "Utwory",
+
+  "settings.dev.header": "Opcje dla programistów",
+  "settings.dev.mode": "Tryb dewelopera:",
+  "settings.dev.enabled": "Włączony",
+  "settings.dev.disabled": "Wyłączony"
 }
