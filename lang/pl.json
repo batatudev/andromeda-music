@@ -314,5 +314,9 @@
   "dialogs.bulk_video_confirm": "Znaleziono {count} utworów z teledyskami.\nSzacowany rozmiar: ~{est_str} ({quality}).\n\nRozpocząć pobieranie?",
   "dialogs.bulk_audio_confirm": "Znaleziono {count} utworów audio.\nSzacowany rozmiar: ~{est_str}.\n\nRozpocząć pobieranie?",
   "dialogs.confirm": "Potwierdzenie pobierania",
-  "downloads.added_multiple_to_queue": "Dodano {count} zadań do kolejki."
+  "downloads.added_multiple_to_queue": "Dodano {count} zadań do kolejki.",
+
+  "dialogs.choose_artist_image": "Wybierz zdjęcie artysty",
+  "dialogs.choose_cover": "Wybierz okładkę",
+  "dialogs.save_image_as": "Zapisz obrazek jako..."
 }

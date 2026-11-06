@@ -314,5 +314,9 @@
   "dialogs.bulk_video_confirm": "Found {count} tracks with music videos.\nEstimated size: ~{est_str} ({quality}).\n\nStart downloading?",
   "dialogs.bulk_audio_confirm": "Found {count} audio tracks.\nEstimated size: ~{est_str}.\n\nStart downloading?",
   "dialogs.confirm": "Confirm Download",
-  "downloads.added_multiple_to_queue": "Added {count} tasks to the queue."
+  "downloads.added_multiple_to_queue": "Added {count} tasks to the queue.",
+
+  "dialogs.choose_artist_image": "Select Artist Image",
+  "dialogs.choose_cover": "Select Cover Art",
+  "dialogs.save_image_as": "Save Image As..."
 }

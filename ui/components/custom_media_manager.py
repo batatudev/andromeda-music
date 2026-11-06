@@ -6,6 +6,7 @@ import requests
 from PySide6.QtWidgets import QFileDialog
 from utils import logger
 from core.enums import MediaType
+from core.i18n import tr
 
 class CustomMediaManager:
     """
@@ -22,8 +23,9 @@ class CustomMediaManager:
         if not artist_id and not cover_id:
             return
 
+        title = tr("dialogs.choose_artist_image", "Wybierz zdjęcie artysty")
         file_path, _ = QFileDialog.getOpenFileName(
-            parent, "Wybierz zdjęcie artysty", "", "Images (*.png *.jpg *.jpeg)"
+            parent, title, "", "Images (*.png *.jpg *.jpeg)"
         )
         if not file_path:
             return
@@ -97,8 +99,9 @@ class CustomMediaManager:
         if not album_id and not cover_id:
             return
 
+        title = tr("dialogs.choose_cover", "Wybierz okładkę")
         file_path, _ = QFileDialog.getOpenFileName(
-            parent, "Wybierz okładkę", "", "Images (*.png *.jpg *.jpeg)"
+            parent, title, "", "Images (*.png *.jpg *.jpeg)"
         )
         if not file_path:
             return
@@ -172,8 +175,9 @@ class CustomMediaManager:
             return
 
         default_name = f"{data.artist} - {data.title}.jpg"
+        title = tr("dialogs.save_image_as", "Zapisz obrazek jako...")
         file_path, _ = QFileDialog.getSaveFileName(
-            parent, "Zapisz obrazek jako...", default_name, "Images (*.jpg)"
+            parent, title, default_name, "Images (*.jpg)"
         )
         if not file_path:
             return
