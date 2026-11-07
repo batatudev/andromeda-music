@@ -1,3 +1,4 @@
+# views/settings/tab_offline.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -62,6 +63,15 @@ class TabOffline(QWidget):
         self.combo_off_quality.addItems(["1080p", "720p", "480p", "240p"])
         self.combo_off_quality.setCurrentText(APP_CONFIG.get("video_offline_quality", "1080p"))
         self.combo_off_quality.setStyleSheet(input_style)
+
+        self.combo_off_fps = QComboBox()
+        self.combo_off_fps.addItem(tr("settings.video.fps_60", "60 FPS (Maksymalna płynność)"), "60")
+        self.combo_off_fps.addItem(tr("settings.video.fps_30", "30 FPS (Oszczędność danych)"), "30")
+        current_off_fps = APP_CONFIG.get("video_offline_fps", "60")
+        idx_off_fps = self.combo_off_fps.findData(current_off_fps)
+        if idx_off_fps >= 0:
+            self.combo_off_fps.setCurrentIndex(idx_off_fps)
+        self.combo_off_fps.setStyleSheet(input_style)
 
         self.combo_auto_favs = QComboBox()
         self.combo_auto_favs.addItems([
@@ -145,6 +155,7 @@ class TabOffline(QWidget):
         add_row(offline_layout, tr("settings.offline.audio_quality", "Jakość dźwięku (Strumieniowanie):"), self.combo_audio_quality)
         add_row(offline_layout, tr("settings.offline.auto_play", "Autoodtwarzanie wideo:"), self.combo_smart_auto)
         add_row(offline_layout, tr("settings.offline.quality", "Jakość wideo:"), self.combo_off_quality)
+        add_row(offline_layout, tr("settings.offline.video_fps", "Klatkaż wideo:"), self.combo_off_fps)
         add_row(offline_layout, tr("settings.offline.video_favs", "Pobieranie wideo z polubionych:"), self.combo_auto_favs)
         add_row(offline_layout, tr("settings.offline.video_playlists", "Pobieranie wideo z playlist:"), self.btn_auto_pl)
         add_row(offline_layout, tr("settings.offline.audio_favs", "Pobieranie utworów z polubionych:"), self.combo_audio_auto_favs)
@@ -242,6 +253,7 @@ class TabOffline(QWidget):
         selected_q = self.combo_audio_quality.currentData() or "raw"
         APP_CONFIG["audio_stream_quality"] = selected_q
         APP_CONFIG["video_offline_quality"] = self.combo_off_quality.currentText()
+        APP_CONFIG["video_offline_fps"] = self.combo_off_fps.currentData() or "60"
         APP_CONFIG["video_smart_auto_play"] = (self.combo_smart_auto.currentIndex() == 1)
         APP_CONFIG["video_auto_dl_favs"] = (self.combo_auto_favs.currentIndex() == 1)
         APP_CONFIG["audio_auto_dl_favs"] = (self.combo_audio_auto_favs.currentIndex() == 1)
@@ -250,6 +262,7 @@ class TabOffline(QWidget):
         save_config()
         self.settings_view._initial_settings["audio_stream_quality"] = APP_CONFIG["audio_stream_quality"]
         self.settings_view._initial_settings["video_offline_quality"] = APP_CONFIG["video_offline_quality"]
+        self.settings_view._initial_settings["video_offline_fps"] = APP_CONFIG["video_offline_fps"]
         self.settings_view._initial_settings["video_smart_auto_play"] = APP_CONFIG["video_smart_auto_play"]
         self.settings_view._initial_settings["video_auto_dl_favs"] = APP_CONFIG["video_auto_dl_favs"]
         self.settings_view._initial_settings["audio_auto_dl_favs"] = APP_CONFIG["audio_auto_dl_favs"]

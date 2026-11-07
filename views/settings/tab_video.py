@@ -87,6 +87,15 @@ class TabVideo(QWidget):
         self.combo_res.setCurrentText(APP_CONFIG.get("video_resolution", "1080p"))
         self.combo_res.setStyleSheet(input_style)
 
+        self.combo_fps = QComboBox()
+        self.combo_fps.addItem(tr("settings.video.fps_60", "60 FPS (Maksymalna płynność)"), "60")
+        self.combo_fps.addItem(tr("settings.video.fps_30", "30 FPS (Oszczędność danych)"), "30")
+        current_fps = APP_CONFIG.get("video_fps", "60")
+        idx_fps = self.combo_fps.findData(current_fps)
+        if idx_fps >= 0:
+            self.combo_fps.setCurrentIndex(idx_fps)
+        self.combo_fps.setStyleSheet(input_style)
+
         self.combo_auto_res = QComboBox()
         self.combo_auto_res.addItems([
             tr("settings.disabled", "Wyłączona"),
@@ -114,6 +123,7 @@ class TabVideo(QWidget):
             parent_layout.addLayout(r)
 
         add_row(video_layout, tr("settings.video.res", "Domyślna rozdzielczość:"), self.combo_res)
+        add_row(video_layout, tr("settings.video.fps", "Klatkaż (FPS):"), self.combo_fps)
         add_row(video_layout, tr("settings.video.arf", "Adaptacyjna jakość (ARF):"), self.combo_auto_res)
         add_row(video_layout, tr("settings.video.min_res", "Minimalna rozdzielczość:"), self.combo_min_res)
 
@@ -223,6 +233,7 @@ class TabVideo(QWidget):
 
     def _save_v_conf(self):
         APP_CONFIG["video_resolution"] = self.combo_res.currentText()
+        APP_CONFIG["video_fps"] = self.combo_fps.currentData() or "60"
         APP_CONFIG["video_min_res"] = self.combo_min_res.currentText()
         APP_CONFIG["video_auto_res"] = (self.combo_auto_res.currentIndex() == 1)
         for k, s in self.video_sliders.items():
@@ -232,6 +243,7 @@ class TabVideo(QWidget):
         self.main_window.now_playing_view.update_video_settings()
 
         self.settings_view._initial_settings["video_resolution"] = APP_CONFIG["video_resolution"]
+        self.settings_view._initial_settings["video_fps"] = APP_CONFIG["video_fps"]
         self.settings_view._initial_settings["video_min_res"] = APP_CONFIG["video_min_res"]
         self.settings_view._initial_settings["video_auto_res"] = APP_CONFIG["video_auto_res"]
         self.settings_view._initial_settings["video_dynamic_opacity"] = APP_CONFIG["video_dynamic_opacity"]

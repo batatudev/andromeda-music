@@ -1,4 +1,3 @@
-# config.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -54,6 +53,7 @@ APP_CONFIG = {
     "volume": 80,
     "dev_mode": False,
     "video_resolution": "1080p",
+    "video_fps": "60",
     "video_min_res": "480p",
     "video_auto_res": True,
     "video_dynamic_opacity": 20,
@@ -62,6 +62,7 @@ APP_CONFIG = {
     "video_static_blur": 75,
     "video_offline_path": "",
     "video_offline_quality": "1080p",
+    "video_offline_fps": "60",
     "video_smart_auto_play": False,
     "video_auto_dl_favs": False,
     "video_auto_dl_playlists": [],
@@ -246,6 +247,7 @@ def load_config():
 
     if "Video" in cfg:
         APP_CONFIG["video_resolution"] = cfg["Video"].get("resolution", fallback="1080p")
+        APP_CONFIG["video_fps"] = cfg["Video"].get("fps", fallback="60")
         APP_CONFIG["video_min_res"] = cfg["Video"].get("min_resolution", fallback="480p")
         APP_CONFIG["video_auto_res"] = cfg["Video"].getboolean("auto_res", fallback=True)
         APP_CONFIG["video_dynamic_opacity"] = cfg["Video"].getint("dynamic_opacity", fallback=20)
@@ -256,6 +258,7 @@ def load_config():
     if "VideoOffline" in cfg:
         APP_CONFIG["video_offline_path"] = cfg["VideoOffline"].get("path", fallback="")
         APP_CONFIG["video_offline_quality"] = cfg["VideoOffline"].get("quality", fallback="1080p")
+        APP_CONFIG["video_offline_fps"] = cfg["VideoOffline"].get("fps", fallback="60")
         APP_CONFIG["video_smart_auto_play"] = cfg["VideoOffline"].getboolean("smart_auto_play", fallback=False)
         APP_CONFIG["video_auto_dl_favs"] = cfg["VideoOffline"].getboolean("auto_dl_favs", fallback=False)
         dl_pl = cfg["VideoOffline"].get("auto_dl_playlists", fallback="")
@@ -302,6 +305,7 @@ def save_config():
 
     cfg["Video"] = {
         "resolution": APP_CONFIG["video_resolution"],
+        "fps": APP_CONFIG.get("video_fps", "60"),
         "min_resolution": APP_CONFIG["video_min_res"],
         "auto_res": str(APP_CONFIG["video_auto_res"]),
         "dynamic_opacity": str(APP_CONFIG["video_dynamic_opacity"]),
@@ -313,6 +317,7 @@ def save_config():
     cfg["VideoOffline"] = {
         "path": APP_CONFIG.get("video_offline_path", ""),
         "quality": APP_CONFIG.get("video_offline_quality", "1080p"),
+        "fps": APP_CONFIG.get("video_offline_fps", "60"),
         "smart_auto_play": str(APP_CONFIG.get("video_smart_auto_play", False)),
         "auto_dl_favs": str(APP_CONFIG.get("video_auto_dl_favs", False)),
         "auto_dl_playlists": ",".join(APP_CONFIG.get("video_auto_dl_playlists", []))
