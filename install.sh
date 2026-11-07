@@ -1,3 +1,4 @@
+# install.sh
 #!/usr/bin/env bash
 set -e
 
@@ -136,12 +137,12 @@ CONFIG_DIR="${HOME}/.config/${APP_ID}"
 mkdir -p "${CONFIG_DIR}"
 
 if [ ! -f "${CONFIG_DIR}/config.ini" ]; then
-    if [ -f "${PROJECT_DIR}/config.ini" ]; then
+    if [ -f "${PROJECT_DIR}/config.example.ini" ]; then
+        cp "${PROJECT_DIR}/config.example.ini" "${CONFIG_DIR}/config.ini"
+        echo -e "[OK] Zainicjalizowano plik konfiguracyjny z szablonu publicznego demo: ${CONFIG_DIR}/config.ini"
+    elif [ -f "${PROJECT_DIR}/config.ini" ]; then
         cp "${PROJECT_DIR}/config.ini" "${CONFIG_DIR}/config.ini"
         echo -e "[OK] Wdrożono plik konfiguracyjny: ${CONFIG_DIR}/config.ini"
-    elif [ -f "${PROJECT_DIR}/config.example.ini" ]; then
-        cp "${PROJECT_DIR}/config.example.ini" "${CONFIG_DIR}/config.ini"
-        echo -e "[OK] Zainicjalizowano plik konfiguracyjny z szablonu: ${CONFIG_DIR}/config.ini"
     fi
 else
     echo -e "[INFO] Istniejący plik ${CONFIG_DIR}/config.ini został zachowany."

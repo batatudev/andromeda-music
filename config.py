@@ -47,8 +47,8 @@ APP_CONFIG = {
     "username": DEFAULT_DEMO_SERVER["username"],
     "password": DEFAULT_DEMO_SERVER["password"],
     "ignore_ssl": False,
-    "theme_mode": "system",
-    "language": "pl",
+    "theme_mode": "dark",
+    "language": "en",
     "dark_mode": True,
     "accent": "#aa00ff",
     "volume": 80,
@@ -158,18 +158,19 @@ def load_config():
 
     if not config_path.exists():
         root_dir = Path(__file__).resolve().parent
-        bundled_cfg = root_dir / "config.ini"
         bundled_example = root_dir / "config.example.ini"
-        if bundled_cfg.exists():
-            try:
-                config_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(bundled_cfg, config_path)
-            except Exception:
-                pass
-        elif bundled_example.exists():
+        bundled_cfg = root_dir / "config.ini"
+
+        if bundled_example.exists():
             try:
                 config_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(bundled_example, config_path)
+            except Exception:
+                pass
+        elif bundled_cfg.exists():
+            try:
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(bundled_cfg, config_path)
             except Exception:
                 pass
 
@@ -237,11 +238,11 @@ def load_config():
 
     if "Theme" in cfg:
         if "theme_mode" in cfg["Theme"]:
-            APP_CONFIG["theme_mode"] = cfg["Theme"].get("theme_mode", "system")
+            APP_CONFIG["theme_mode"] = cfg["Theme"].get("theme_mode", "dark")
         else:
             legacy_dark = cfg["Theme"].getboolean("dark_mode", fallback=True)
             APP_CONFIG["theme_mode"] = "dark" if legacy_dark else "light"
-        APP_CONFIG["language"] = cfg["Theme"].get("language", fallback="pl")
+        APP_CONFIG["language"] = cfg["Theme"].get("language", fallback="en")
         APP_CONFIG["accent"] = cfg["Theme"].get("accent", fallback="#aa00ff")
         APP_CONFIG["volume"] = cfg["Theme"].getint("volume", fallback=80)
         APP_CONFIG["dev_mode"] = cfg["Theme"].getboolean("dev_mode", fallback=False)
@@ -297,8 +298,8 @@ def save_config():
     }
 
     cfg["Theme"] = {
-        "theme_mode": APP_CONFIG.get("theme_mode", "system"),
-        "language": APP_CONFIG.get("language", "pl"),
+        "theme_mode": APP_CONFIG.get("theme_mode", "dark"),
+        "language": APP_CONFIG.get("language", "en"),
         "accent": APP_CONFIG["accent"],
         "volume": str(APP_CONFIG["volume"]),
         "dev_mode": str(APP_CONFIG.get("dev_mode", False))

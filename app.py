@@ -4,6 +4,8 @@ os.environ["QT_API"] = "pyside6"
 
 from config import APP_NAME
 
+raw_app_id = os.environ.get("ANDROMEDA_APP_ID", "andromeda-music")
+
 os.environ["PULSE_PROP_application.name"] = APP_NAME
 os.environ["PULSE_PROP_application.icon_name"] = "multimedia-audio-player"
 os.environ["PULSE_PROP_media.role"] = "music"
@@ -72,6 +74,8 @@ def run():
     QSurfaceFormat.setDefaultFormat(surface_format)
 
     app = QApplication(sys.argv)
+    app.setApplicationName(APP_NAME)
+    app.setDesktopFileName(f"{raw_app_id}.desktop")
     app.setWindowIcon(QIcon(APP_ICON_PATH))
     theme_manager.reload_theme()
 
