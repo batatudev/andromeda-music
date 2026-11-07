@@ -1,3 +1,4 @@
+# engine/player_engine.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -186,12 +187,6 @@ class PlayerEngine(QObject):
         if cur_song and str(cur_song.item_id) == sid:
             self.video_killed_for_track = False
             fresh_link = cur_song.yt_link
-            if not fresh_link and hasattr(self, 'client') and self.client:
-                from engine.header_tag_extractor import check_and_cache_remote_header
-                fresh_link = check_and_cache_remote_header(
-                    self.client, cur_song, getattr(self, 'video_download_manager', None)
-                )
-
             self.current_yt_link = fresh_link
             offline_path = self.video_download_manager.get_video_path(sid)
             has_video = bool(fresh_link or offline_path)
@@ -380,13 +375,7 @@ class PlayerEngine(QObject):
     def load_and_play_video(self, force_mid_track=False):
         song = self.queue_mgr.current_song()
         if song:
-            fresh_link = song.yt_link
-            if not fresh_link and hasattr(self, 'client') and self.client:
-                from engine.header_tag_extractor import check_and_cache_remote_header
-                fresh_link = check_and_cache_remote_header(
-                    self.client, song, getattr(self, 'video_download_manager', None)
-                )
-            self.current_yt_link = fresh_link
+            self.current_yt_link = song.yt_link
             self.video_killed_for_track = False
 
             if "--force-live" in sys.argv:
@@ -634,12 +623,6 @@ class PlayerEngine(QObject):
             self.prefetched_yt_info_dict = None
 
         yt_link = song.yt_link
-        if not yt_link and hasattr(self, 'client') and self.client:
-            from engine.header_tag_extractor import check_and_cache_remote_header
-            yt_link = check_and_cache_remote_header(
-                self.client, song, getattr(self, 'video_download_manager', None)
-            )
-
         if yt_link:
             self.current_yt_link = yt_link
             self.has_video_signal.emit(True)

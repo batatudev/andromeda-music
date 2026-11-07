@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QStackedLayout, QSizePolicy
 )
 from PySide6.QtQuickWidgets import QQuickWidget
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer, QUrl, Property
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer, QUrl, Property, Signal
 from PySide6.QtGui import QPainter, QColor
 
 from config import THEME, APP_CONFIG
@@ -61,6 +61,8 @@ Item {
 """
 
 class VideoQuickWidget(QQuickWidget):
+    video_sink_ready = Signal(object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._current_fps = 0.0
@@ -79,7 +81,9 @@ class VideoQuickWidget(QQuickWidget):
 
         qml_path = PathsManager.get_cache_dir() / "video_background.qml"
         try:
-            qml_path.write_text(QML_BACKGROUND_CODE.strip(), encoding="utf-8")
+            target_code = QML_BACKGROUND_CODE.strip()
+            if not qml_path.exists() or qml_path.read_text(encoding="utf-8") != target_code:
+                qml_path.write_text(target_code, encoding="utf-8")
         except Exception:
             pass
 
@@ -133,6 +137,7 @@ class VideoQuickWidget(QQuickWidget):
                 if sink:
                     self._target_sink = sink
                     self._hook_sink(sink)
+                    self.video_sink_ready.emit(sink)
 
     @property
     def video_item(self):
@@ -350,6 +355,12 @@ class NowPlayingWidget(QFrame):
 
         self.update_video_settings()
 
+    def hideEvent(self, e):
+        self.breath_anim.stop()
+        self.breath_restore_anim.stop()
+        self.crossfade_anim.stop()
+        super().hideEvent(e)
+
     def update_queue(self, songs, active_idx, handlers, loader, client):
         v_bar = self.queue_scroll.verticalScrollBar()
         old_val = v_bar.value()
@@ -504,6 +515,11 @@ class NowPlayingWidget(QFrame):
             self.set_buffering_state(False)
 
     def set_buffering_state(self, is_buffering):
+        if not self.isVisible():
+            self.breath_anim.stop()
+            self.breath_restore_anim.stop()
+            return
+
         if is_buffering:
             self.crossfade_anim.stop()
             self.breath_restore_anim.stop()

@@ -142,7 +142,6 @@ class MainWindow(QMainWindow):
         self.telemetry = TelemetryService(self)
 
         QTimer.singleShot(0, self._start_app)
-        QTimer.singleShot(1500, self._ensure_video_output)
 
     def _init_mpris(self):
         try:
@@ -150,11 +149,18 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.log(f"Nie udało się załadować MPRIS: {e}")
 
+    def _on_video_sink_ready(self, sink):
+        if sink is not None and hasattr(self, 'engine') and hasattr(self.engine, 'video_player'):
+            self._video_output_initialized = True
+            self.engine.video_player.setVideoOutput(sink)
+
     def _ensure_video_output(self):
         if not getattr(self, '_video_output_initialized', False):
-            self._video_output_initialized = True
             if hasattr(self, 'now_playing_view') and hasattr(self.now_playing_view, 'video_widget'):
-                self.engine.video_player.setVideoOutput(self.now_playing_view.video_widget.video_item)
+                sink = self.now_playing_view.video_widget.video_item
+                if sink is not None:
+                    self._video_output_initialized = True
+                    self.engine.video_player.setVideoOutput(sink)
 
     @property
     def settings_view(self):
@@ -443,6 +449,7 @@ class MainWindow(QMainWindow):
 
         self.now_playing_view = NowPlayingWidget()
         self.now_playing_view.queue_content.drop_occurred.connect(self._handle_now_playing_queue_drop)
+        self.now_playing_view.video_widget.video_sink_ready.connect(self._on_video_sink_ready)
         self._video_output_initialized = False
 
         def make_scrollable(view_widget):
@@ -676,22 +683,21 @@ class MainWindow(QMainWindow):
             self._ensure_video_output()
             if self.engine.queue and self.engine.idx >= 0:
                 song = self.engine.queue[self.engine.idx]
-                fresh_link = song.yt_link
-                if not fresh_link and hasattr(self.engine, 'client') and self.engine.client:
-                    from engine.header_tag_extractor import check_and_cache_remote_header
-                    fresh_link = check_and_cache_remote_header(
-                        self.engine.client, song, getattr(self.engine, 'video_download_manager', None)
-                    )
-                self.engine.current_yt_link = fresh_link
+                self.engine.current_yt_link = song.yt_link
                 self.engine.video_killed_for_track = False
 
                 offline_path = self.engine.video_download_manager.get_video_path(song.item_id)
                 if offline_path:
                     self.engine.load_and_play_video(force_mid_track=True)
                     return
-                if fresh_link:
+                if song.yt_link:
                     self.engine.load_and_play_video(force_mid_track=True)
                     return
+
+                # If link is not cached yet, background resolver will extract it without freezing the GUI
+                self.engine.load_and_play_video(force_mid_track=True)
+                return
+
             self.now_playing_view.set_media_mode("audio")
         else:
             self._current_mask_state = False
