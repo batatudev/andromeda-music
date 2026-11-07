@@ -25,9 +25,13 @@ jobs:
             libgl1-mesa-dev \
             libglib2.0-0 \
             libxkbcommon-x11-0 \
-            libegl1-mesa \
+            libegl1 \
+            libxcb-cursor0 \
             python3-gi \
-            gir1.2-glib-2.0
+            gir1.2-glib-2.0 \
+            pkg-config \
+            libcairo2-dev \
+            libgirepository1.0-dev
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
