@@ -1,3 +1,4 @@
+# views/view_details.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -48,12 +49,9 @@ class DetailsView(LibraryScrollArea):
         self.current_id = target_id
         self.current_type = t
 
+        self.show_loading()
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
-        loading = QLabel(tr("common.loading", "Wczytywanie..."))
-        loading.setAlignment(Qt.AlignCenter)
-        self.content_layout.addWidget(loading)
-        self.content_layout.addStretch()
         self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
@@ -113,6 +111,7 @@ class DetailsView(LibraryScrollArea):
 
         def on_ready(data):
             if not data:
+                self.hide_loading(0)
                 return
 
             self.content_widget.setUpdatesEnabled(False)
@@ -307,6 +306,7 @@ class DetailsView(LibraryScrollArea):
 
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
+            self.hide_loading(delay_ms=60)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
 

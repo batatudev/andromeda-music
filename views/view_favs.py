@@ -1,3 +1,4 @@
+# views/view_favs.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -24,13 +25,10 @@ class FavsView(LibraryScrollArea):
         if not force and self._is_loaded:
             return
 
+        self.show_loading()
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         self._current_songs.clear()
-        lbl = QLabel(tr("common.loading", "Wczytywanie..."))
-        lbl.setAlignment(Qt.AlignCenter)
-        self.content_layout.addWidget(lbl)
-        self.content_layout.addStretch()
         self.content_widget.setUpdatesEnabled(True)
 
         def on_ready(songs):
@@ -55,6 +53,7 @@ class FavsView(LibraryScrollArea):
                 self.content_layout.addStretch()
                 self.content_widget.setUpdatesEnabled(True)
                 self._is_loaded = True
+                self.hide_loading(0)
                 return
 
             for i, s in enumerate(songs):
@@ -75,5 +74,6 @@ class FavsView(LibraryScrollArea):
             self.content_layout.addStretch()
             self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True
+            self.hide_loading(delay_ms=60)
 
         self.main_window.run_async(lambda: self.main_window.repo.get_starred(100), on_ready, page_bound=True)

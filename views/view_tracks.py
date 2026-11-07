@@ -1,3 +1,4 @@
+# views/view_tracks.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -9,7 +10,6 @@ from core.enums import MediaType
 from ui.components import SongItem
 from core.i18n import tr
 from views.library_base import LibraryScrollArea
-
 
 class TracksView(LibraryScrollArea):
     def __init__(self, main_window):
@@ -39,6 +39,7 @@ class TracksView(LibraryScrollArea):
             return
 
         self._is_loaded = True
+        self.show_loading()
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         self._current_songs.clear()
@@ -66,6 +67,7 @@ class TracksView(LibraryScrollArea):
                 self._render_chunk(first_chunk, remaining)
             else:
                 self.is_loading = False
+                self.hide_loading(0)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
 
@@ -91,6 +93,7 @@ class TracksView(LibraryScrollArea):
                 self.main_window.loader.load(self.main_window.client.get_cover_art_url(s.cover_id), item)
 
         self.content_widget.setUpdatesEnabled(True)
+        self.hide_loading(delay_ms=60)
 
         if remaining:
             next_chunk = remaining[:12]

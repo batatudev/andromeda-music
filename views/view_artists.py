@@ -1,3 +1,4 @@
+# views/view_artists.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -10,7 +11,6 @@ from ui.widgets import FlowLayout
 from ui.components import MediaCard
 from core.i18n import tr
 from views.library_base import LibraryScrollArea
-
 
 class ArtistsView(LibraryScrollArea):
     def __init__(self, main_window):
@@ -34,6 +34,7 @@ class ArtistsView(LibraryScrollArea):
             return
 
         self._is_loaded = True
+        self.show_loading()
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         title_txt = tr("artists.title", "Wszyscy Artyści")
@@ -62,6 +63,7 @@ class ArtistsView(LibraryScrollArea):
                 self._render_chunk(first_chunk, remaining)
             else:
                 self.is_loading = False
+                self.hide_loading(0)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
 
@@ -85,6 +87,7 @@ class ArtistsView(LibraryScrollArea):
                 self.main_window.loader.load(self.main_window.client.get_cover_art_url(a.cover_id), c)
             self.offset += 1
         self.content_widget.setUpdatesEnabled(True)
+        self.hide_loading(delay_ms=60)
 
         if remaining:
             next_chunk = remaining[:10]

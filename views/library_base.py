@@ -20,7 +20,7 @@ from core.i18n import tr
 class LoadingOverlay(QWidget):
     """
     Czysta, w 100% nieprzezroczysta kurtyna ładowania na litym tle #050505.
-    Pozostaje całkowicie kryjąca do momentu jednoczesnego odsłonięcia zawartości.
+    Startuje spinner dynamicznie przy każdym pokazaniu.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,10 +38,6 @@ class LoadingOverlay(QWidget):
         self.spinner_lbl.setFixedSize(40, 40)
         self.spinner_lbl.setAlignment(Qt.AlignCenter)
         self.spinner_lbl.setStyleSheet("background: transparent; border: none;")
-        self._spin_anim = qta.Spin(self.spinner_lbl, interval=16, step=10)
-        self.spinner_lbl.setPixmap(
-            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=self._spin_anim).pixmap(32, 32)
-        )
 
         self.text_lbl = QLabel(tr("common.loading", "Wczytywanie..."))
         self.text_lbl.setStyleSheet(
@@ -52,6 +48,12 @@ class LoadingOverlay(QWidget):
         layout.addWidget(self.spinner_lbl, 0, Qt.AlignCenter)
         layout.addWidget(self.text_lbl, 0, Qt.AlignCenter)
         self.hide()
+
+    def start_spinner(self):
+        spin_anim = qta.Spin(self.spinner_lbl, interval=16, step=10)
+        self.spinner_lbl.setPixmap(
+            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=spin_anim).pixmap(32, 32)
+        )
 
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
@@ -80,7 +82,6 @@ class LibraryScrollArea(SmoothScrollArea):
         self.setWidget(self.content_widget)
 
         self.loading_overlay = LoadingOverlay(self.viewport())
-        self.show_loading()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -88,23 +89,20 @@ class LibraryScrollArea(SmoothScrollArea):
             self.loading_overlay.setGeometry(0, 0, self.viewport().width(), self.viewport().height())
 
     def show_loading(self, text=None):
-        if hasattr(self, 'content_widget') and self.content_widget:
-            self.content_widget.setVisible(False)
         if hasattr(self, 'loading_overlay') and self.loading_overlay:
             if text:
                 self.loading_overlay.text_lbl.setText(text)
             else:
                 self.loading_overlay.text_lbl.setText(tr("common.loading", "Wczytywanie..."))
+            self.loading_overlay.start_spinner()
             self.loading_overlay.setGeometry(0, 0, self.viewport().width(), self.viewport().height())
             self.loading_overlay.show()
             self.loading_overlay.raise_()
 
-    def hide_loading(self, delay_ms=100):
+    def hide_loading(self, delay_ms=60):
         def _apply_hide():
             if hasattr(self, 'loading_overlay') and self.loading_overlay:
                 self.loading_overlay.hide()
-            if hasattr(self, 'content_widget') and self.content_widget:
-                self.content_widget.setVisible(True)
 
         if delay_ms > 0:
             QTimer.singleShot(delay_ms, _apply_hide)
