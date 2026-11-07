@@ -1,0 +1,58 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Caching and local data storage
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.part
+*.tmp
+
+# User-specific credentials and secrets (CRITICAL: Never commit)
+config.ini
+cookies.txt
+
+# Server-partitioned runtime data and caches
+servers/
+logs/
+*.log
+*.csv
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# Benchmark profiles and generated results
+bench_profiles/
+tests/results/
+tests/benchmarks/results/
+benchmark_report.md
+
+# Special Files
+ai_bundler.py
+_AI_CURRENT_CODE.txt
+
+
+# Packaging and releases
+build_release/
+dist/
+build/
+*.egg-info/
+*.tar.gz
+
+# IDEs, code editors and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
