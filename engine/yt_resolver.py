@@ -1,3 +1,4 @@
+# engine/yt_resolver.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -216,10 +217,10 @@ class YTResolver:
             if self.engine.queue and 0 <= self.engine.idx < len(self.engine.queue):
                 song = self.engine.queue[self.engine.idx]
                 fresh_link = song.yt_link
-                if not fresh_link and hasattr(self.engine, 'client') and self.client:
+                if not fresh_link and hasattr(self.engine, 'client') and self.engine.client:
                     from engine.header_tag_extractor import check_and_cache_remote_header
                     fresh_link = check_and_cache_remote_header(
-                        self.client, song, getattr(self.engine, 'video_download_manager', None)
+                        self.engine.client, song, getattr(self.engine, 'video_download_manager', None)
                     )
                 self.engine.current_yt_link = fresh_link
 
