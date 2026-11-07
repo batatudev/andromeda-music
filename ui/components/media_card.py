@@ -1,3 +1,4 @@
+# ui/components/media_card.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -94,11 +95,11 @@ class MediaCard(QFrame):
         if w <= 0:
             return
         self.img_container.setFixedSize(w, w)
-        self.img.setFixedSize(w, w)
+        self.img.setGeometry(0, 0, w, w)
 
         rad = (w // 2) if self.type_str == MediaType.ARTIST else 12
         self.img.radius = rad
-        self.overlay.setFixedSize(w, w)
+        self.overlay.setGeometry(0, 0, w, w)
 
         btn_s = 46
         self.play_btn.move((w - btn_s) // 2, (w - btn_s) // 2)

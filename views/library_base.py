@@ -3,9 +3,9 @@ import os
 os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QGraphicsOpacityEffect
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QFont, QPalette, QColor
 import random
 import qtawesome as qta
@@ -21,6 +21,7 @@ class LoadingOverlay(QWidget):
     """
     Czysta, nieprzezroczysta kurtyna ładowania przykrywająca obszar roboczy
     na czas pobierania danych z serwera i stabilizacji geometrii widżetów.
+    Posiada płynną animację zanikania (Fade-Out).
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -30,17 +31,26 @@ class LoadingOverlay(QWidget):
         pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
         self.setPalette(pal)
 
+        self._opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self._opacity_effect)
+        self._opacity_effect.setOpacity(1.0)
+
+        self._fade_anim = QPropertyAnimation(self._opacity_effect, b"opacity")
+        self._fade_anim.setDuration(220)
+        self._fade_anim.setEasingCurve(QEasingCurve.OutQuad)
+        self._fade_anim.finished.connect(self._on_fade_finished)
+
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(14)
 
         self.spinner_lbl = QLabel()
-        self.spinner_lbl.setFixedSize(36, 36)
+        self.spinner_lbl.setFixedSize(40, 40)
         self.spinner_lbl.setAlignment(Qt.AlignCenter)
         self.spinner_lbl.setStyleSheet("background: transparent; border: none;")
         self._spin_anim = qta.Spin(self.spinner_lbl, interval=16, step=10)
         self.spinner_lbl.setPixmap(
-            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=self._spin_anim).pixmap(30, 30)
+            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=self._spin_anim).pixmap(32, 32)
         )
 
         self.text_lbl = QLabel(tr("common.loading", "Wczytywanie..."))
@@ -52,6 +62,11 @@ class LoadingOverlay(QWidget):
         layout.addWidget(self.spinner_lbl, 0, Qt.AlignCenter)
         layout.addWidget(self.text_lbl, 0, Qt.AlignCenter)
         self.hide()
+
+    def _on_fade_finished(self):
+        if self._opacity_effect.opacity() <= 0.05:
+            self.hide()
+            self._opacity_effect.setOpacity(1.0)
 
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
@@ -88,6 +103,9 @@ class LibraryScrollArea(SmoothScrollArea):
 
     def show_loading(self, text=None):
         if hasattr(self, 'loading_overlay') and self.loading_overlay:
+            if self.loading_overlay._fade_anim.state() == QPropertyAnimation.State.Running:
+                self.loading_overlay._fade_anim.stop()
+            self.loading_overlay._opacity_effect.setOpacity(1.0)
             if text:
                 self.loading_overlay.text_lbl.setText(text)
             else:
@@ -96,12 +114,19 @@ class LibraryScrollArea(SmoothScrollArea):
             self.loading_overlay.show()
             self.loading_overlay.raise_()
 
-    def hide_loading(self, delay_ms=60):
+    def hide_loading(self, delay_ms=250):
         if hasattr(self, 'loading_overlay') and self.loading_overlay:
             if delay_ms > 0:
-                QTimer.singleShot(delay_ms, self.loading_overlay.hide)
+                QTimer.singleShot(delay_ms, self._start_fade_out)
             else:
                 self.loading_overlay.hide()
+
+    def _start_fade_out(self):
+        if hasattr(self, 'loading_overlay') and self.loading_overlay and self.loading_overlay.isVisible():
+            self.loading_overlay._fade_anim.stop()
+            self.loading_overlay._fade_anim.setStartValue(self.loading_overlay._opacity_effect.opacity())
+            self.loading_overlay._fade_anim.setEndValue(0.0)
+            self.loading_overlay._fade_anim.start()
 
     def invalidate_cache(self):
         self._is_loaded = False
