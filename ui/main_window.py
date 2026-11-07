@@ -1,3 +1,4 @@
+# ui/main_window.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -453,6 +454,10 @@ class MainWindow(QMainWindow):
         for pid in Pages:
             if pid == Pages.HOME:
                 w = self.page_factories[pid]()
+                self.pages[pid] = w
+                self.stack.addWidget(w)
+            elif pid == Pages.NOW_PLAYING:
+                w = self.now_playing_view
                 self.pages[pid] = w
                 self.stack.addWidget(w)
             else:

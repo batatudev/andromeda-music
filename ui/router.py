@@ -1,3 +1,4 @@
+# ui/router.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -5,7 +6,6 @@ from PySide6.QtCore import QObject, QPoint, QPropertyAnimation, QEasingCurve, QP
 from PySide6.QtWidgets import QStackedWidget, QScrollArea, QGraphicsOpacityEffect
 from config import Pages
 from core.enums import MediaType
-
 
 class AppRouter(QObject):
     """
@@ -75,6 +75,13 @@ class AppRouter(QObject):
 
         self.stack.setCurrentIndex(page_idx)
         self.win.current_anim_page = self.stack.currentWidget()
+
+        if page_idx == Pages.NOW_PLAYING:
+            if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
+                self.win.current_anim_page.move(0, 0)
+            self.win._update_sidebar_active_state()
+            self.win.setFocus()
+            return
 
         self.win.page_effect = QGraphicsOpacityEffect(self.win.current_anim_page)
         self.win.current_anim_page.setGraphicsEffect(self.win.page_effect)

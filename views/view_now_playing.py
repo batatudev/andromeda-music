@@ -1,3 +1,4 @@
+# views/view_now_playing.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -70,6 +71,7 @@ class VideoQuickWidget(QQuickWidget):
         self._target_sink = None
         self._sink_connected = False
 
+        self.setFocusPolicy(Qt.NoFocus)
         self.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
         self.setAttribute(Qt.WA_AlwaysStackOnTop, False)
         self.setClearColor(QColor(5, 5, 5))
