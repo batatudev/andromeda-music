@@ -10,5 +10,5 @@ darkdetect>=0.8.0
 
 # Integracja systemowa MPRIS2 / D-Bus (Linux)
 # Uwaga: na Arch/Omarchy zaleca się: pacman -S python-gobject
-PyGObject>=3.46.0
+PyGObject>=3.58.1
 pydbus>=0.6.0
