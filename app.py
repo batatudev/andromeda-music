@@ -7,9 +7,12 @@ os.environ["PULSE_PROP_application.name"] = APP_NAME
 os.environ["PULSE_PROP_application.icon_name"] = "multimedia-audio-player"
 os.environ["PULSE_PROP_media.role"] = "music"
 
+if "QT_LOGGING_RULES" not in os.environ:
+    os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg*=false;qt.multimedia*=false"
+os.environ["AV_LOG_FORCE_NOCOLOR"] = "1"
+
 import sys
 
-# Obsługa natychmiastowej diagnostyki CLI bez uruchamiania interfejsu graficznego
 if "--diagnostics" in sys.argv or "--sysinfo" in sys.argv:
     from core.system_health import SystemHealthChecker
     SystemHealthChecker.print_diagnostics()
@@ -28,9 +31,6 @@ from core.models import MediaItem
 from utils import logger
 
 def _auto_play_playlist(main_window, pl_name: str):
-    """
-    Automatycznie odnajduje playlistę o zadanej nazwie i rozpoczyna odtwarzanie.
-    """
     def fetch():
         try:
             params = main_window.client._get_auth_params()

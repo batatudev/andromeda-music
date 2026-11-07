@@ -75,7 +75,7 @@ class TelemetryWindow(QMainWindow):
         add_metric("fps", tr("dev.telemetry_win.fps", "Tempo Renderowania (FPS):"))
         add_metric("z_fps", tr("dev.telemetry_win.z_fps", "Zanik Ciągłości Strumienia:"))
         add_metric("res_conf", tr("dev.telemetry_win.res_conf", "Rozdzielczość (Target):"))
-        add_metric("res_act", tr("dev.telemetry_win.res_act", "Rozdzielczość Adaptacyjna:"))
+        add_metric("res_act", tr("dev.telemetry_win.res_act", "Rozdzielczość Rzeczywista:"))
         add_metric("motion", tr("dev.telemetry_win.motion", "Wskaźnik Dynamiki (Motion):"))
         add_metric("filter", tr("dev.telemetry_win.filter", "Warstwa Wizualna:"))
         add_metric("resolve", tr("dev.telemetry_win.resolve", "Czas Przygotowania Wideo:"))

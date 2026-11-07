@@ -64,16 +64,23 @@ class WatchdogService(QObject):
 
         state_str = engine.current_engine_state
         needs_mask = False
-        fps = getattr(now_playing.video_widget, 'current_fps', 0.0)
         buf_pct = engine.video_player.bufferProgress() * 100
         buf_sec = engine.get_buf_sec()
 
         v_status = engine.video_player.mediaStatus()
         is_video_stalled = (v_status == QMediaPlayer.MediaStatus.StalledMedia)
+        is_video_buffering = (v_status in [
+            QMediaPlayer.MediaStatus.BufferingMedia,
+            QMediaPlayer.MediaStatus.LoadingMedia
+        ])
         is_video_buffered = (
             v_status == QMediaPlayer.MediaStatus.BufferedMedia
             or v_status == QMediaPlayer.MediaStatus.LoadedMedia
         )
+
+        fps = getattr(now_playing.video_widget, 'current_fps', 0.0)
+        if not playing or is_video_stalled or is_video_buffering:
+            fps = 0.0
 
         is_in_grace_period = playing and (time.time() < getattr(win, '_seek_grace_until', 0))
 

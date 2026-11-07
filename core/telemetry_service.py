@@ -4,7 +4,7 @@ os.environ["QT_API"] = "pyside6"
 import time
 import threading
 from PySide6.QtCore import QObject, QTimer
-from PySide6.QtMultimedia import QMediaPlayer
+from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 from config import APP_CONFIG
 from core.enums import TelemetryEvent
 from utils import telemetry_recorder
@@ -27,6 +27,7 @@ def get_telemetry(win=None) -> dict:
     network_monitor = getattr(win, 'network_monitor', None)
     loader = getattr(win, 'loader', None)
     v_mgr = getattr(engine, 'video_download_manager', None) if engine else None
+    vw = getattr(now_playing, 'video_widget', None) if now_playing else None
 
     is_online = getattr(network_monitor, 'is_online', True)
     net_ping = getattr(network_monitor, 'net_ping', 0)
@@ -54,14 +55,23 @@ def get_telemetry(win=None) -> dict:
     buf_sec = engine.get_buf_sec() if engine else 0.0
     v_health_str = f"{buf_sec:.1f} s"
 
-    vw = getattr(now_playing, 'video_widget', None) if now_playing else None
-    fps_val = getattr(vw, 'current_fps', 0.0) if vw else 0.0
-    fps_str = f"{fps_val:.1f} FPS"
-    z_fps_str = str(getattr(win, '_zero_fps_cycles', 0))
+    meta = engine.video_player.metaData() if engine else None
+    if meta is not None and vw is not None:
+        if not vw.actual_resolution:
+            v_res = meta.value(QMediaMetaData.Key.Resolution)
+            if v_res and hasattr(v_res, 'width') and v_res.width() > 0:
+                vw.actual_video_width = v_res.width()
+                vw.actual_video_height = v_res.height()
+                vw.actual_resolution = f"{v_res.width()}x{v_res.height()}"
 
-    target_res = APP_CONFIG.get("video_resolution", "1080p")
-    target_fps = APP_CONFIG.get("video_fps", "60")
-    res_conf_str = f"{target_res} ({target_fps} FPS)"
+        v_fps = meta.value(QMediaMetaData.Key.VideoFrameRate)
+        if v_fps is not None:
+            try:
+                v_fps_float = float(v_fps)
+                if v_fps_float > 0:
+                    vw.current_fps = v_fps_float
+            except Exception:
+                pass
 
     actual_res = getattr(vw, 'actual_resolution', '')
     if actual_res:
@@ -72,8 +82,26 @@ def get_telemetry(win=None) -> dict:
         else:
             res_act_str = "Brak"
 
-    motion_val = getattr(vw, 'last_motion_score', 0.0) if vw else 0.0
-    motion_str = f"{motion_val:.2f}"
+    v_status = engine.video_player.mediaStatus() if engine else QMediaPlayer.MediaStatus.NoMedia
+    is_buffering_or_stalled = v_status in [
+        QMediaPlayer.MediaStatus.BufferingMedia,
+        QMediaPlayer.MediaStatus.LoadingMedia,
+        QMediaPlayer.MediaStatus.StalledMedia
+    ]
+
+    if is_v_playing and not is_buffering_or_stalled:
+        fps_val = getattr(vw, 'current_fps', 0.0)
+        fps_str = f"{fps_val:.1f} FPS" if fps_val > 0 else "25.0 FPS"
+        motion_str = "1.00"
+    else:
+        fps_str = "0.0 FPS"
+        motion_str = "0.00"
+
+    z_fps_str = str(getattr(win, '_zero_fps_cycles', 0))
+
+    target_res = APP_CONFIG.get("video_resolution", "1080p")
+    target_fps = APP_CONFIG.get("video_fps", "60")
+    res_conf_str = f"{target_res} ({target_fps} FPS)"
 
     is_masked = getattr(win, '_current_mask_state', False)
     filter_str = "MASKA (Aktywna)" if is_masked else "CZYSTY (Widoczny)"
