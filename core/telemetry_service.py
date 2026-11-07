@@ -43,6 +43,7 @@ def get_telemetry(win=None) -> dict:
     a_pos_ms = engine.player.position() if engine else 0
     v_pos_ms = engine.video_player.position() if engine else 0
     is_v_playing = (engine.video_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState) if engine else False
+    is_v_paused = (engine.video_player.playbackState() == QMediaPlayer.PlaybackState.PausedState) if engine else False
     av_sync_str = f"{abs(a_pos_ms - v_pos_ms)} ms" if is_v_playing else "0 ms"
 
     rate_val = engine.video_player.playbackRate() if engine else 1.0
@@ -103,6 +104,22 @@ def get_telemetry(win=None) -> dict:
     target_fps = APP_CONFIG.get("video_fps", "60")
     res_conf_str = f"{target_res} ({target_fps} FPS)"
 
+    if engine and (is_v_playing or is_v_paused):
+        source_url = engine.video_player.source()
+        is_local = source_url.isLocalFile() if hasattr(source_url, 'isLocalFile') else False
+        suffix = " (Wstrzymany)" if is_v_paused else ""
+
+        if is_local:
+            v_source_str = f"OFFLINE (Dysk){suffix}"
+        elif getattr(engine, 'last_resolve_time', 0) == 0:
+            v_source_str = f"ONLINE (Prefetch RAM){suffix}"
+        else:
+            v_source_str = f"ONLINE (W locie){suffix}"
+    elif engine and getattr(engine, 'current_yt_link', None):
+        v_source_str = "Ładowanie..."
+    else:
+        v_source_str = "Brak / Wyłączone"
+
     is_masked = getattr(win, '_current_mask_state', False)
     filter_str = "MASKA (Aktywna)" if is_masked else "CZYSTY (Widoczny)"
 
@@ -140,6 +157,7 @@ def get_telemetry(win=None) -> dict:
         "h_sync": h_sync_str,
         "grace": grace_str,
         "v_health": v_health_str,
+        "v_source": v_source_str,
         "fps": fps_str,
         "z_fps": z_fps_str,
         "res_conf": res_conf_str,

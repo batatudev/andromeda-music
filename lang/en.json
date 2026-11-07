@@ -286,6 +286,7 @@
   "dev.telemetry_win.h_sync": "Hard-Sync Resets:",
   "dev.telemetry_win.grace": "Buffer Grace Period:",
   "dev.telemetry_win.v_health": "Buffer Health (Seconds):",
+  "dev.telemetry_win.v_source": "Stream Source:",
   "dev.telemetry_win.fps": "Rendering Rate (FPS):",
   "dev.telemetry_win.z_fps": "Stream Continuity Drop:",
   "dev.telemetry_win.res_conf": "Resolution (Target):",

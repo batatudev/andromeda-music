@@ -13,7 +13,7 @@ class TelemetryWindow(QMainWindow):
         self.main_window = main_window
 
         self.setWindowTitle(tr("dev.telemetry_win.title", "Diagnostyka Systemu"))
-        self.setFixedSize(520, 980)
+        self.setFixedSize(520, 1010)
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint | Qt.Tool)
 
         self.setStyleSheet(f"background-color: {THEME['bg_main']}; color: {THEME['text_main']}; border-radius: 8px;")
@@ -72,6 +72,7 @@ class TelemetryWindow(QMainWindow):
         add_separator()
 
         add_section_header(tr("dev.telemetry_win.sec_video", "ANALIZA STRUMIENIA WIDEO"))
+        add_metric("v_source", tr("dev.telemetry_win.v_source", "Źródło Strumienia:"))
         add_metric("fps", tr("dev.telemetry_win.fps", "Tempo Renderowania (FPS):"))
         add_metric("z_fps", tr("dev.telemetry_win.z_fps", "Zanik Ciągłości Strumienia:"))
         add_metric("res_conf", tr("dev.telemetry_win.res_conf", "Rozdzielczość (Target):"))

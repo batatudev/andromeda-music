@@ -286,6 +286,7 @@
   "dev.telemetry_win.h_sync": "Korekty Twarde (Hard-Sync):",
   "dev.telemetry_win.grace": "Czas Ochronny Bufora:",
   "dev.telemetry_win.v_health": "Zapas Sekundowy Bufora:",
+  "dev.telemetry_win.v_source": "Źródło Strumienia:",
   "dev.telemetry_win.fps": "Tempo Renderowania (FPS):",
   "dev.telemetry_win.z_fps": "Zanik Ciągłości Strumienia:",
   "dev.telemetry_win.res_conf": "Rozdzielczość (Target):",
