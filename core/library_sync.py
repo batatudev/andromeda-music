@@ -1,3 +1,4 @@
+# core/library_sync.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -94,7 +95,15 @@ class LibrarySyncManager(QObject):
                 params['albumCount'] = limit
                 params['albumOffset'] = offset
 
-                res = self.client._make_request("search3", params).get('searchResult3', {})
+                raw_resp = self.client._make_request("search3", params)
+                if not raw_resp:
+                    raise Exception("Brak odpowiedzi od serwera Navidrome (Circuit breaker lub limit czasu połączenia).")
+
+                if raw_resp.get('status') == 'failed':
+                    err_msg = raw_resp.get('error', {}).get('message', 'Nieznany błąd Subsonic API')
+                    raise Exception(f"Błąd Subsonic API: {err_msg}")
+
+                res = raw_resp.get('searchResult3', {})
 
                 if not self._is_running:
                     break

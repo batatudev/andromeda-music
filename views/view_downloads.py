@@ -1,3 +1,4 @@
+# views/view_downloads.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -19,7 +20,7 @@ class DownloadsView(QWidget):
     """
     Nowoczesne Centrum Transferów i Magazynu Pobrań w stylu Zenith Video Player.
     Zawiera graficzną kartę dysku, filtry stanów (pigułki z licznikami),
-    priorytet dla aktywnych transferów oraz paginację ukończonych pozycji.
+    priorytet dla aktywnych transferów oraz leniwe odświeżanie bez narzutu w tle.
     """
     def __init__(self, main_window):
         super().__init__()
@@ -34,6 +35,7 @@ class DownloadsView(QWidget):
         self.filter_buttons = {}
         self.item_widgets = {}
         self.raw_tasks = []
+        self._needs_refresh = False
 
         self._init_ui()
         self._connect_signals()
@@ -288,13 +290,19 @@ class DownloadsView(QWidget):
         self.main_layout.addStretch()
 
     def _connect_signals(self):
-        self.v_mgr.queue_updated.connect(lambda: self.load(force=True))
+        self.v_mgr.queue_updated.connect(self._on_queue_updated)
         self.v_mgr.download_status_changed.connect(self._on_video_status_changed)
         self.v_mgr.download_progress.connect(self._on_video_progress)
 
-        self.a_mgr.queue_updated.connect(lambda: self.load(force=True))
+        self.a_mgr.queue_updated.connect(self._on_queue_updated)
         self.a_mgr.download_status_changed.connect(self._on_audio_status_changed)
         self.a_mgr.download_progress.connect(self._on_audio_progress)
+
+    def _on_queue_updated(self):
+        if not self.isVisible():
+            self._needs_refresh = True
+            return
+        self.load(force=True)
 
     def _open_downloads_dir(self):
         dest_dir = PathsManager.get_server_data_dir()
@@ -391,10 +399,13 @@ class DownloadsView(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        self.load(force=True)
+        if getattr(self, '_needs_refresh', False) or not self.raw_tasks:
+            self._needs_refresh = False
+            self.load(force=True)
 
     def load(self, *args, force=False, **kwargs):
         if not force and not self.isVisible():
+            self._needs_refresh = True
             return
 
         if self.a_mgr.is_snoozed:
@@ -629,6 +640,9 @@ class DownloadsView(QWidget):
             self.btn_load_more.hide()
 
     def _on_video_status_changed(self, item_id, status):
+        if not self.isVisible():
+            self._needs_refresh = True
+            return
         key = f"video_{item_id}"
         if key in self.item_widgets:
             if status == "":
@@ -640,11 +654,16 @@ class DownloadsView(QWidget):
             self.load(force=True)
 
     def _on_video_progress(self, item_id, pct, stats_str=""):
+        if not self.isVisible():
+            return
         key = f"video_{item_id}"
         if key in self.item_widgets:
             self.item_widgets[key].update_progress(pct, stats_str)
 
     def _on_audio_status_changed(self, item_id, status):
+        if not self.isVisible():
+            self._needs_refresh = True
+            return
         key = f"audio_{item_id}"
         if key in self.item_widgets:
             if status == "":
@@ -656,6 +675,8 @@ class DownloadsView(QWidget):
             self.load(force=True)
 
     def _on_audio_progress(self, item_id, pct, stats_str=""):
+        if not self.isVisible():
+            return
         key = f"audio_{item_id}"
         if key in self.item_widgets:
             self.item_widgets[key].update_progress(pct, stats_str)
