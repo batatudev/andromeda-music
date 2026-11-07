@@ -141,7 +141,7 @@ class MainWindow(QMainWindow):
         self.watchdog = WatchdogService(self)
         self.telemetry = TelemetryService(self)
 
-        QTimer.singleShot(200, self._start_app)
+        QTimer.singleShot(0, self._start_app)
         QTimer.singleShot(1500, self._ensure_video_output)
 
     def _init_mpris(self):

@@ -94,11 +94,8 @@ class HomeView(LibraryScrollArea):
             return
 
         self.show_loading()
-        self.content_widget.setUpdatesEnabled(False)
-        self._clear()
         self.row_albs = None
         self.row_arts = None
-        self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
             repo = self.main_window.repo
@@ -130,7 +127,6 @@ class HomeView(LibraryScrollArea):
                 self.hide_loading(0)
                 return
 
-            self.content_widget.setUpdatesEnabled(False)
             self._clear()
             stars, albs, songs, r_arts = data
 
@@ -226,8 +222,7 @@ class HomeView(LibraryScrollArea):
             self.content_layout.addStretch()
             self._recalculate_rows()
             self.content_layout.activate()
-            self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True
-            self.hide_loading(delay_ms=180)
+            self.hide_loading(delay_ms=100)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
