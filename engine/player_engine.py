@@ -175,10 +175,6 @@ class PlayerEngine(QObject):
         self.queue_mgr.is_shuffled = val
 
     def handle_yt_link_changed(self, song_id):
-        """
-        Reaktywne odświeżenie po zapisaniu lub usunięciu własnego linku YouTube.
-        Czyści cache i natychmiast synchronizuje odtwarzacz wideo.
-        """
         sid = str(song_id) if song_id is not None else ""
         if self.prefetched_song_id and str(self.prefetched_song_id) == sid:
             self.prefetched_song_id = None
@@ -324,6 +320,8 @@ class PlayerEngine(QObject):
         if self.video_player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
             self.video_player.play()
 
+        self.arf_manager.evaluate_arf()
+
         a_pos = self.player.position()
         v_pos = self.video_player.position()
         delta = a_pos - v_pos
@@ -339,17 +337,37 @@ class PlayerEngine(QObject):
         else:
             self.sync_locked = False
 
-        if abs(delta) > hard_limit:
-            self._seek_grace_until = time.time() + 1.5
-            self.video_player.setPosition(a_pos)
-            self.video_player.setPlaybackRate(1.0)
-            logger.decision("Hard-Sync", f"Delta: {delta}ms", "Twardy reset klatki")
-        elif delta > 250:
-            self.video_player.setPlaybackRate(1.1)
-        elif delta < -250:
-            self.video_player.setPlaybackRate(0.9)
+        is_offline = False
+        cur_song = self.queue_mgr.current_song()
+        if cur_song and hasattr(self, 'video_download_manager'):
+            is_offline = bool(self.video_download_manager.is_downloaded(cur_song.item_id))
+
+        if is_offline:
+            if abs(delta) > 1000:
+                self._seek_grace_until = time.time() + 1.2
+                self.video_player.setPosition(a_pos)
+                self.video_player.setPlaybackRate(1.0)
+                self.h_sync_count += 1
+                logger.decision("Hard-Sync (Offline)", f"Delta: {delta}ms", "Twardy reset klatki pliku lokalnego")
+            elif delta > 400:
+                self.video_player.setPlaybackRate(1.05)
+            elif delta < -400:
+                self.video_player.setPlaybackRate(0.95)
+            else:
+                self.video_player.setPlaybackRate(1.0)
         else:
-            self.video_player.setPlaybackRate(1.0)
+            if abs(delta) > hard_limit:
+                self._seek_grace_until = time.time() + 1.5
+                self.video_player.setPosition(a_pos)
+                self.video_player.setPlaybackRate(1.0)
+                self.h_sync_count += 1
+                logger.decision("Hard-Sync", f"Delta: {delta}ms", "Twardy reset klatki")
+            elif delta > 250:
+                self.video_player.setPlaybackRate(1.1)
+            elif delta < -250:
+                self.video_player.setPlaybackRate(0.9)
+            else:
+                self.video_player.setPlaybackRate(1.0)
 
     def _activate_sync_timer(self):
         if not self.sync_timer.isActive():
@@ -362,7 +380,6 @@ class PlayerEngine(QObject):
     def load_and_play_video(self, force_mid_track=False):
         song = self.queue_mgr.current_song()
         if song:
-            # Zawsze upewnij się, że używamy najbardziej aktualnego linku
             fresh_link = song.yt_link
             if not fresh_link and hasattr(self, 'client') and self.client:
                 from engine.header_tag_extractor import check_and_cache_remote_header

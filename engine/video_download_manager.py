@@ -298,8 +298,24 @@ class VideoDownloadManager(BaseDownloadManager):
         elif quality_str == "480p":
             h_limit = 480
 
+        target_fps = APP_CONFIG.get("video_offline_fps", "60")
+        if str(target_fps) == "30":
+            format_rule = (
+                f'bestvideo[height<={h_limit}][fps<=30][vcodec^=avc1][ext=mp4]/'
+                f'bestvideo[height<={h_limit}][fps<=30]/'
+                f'best[height<={h_limit}][fps<=30]/'
+                f'best[height<={h_limit}]/best'
+            )
+        else:
+            format_rule = (
+                f'bestvideo[height<={h_limit}][fps<=60]/'
+                f'bestvideo[height<={h_limit}][vcodec^=avc1]/'
+                f'bestvideo[height<={h_limit}]/'
+                f'best[height<={h_limit}]/best'
+            )
+
         ydl_opts = {
-            'format': f'bestvideo[height<={h_limit}][vcodec^=avc1][ext=mp4]/best[height<={h_limit}][vcodec^=avc1][ext=mp4]/best',
+            'format': format_rule,
             'outtmpl': output_template,
             'quiet': True,
             'no_warnings': True,
@@ -375,7 +391,6 @@ class VideoDownloadManager(BaseDownloadManager):
             if err_type in (YtErrorType.RATE_LIMIT, YtErrorType.BOT_CHECK, YtErrorType.INVALID_LINK, YtErrorType.BLOCKED_OR_REMOVED):
                 raise e
 
-            # Fallback na ciasteczka przeglądarki jeśli Fast-Path nie powiódł się
             if not cookies_file.exists():
                 try:
                     ydl_opts_browser = dict(ydl_opts)

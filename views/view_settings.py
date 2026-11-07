@@ -138,6 +138,7 @@ class SettingsView(QWidget):
             "language": APP_CONFIG.get("language", "pl"),
             "accent": APP_CONFIG.get("accent", "#aa00ff"),
             "video_resolution": APP_CONFIG.get("video_resolution", "1080p"),
+            "video_fps": APP_CONFIG.get("video_fps", "60"),
             "video_min_res": APP_CONFIG.get("video_min_res", "480p"),
             "video_auto_res": APP_CONFIG.get("video_auto_res", True),
             "video_dynamic_opacity": APP_CONFIG.get("video_dynamic_opacity", 20),
@@ -147,6 +148,7 @@ class SettingsView(QWidget):
             "dev_mode": APP_CONFIG.get("dev_mode", False),
             "video_offline_path": APP_CONFIG.get("video_offline_path", ""),
             "video_offline_quality": APP_CONFIG.get("video_offline_quality", "1080p"),
+            "video_offline_fps": APP_CONFIG.get("video_offline_fps", "60"),
             "video_smart_auto_play": APP_CONFIG.get("video_smart_auto_play", False),
             "video_auto_dl_favs": APP_CONFIG.get("video_auto_dl_favs", False),
             "video_auto_dl_playlists": list(APP_CONFIG.get("video_auto_dl_playlists", [])),
@@ -185,6 +187,9 @@ class SettingsView(QWidget):
 
         if hasattr(self, 'tab_video'):
             self.tab_video.combo_res.setCurrentText(APP_CONFIG.get("video_resolution", "1080p"))
+            idx_fps = self.tab_video.combo_fps.findData(APP_CONFIG.get("video_fps", "60"))
+            if idx_fps >= 0:
+                self.tab_video.combo_fps.setCurrentIndex(idx_fps)
             self.tab_video.combo_auto_res.setCurrentIndex(1 if APP_CONFIG.get("video_auto_res", True) else 0)
             self.tab_video.combo_min_res.setCurrentText(APP_CONFIG.get("video_min_res", "480p"))
             for key, slider in self.tab_video.video_sliders.items():
@@ -200,6 +205,9 @@ class SettingsView(QWidget):
 
             self.tab_offline.combo_smart_auto.setCurrentIndex(1 if APP_CONFIG.get("video_smart_auto_play", False) else 0)
             self.tab_offline.combo_off_quality.setCurrentText(APP_CONFIG.get("video_offline_quality", "1080p"))
+            idx_off_fps = self.tab_offline.combo_off_fps.findData(APP_CONFIG.get("video_offline_fps", "60"))
+            if idx_off_fps >= 0:
+                self.tab_offline.combo_off_fps.setCurrentIndex(idx_off_fps)
             self.tab_offline.combo_auto_favs.setCurrentIndex(1 if APP_CONFIG.get("video_auto_dl_favs", False) else 0)
             self.tab_offline.combo_audio_auto_favs.setCurrentIndex(1 if APP_CONFIG.get("audio_auto_dl_favs", False) else 0)
             hide_val = str(APP_CONFIG.get("hide_undownloaded_offline", "False")).lower() == 'true'

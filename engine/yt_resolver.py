@@ -98,8 +98,15 @@ class YTResolver:
             return None
 
     def _build_base_ydl_opts(self, h_limit, abort_check):
+        target_fps = APP_CONFIG.get("video_fps", "60")
+        fps_filter = "[fps<=30]" if str(target_fps) == "30" else "[fps<=60]"
+
         return {
-            'format': f'bestvideo[height<={h_limit}][vcodec^=avc1]/best[height<={h_limit}]/best',
+            'format': (
+                f'bestvideo[height<={h_limit}]{fps_filter}[vcodec^=avc1]/'
+                f'bestvideo[height<={h_limit}]{fps_filter}/'
+                f'bestvideo[height<={h_limit}]/best'
+            ),
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
@@ -198,7 +205,6 @@ class YTResolver:
         self.engine.current_engine_state = EngineState.RESOLVING_YTDLP
 
         def fetch():
-            # Zawsze upewnij się, że używamy najbardziej aktualnego linku z utworu
             if self.engine.queue and 0 <= self.engine.idx < len(self.engine.queue):
                 song = self.engine.queue[self.engine.idx]
                 fresh_link = song.yt_link
@@ -247,7 +253,6 @@ class YTResolver:
             last_error_type = None
             cookies_file = PathsManager.get_cookies_file()
 
-            # KROK 1: Priorytetowy plik cookies.txt (jeśli został dostarczony)
             if cookies_file.exists():
                 try:
                     ydl_opts_file = self._build_base_ydl_opts(h_limit, abort_check)
@@ -263,7 +268,6 @@ class YTResolver:
                     last_error_type = classify_yt_error(e)
                     logger.log(f"Błąd użycia cookies.txt ({last_error_type}): {e}")
 
-            # KROK 2: Fast-Path (Szybkie pobieranie bez ciasteczek)
             if not success_url and not current_event.is_set():
                 try:
                     ydl_opts_fast = self._build_base_ydl_opts(h_limit, abort_check)
@@ -277,7 +281,6 @@ class YTResolver:
                 except Exception as e:
                     last_error_type = classify_yt_error(e)
 
-            # KROK 3: Bezpieczny fallback na ciasteczka przeglądarek (pomijany przy nieistniejącym wideo)
             if (
                 not success_url
                 and not current_event.is_set()
@@ -307,7 +310,6 @@ class YTResolver:
             if current_event.is_set():
                 return
 
-            # KROK 4: Awaryjny fallback na klienta TV (pomijany, jeśli wideo nie istnieje lub zablokowano IP)
             if (
                 not success_url
                 and not current_event.is_set()
@@ -346,8 +348,6 @@ class YTResolver:
         self.engine.video_player.setSource(QUrl(direct_url))
 
     def on_video_resolve_failed(self, error_type=None):
-        """Wykonywane bezpiecznie w głównym wątku GUI PySide6."""
-        # 1. Natychmiastowe zabezpieczenie i odblokowanie odtwarzania audio
         if getattr(self.engine, '_sync_start_active', False):
             self.engine.sync_timeout_timer.stop()
             self.engine._sync_start_active = False
@@ -357,7 +357,6 @@ class YTResolver:
         else:
             self.engine.loading_changed.emit(False)
 
-        # 2. Deterministyczne wygaszenie warstwy wideo dla utworu (Soft Fallback)
         self.engine.video_killed_for_track = True
         self.engine.current_engine_state = EngineState.VIDEO_DISABLED
         self.engine.video_player.stop()
@@ -366,7 +365,6 @@ class YTResolver:
         self.engine._deactivate_sync_timer()
         self.engine.has_video_signal.emit(False)
 
-        # 3. Informacyjne powiadomienie użytkownika (z mechanizmem Cooldown dla limitów IP)
         self._notify_user_of_failure(error_type)
 
     def _notify_user_of_failure(self, error_type=None):
