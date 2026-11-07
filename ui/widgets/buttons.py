@@ -1,0 +1,78 @@
+import os
+os.environ["QT_API"] = "pyside6"
+
+import qtawesome as qta
+from PySide6.QtWidgets import QPushButton
+from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, Property
+
+from config import THEME
+
+_ICON_CACHE = {}
+
+
+def get_cached_icon(icon_name, color=None):
+    key = (icon_name, color)
+    if key not in _ICON_CACHE:
+        try:
+            if color:
+                _ICON_CACHE[key] = qta.icon(icon_name, color=color)
+            else:
+                _ICON_CACHE[key] = qta.icon(icon_name)
+        except Exception:
+            _ICON_CACHE[key] = qta.icon(icon_name)
+    return _ICON_CACHE[key]
+
+
+class HoverIconButton(QPushButton):
+    def __init__(self, icon_name, default_color=None, hover_color="white", icon_size=16, parent=None, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.icon_name = icon_name
+        self.default_color = default_color if default_color is not None else THEME.get("text_muted", "#888888")
+        self.hover_color = hover_color
+        self.base_icon_size = icon_size
+        self._scale = 1.0
+        self.anim = None
+
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
+        self.setIconSize(QSize(self.base_icon_size, self.base_icon_size))
+        self.setCursor(Qt.PointingHandCursor)
+
+    def _ensure_anim(self):
+        if self.anim is None:
+            self.anim = QPropertyAnimation(self, b"iconScale")
+            self.anim.setDuration(200)
+            self.anim.setEasingCurve(QEasingCurve.OutBack)
+
+    @Property(float)
+    def iconScale(self):
+        return self._scale
+
+    @iconScale.setter
+    def iconScale(self, val):
+        self._scale = val
+        new_size = int(self.base_icon_size * val)
+        self.setIconSize(QSize(new_size, new_size))
+
+    def set_default_color(self, color):
+        self.default_color = color
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
+
+    def update_icon(self, icon_name):
+        self.icon_name = icon_name
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
+
+    def enterEvent(self, e):
+        self.setIcon(get_cached_icon(self.icon_name, color=self.hover_color))
+        self._ensure_anim()
+        self.anim.stop()
+        self.anim.setEndValue(1.15)
+        self.anim.start()
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self.setIcon(get_cached_icon(self.icon_name, color=self.default_color))
+        if self.anim:
+            self.anim.stop()
+            self.anim.setEndValue(1.0)
+            self.anim.start()
+        super().leaveEvent(e)

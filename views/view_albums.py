@@ -1,0 +1,105 @@
+# views/view_albums.py
+import os
+os.environ["QT_API"] = "pyside6"
+
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont
+
+from core.enums import MediaType
+from ui.widgets import FlowLayout
+from ui.components import MediaCard
+from core.i18n import tr
+from views.library_base import LibraryScrollArea
+
+class AlbumsView(LibraryScrollArea):
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        self.album_flow = None
+        self.offset = 0
+        self.is_loading = False
+        self._is_loaded = False
+
+    def invalidate_cache(self):
+        self._is_loaded = False
+        self.offset = 0
+
+    def _on_scroll(self, val):
+        if not self.is_loading and val > self.verticalScrollBar().maximum() - 250:
+            self._load_more()
+
+    def load(self, force=False):
+        if not force and self._is_loaded:
+            return
+
+        self._is_loaded = True
+        self.show_loading()
+        self.content_widget.setUpdatesEnabled(False)
+        self._clear()
+        title_txt = tr("albums.title", "Wszystkie Albumy")
+        self.content_layout.addWidget(QLabel(title_txt, font=QFont("Sans", 24, QFont.Bold)))
+        self.album_flow = FlowLayout(spacing=25)
+        self.content_layout.addLayout(self.album_flow)
+        self.offset = 0
+        self.content_layout.addStretch()
+        self.content_widget.setUpdatesEnabled(True)
+        self._load_more()
+
+    def _load_more(self):
+        if self.is_loading:
+            return
+        self.is_loading = True
+
+        def fetch():
+            return self.main_window.repo.get_albums(self.offset, 30)
+
+        def on_ready(albs):
+            if albs:
+                first_chunk = albs[:10]
+                remaining = albs[10:]
+                self._render_chunk(first_chunk, remaining)
+            else:
+                self.is_loading = False
+                self.hide_loading(0)
+
+        self.main_window.run_async(fetch, on_ready, page_bound=True)
+
+    def _render_chunk(self, chunk, remaining):
+        self.content_widget.setUpdatesEnabled(False)
+        for a in chunk:
+            c = MediaCard(a, MediaType.ALBUM, parent=self.content_widget)
+            c.clicked.connect(self.main_window._show_details)
+            c.play_clicked.connect(
+                lambda d, t: self.main_window.engine.play_list(
+                    self.main_window.repo.get_album(d.item_id).get('song', []), 0
+                )
+            )
+            c.add_to_queue_clicked.connect(self.main_window._handle_add_to_queue)
+            c.download_videos_clicked.connect(self.main_window._handle_download_videos)
+            c.artist_clicked.connect(self.main_window._show_details)
+            c.set_custom_cover_clicked.connect(self.main_window._set_custom_album_cover)
+            c.reset_custom_cover_clicked.connect(self.main_window._reset_custom_album_cover)
+            c.save_image_clicked.connect(self.main_window._save_image_to_file)
+            self.album_flow.addWidget(c)
+            if a.cover_id:
+                self.main_window.loader.load(self.main_window.client.get_cover_art_url(a.cover_id), c)
+            self.offset += 1
+        self.content_widget.setUpdatesEnabled(True)
+        self.hide_loading(delay_ms=60)
+
+        if remaining:
+            next_chunk = remaining[:10]
+            rest = remaining[10:]
+            QTimer.singleShot(0, lambda: self._render_chunk(next_chunk, rest))
+        else:
+            self.is_loading = False
+            self._prefetch_next_page()
+
+    def _prefetch_next_page(self):
+        next_offset = self.offset
+
+        def task():
+            return self.main_window.repo.get_albums(next_offset, 30)
+
+        self.main_window.run_async(task, None, page_bound=False)

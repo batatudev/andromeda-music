@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Andromeda Music
+GenericName=Music Player & Ambient Video Visualizer
+GenericName[pl]=Odtwarzacz muzyki i ambient wideo
+Comment=Native music player with Navidrome, YouTube ambient video, and Hi-Fi streaming
+Comment[pl]=Natywny odtwarzacz muzyki z integracją Navidrome, rozmyciem wideo YouTube i jakością Hi-Fi
+Exec=andromeda-music %U
+Icon=io.github.batatudev.AndromedaMusic
+Terminal=false
+Categories=AudioVideo;Audio;Player;Music;
+MimeType=audio/mpeg;audio/flac;audio/mp4;audio/ogg;audio/opus;audio/x-wav;
+Keywords=music;player;subsonic;navidrome;youtube;ambient;visualizer;hifi;
+StartupWMClass=andromeda-music
+X-Purism-FormFactor=Workstation;Mobile;
