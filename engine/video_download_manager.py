@@ -301,17 +301,18 @@ class VideoDownloadManager(BaseDownloadManager):
         target_fps = APP_CONFIG.get("video_offline_fps", "60")
         if str(target_fps) == "30":
             format_rule = (
-                f'bestvideo[height<={h_limit}][fps<=30][vcodec^=avc1][ext=mp4]/'
-                f'bestvideo[height<={h_limit}][fps<=30]/'
-                f'best[height<={h_limit}][fps<=30]/'
+                f'bestvideo[height<={h_limit}][fps<=30][vcodec!*=av01][vcodec^=avc1][ext=mp4]/'
+                f'bestvideo[height<={h_limit}][fps<=30][vcodec!*=av01]/'
+                f'best[height<={h_limit}][fps<=30][vcodec!*=av01]/'
                 f'best[height<={h_limit}]/best'
             )
         else:
             format_rule = (
-                f'bestvideo[height<={h_limit}][fps<=60]/'
-                f'bestvideo[height<={h_limit}][vcodec^=avc1]/'
-                f'bestvideo[height<={h_limit}]/'
-                f'best[height<={h_limit}]/best'
+                f'bestvideo[height<={h_limit}][fps<=60][vcodec!*=av01][vcodec^=avc1]/'
+                f'bestvideo[height<={h_limit}][fps<=60][vcodec!*=av01][vcodec^=vp09]/'
+                f'bestvideo[height<={h_limit}][fps<=60][vcodec!*=av01]/'
+                f'bestvideo[height<={h_limit}][vcodec!*=av01]/'
+                f'best[height<={h_limit}][vcodec!*=av01]/best'
             )
 
         ydl_opts = {

@@ -101,12 +101,16 @@ class YTResolver:
         target_fps = APP_CONFIG.get("video_fps", "60")
         fps_filter = "[fps<=30]" if str(target_fps) == "30" else "[fps<=60]"
 
+        format_selector = (
+            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01][vcodec^=avc1]/'
+            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01][vcodec^=vp09]/'
+            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01]/'
+            f'bestvideo[height<={h_limit}][vcodec!*=av01]/'
+            f'best[height<={h_limit}][vcodec!*=av01]/best'
+        )
+
         return {
-            'format': (
-                f'bestvideo[height<={h_limit}]{fps_filter}[vcodec^=avc1]/'
-                f'bestvideo[height<={h_limit}]{fps_filter}/'
-                f'bestvideo[height<={h_limit}]/best'
-            ),
+            'format': format_selector,
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
