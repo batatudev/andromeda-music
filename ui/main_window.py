@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QScrollArea
 )
 from PySide6.QtCore import Qt, Signal, QTimer, QThreadPool
+from PySide6.QtGui import QGuiApplication, QPalette, QColor
 from PySide6.QtMultimedia import QMediaPlayer
 
 from api_client import NavidromeClient
@@ -122,8 +123,13 @@ class MainWindow(QMainWindow):
         self.current_route = None
 
         self.setWindowTitle(APP_NAME)
-        self.resize(1400, 900)
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            self.setGeometry(screen.availableGeometry())
+        else:
+            self.resize(1400, 900)
         self.setMinimumSize(1024, 720)
+        self.setWindowState(Qt.WindowMaximized)
         self.setStyleSheet(get_app_style())
         self._init_ui()
 
@@ -398,7 +404,12 @@ class MainWindow(QMainWindow):
 
     def _init_ui(self):
         main = QWidget()
+        main.setAutoFillBackground(True)
+        main_pal = main.palette()
+        main_pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
+        main.setPalette(main_pal)
         self.setCentralWidget(main)
+
         root = QVBoxLayout(main)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -422,6 +433,10 @@ class MainWindow(QMainWindow):
         self.sidebar.dev_requested.connect(lambda: self.router.switch_page(Pages.DEV_MODE))
 
         self.stack = QStackedWidget()
+        self.stack.setAutoFillBackground(True)
+        stack_pal = self.stack.palette()
+        stack_pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
+        self.stack.setPalette(stack_pal)
         self.pages = [None] * len(Pages)
 
         self.now_playing_view = NowPlayingWidget()

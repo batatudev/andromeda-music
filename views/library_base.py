@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPalette, QColor
 import random
 import qtawesome as qta
 
@@ -25,8 +25,18 @@ class LibraryScrollArea(SmoothScrollArea):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
+        self.viewport().setAutoFillBackground(True)
+        v_pal = self.viewport().palette()
+        v_pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
+        self.viewport().setPalette(v_pal)
+
         self.content_widget = QWidget()
         self.content_widget.setObjectName("LibraryContentWidget")
+        self.content_widget.setAutoFillBackground(True)
+        c_pal = self.content_widget.palette()
+        c_pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
+        self.content_widget.setPalette(c_pal)
+
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(30, 30, 30, 30)
         self.content_layout.setSpacing(15)

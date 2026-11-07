@@ -1,3 +1,4 @@
+# app.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -89,6 +90,9 @@ def run():
         c = NavidromeClient("http://localhost", "", "", ignore_ssl=False)
 
     w = MainWindow(c)
+    screen = app.primaryScreen()
+    if screen:
+        w.setGeometry(screen.availableGeometry())
     w.showMaximized()
 
     if "--play-playlist" in sys.argv:
