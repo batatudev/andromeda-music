@@ -1,3 +1,4 @@
+# ui/components/song_item.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -260,7 +261,7 @@ class SongItem(QFrame):
         self.btn_more.clicked.connect(self._show_context_menu)
         layout.addWidget(self.btn_more)
 
-        self.setProperty("active", "true" if active else "false")
+        self.set_active(active)
         self._update_dl_status_icon()
         self._connect_signals()
         self.destroyed.connect(self._disconnect_signals)
@@ -355,6 +356,10 @@ class SongItem(QFrame):
             self.setProperty("active", new_val)
             self.style().unpolish(self)
             self.style().polish(self)
+            if hasattr(self, 'title_lbl') and self.title_lbl:
+                self.title_lbl.style().unpolish(self.title_lbl)
+                self.title_lbl.style().polish(self.title_lbl)
+            self.update()
 
     def enterEvent(self, e):
         self.cover_overlay.show()

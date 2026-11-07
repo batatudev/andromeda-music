@@ -1,3 +1,4 @@
+# ui/theme_manager.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -58,7 +59,7 @@ class ThemeManager(QObject):
             "play_bg": "white" if is_dark else "#111111",
             "play_color": "black" if is_dark else "white",
             "accent": acc,
-            "accent_rgba": self.hex_to_rgba(acc, 0.1),
+            "accent_rgba": self.hex_to_rgba(acc, 0.18),
             "heart_inactive": "#444444" if is_dark else "#cccccc",
             "btn_hover_bg": "rgba(255,255,255,0.1)" if is_dark else "rgba(0,0,0,0.1)",
             "btn_remove_hover": "rgba(231,76,60,0.2)",
