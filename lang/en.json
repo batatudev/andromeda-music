@@ -289,7 +289,7 @@
   "dev.telemetry_win.fps": "Rendering Rate (FPS):",
   "dev.telemetry_win.z_fps": "Stream Continuity Drop:",
   "dev.telemetry_win.res_conf": "Resolution (Target):",
-  "dev.telemetry_win.res_act": "Adaptive Resolution:",
+  "dev.telemetry_win.res_act": "Actual Resolution:",
   "dev.telemetry_win.motion": "Motion Index:",
   "dev.telemetry_win.filter": "Visual Mask Layer:",
   "dev.telemetry_win.resolve": "Video Resolve Time:",

@@ -135,19 +135,15 @@ class YTResolver:
             if not yt_link or current_event.is_set():
                 return
 
-            max_blur = max(APP_CONFIG.get("video_dynamic_blur", 0), APP_CONFIG.get("video_static_blur", 60))
-            if max_blur > 50:
+            rl = APP_CONFIG.get("video_resolution", "1080p")
+            if rl == VideoResolution.RES_1080P:
+                h_limit = 1080
+            elif rl == VideoResolution.RES_720P:
+                h_limit = 720
+            elif rl == VideoResolution.RES_480P:
                 h_limit = 480
             else:
-                rl = APP_CONFIG.get("video_resolution", "1080p")
-                if rl == VideoResolution.RES_1080P:
-                    h_limit = 1080
-                elif rl == VideoResolution.RES_720P:
-                    h_limit = 720
-                elif rl == VideoResolution.RES_480P:
-                    h_limit = 480
-                else:
-                    h_limit = 240
+                h_limit = 240
 
             def abort_check(info_dict):
                 if current_event.is_set():
@@ -208,10 +204,10 @@ class YTResolver:
             if self.engine.queue and 0 <= self.engine.idx < len(self.engine.queue):
                 song = self.engine.queue[self.engine.idx]
                 fresh_link = song.yt_link
-                if not fresh_link and hasattr(self.engine, 'client') and self.engine.client:
+                if not fresh_link and hasattr(self.engine, 'client') and self.client:
                     from engine.header_tag_extractor import check_and_cache_remote_header
                     fresh_link = check_and_cache_remote_header(
-                        self.engine.client, song, getattr(self.engine, 'video_download_manager', None)
+                        self.client, song, getattr(self.engine, 'video_download_manager', None)
                     )
                 self.engine.current_yt_link = fresh_link
 
@@ -221,19 +217,15 @@ class YTResolver:
                 return
 
             start_time = time.time()
-            max_blur = max(APP_CONFIG.get("video_dynamic_blur", 0), APP_CONFIG.get("video_static_blur", 60))
-            if max_blur > 50:
+            rl = self.engine.current_video_resolution
+            if rl == VideoResolution.RES_1080P:
+                h_limit = 1080
+            elif rl == VideoResolution.RES_720P:
+                h_limit = 720
+            elif rl == VideoResolution.RES_480P:
                 h_limit = 480
             else:
-                rl = self.engine.current_video_resolution
-                if rl == VideoResolution.RES_1080P:
-                    h_limit = 1080
-                elif rl == VideoResolution.RES_720P:
-                    h_limit = 720
-                elif rl == VideoResolution.RES_480P:
-                    h_limit = 480
-                else:
-                    h_limit = 240
+                h_limit = 240
 
             if getattr(self.engine, '_current_yt_info_dict', None):
                 cached_url = self.get_cached_url(h_limit)

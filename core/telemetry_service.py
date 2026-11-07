@@ -62,7 +62,15 @@ def get_telemetry(win=None) -> dict:
     target_res = APP_CONFIG.get("video_resolution", "1080p")
     target_fps = APP_CONFIG.get("video_fps", "60")
     res_conf_str = f"{target_res} ({target_fps} FPS)"
-    res_act_str = str(getattr(engine, 'current_video_resolution', target_res))
+
+    actual_res = getattr(vw, 'actual_resolution', '')
+    if actual_res:
+        res_act_str = actual_res
+    else:
+        if engine and is_v_playing:
+            res_act_str = f"Wykrywanie ({engine.current_video_resolution})"
+        else:
+            res_act_str = "Brak"
 
     motion_val = getattr(vw, 'last_motion_score', 0.0) if vw else 0.0
     motion_str = f"{motion_val:.2f}"

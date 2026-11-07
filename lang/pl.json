@@ -289,7 +289,7 @@
   "dev.telemetry_win.fps": "Tempo Renderowania (FPS):",
   "dev.telemetry_win.z_fps": "Zanik Ciągłości Strumienia:",
   "dev.telemetry_win.res_conf": "Rozdzielczość (Target):",
-  "dev.telemetry_win.res_act": "Rozdzielczość Adaptacyjna:",
+  "dev.telemetry_win.res_act": "Rozdzielczość Rzeczywista:",
   "dev.telemetry_win.motion": "Wskaźnik Dynamiki (Motion):",
   "dev.telemetry_win.filter": "Warstwa Wizualna:",
   "dev.telemetry_win.resolve": "Czas Przygotowania Wideo:",
