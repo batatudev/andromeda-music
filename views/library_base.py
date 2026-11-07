@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QPalette, QColor
-import random
 import qtawesome as qta
 
 from config import THEME
@@ -19,8 +18,8 @@ from core.i18n import tr
 
 class LoadingOverlay(QWidget):
     """
-    Czysta, w 100% nieprzezroczysta kurtyna ładowania na litym tle #050505.
-    Startuje spinner dynamicznie przy każdym pokazaniu.
+    100% opaque solid background overlay preventing visual element flashes during view builds.
+    Dynamically manages spinning animation lifecycle without leaking Qt event loop timers.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -47,13 +46,25 @@ class LoadingOverlay(QWidget):
 
         layout.addWidget(self.spinner_lbl, 0, Qt.AlignCenter)
         layout.addWidget(self.text_lbl, 0, Qt.AlignCenter)
+
+        self._spin_anim = None
         self.hide()
 
     def start_spinner(self):
-        spin_anim = qta.Spin(self.spinner_lbl, interval=16, step=10)
+        self.stop_spinner()
+        self._spin_anim = qta.Spin(self.spinner_lbl, interval=16, step=10)
         self.spinner_lbl.setPixmap(
-            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=spin_anim).pixmap(32, 32)
+            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=self._spin_anim).pixmap(32, 32)
         )
+
+    def stop_spinner(self):
+        if self._spin_anim is not None:
+            try:
+                self._spin_anim.stop()
+            except Exception:
+                pass
+            self._spin_anim = None
+        self.spinner_lbl.clear()
 
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
@@ -102,6 +113,7 @@ class LibraryScrollArea(SmoothScrollArea):
     def hide_loading(self, delay_ms=60):
         def _apply_hide():
             if hasattr(self, 'loading_overlay') and self.loading_overlay:
+                self.loading_overlay.stop_spinner()
                 self.loading_overlay.hide()
 
         if delay_ms > 0:

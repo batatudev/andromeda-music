@@ -2,15 +2,15 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-from PySide6.QtCore import QObject, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import QObject, QPropertyAnimation, QEasingCurve, Qt
 from PySide6.QtWidgets import QStackedWidget, QScrollArea, QGraphicsOpacityEffect
 from config import Pages
 from core.enums import MediaType
 
 class AppRouter(QObject):
     """
-    Zarządza nawigacją pomiędzy widokami aplikacji.
-    Odpowiada za historię odwiedzonych stron oraz animacje przejść.
+    Manages navigation between application views.
+    Handles route history, async task cancellation, and smooth view transitions.
     """
     def __init__(self, main_window):
         super().__init__()
@@ -25,9 +25,6 @@ class AppRouter(QObject):
         self.pages = pages_list
 
     def navigate(self, page_idx, data=None, type_str=None, is_back=False):
-        if getattr(self.win, '_is_fetching', False):
-            return
-
         if self.stack.currentIndex() == Pages.SETTINGS and page_idx != Pages.SETTINGS:
             if hasattr(self.win, 'settings_view'):
                 self.win.settings_view.revert_changes()
@@ -44,7 +41,11 @@ class AppRouter(QObject):
                 if len(self.history) > 50:
                     self.history.pop(0)
 
+        # Invalidate any in-flight async page tasks and reset cursor
         self.win.current_page_task_id += 1
+        self.win._is_fetching = False
+        self.win.sidebar.setCursor(Qt.ArrowCursor)
+
         self.current_route = {"page": page_idx, "data": data, "type": type_str}
 
         page_widget = self.win.get_or_create_page(page_idx)
@@ -112,8 +113,6 @@ class AppRouter(QObject):
         self.win._update_sidebar_active_state()
 
     def go_back(self):
-        if getattr(self.win, '_is_fetching', False):
-            return
         if not self.history:
             return
         prev = self.history.pop()

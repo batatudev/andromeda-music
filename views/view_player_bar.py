@@ -1,3 +1,4 @@
+# views/view_player_bar.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -39,6 +40,7 @@ class PlayerBarWidget(ClickableFrame):
         self._is_loading = False
         self._last_playing_state = False
         self._last_sec_pos = -1
+        self._spinner_anim = None
         self._init_ui(initial_volume)
 
     def _init_ui(self, initial_volume):
@@ -262,9 +264,21 @@ class PlayerBarWidget(ClickableFrame):
     def set_loading_state(self, is_loading):
         self._is_loading = is_loading
         if is_loading:
-            spinner_anim = qta.Spin(self.btn_play, interval=10, step=6)
-            self.btn_play.setIcon(qta.icon('fa5s.circle-notch', color=THEME["play_color"], animation=spinner_anim))
+            if self._spinner_anim is not None:
+                try:
+                    self._spinner_anim.stop()
+                except Exception:
+                    pass
+                self._spinner_anim = None
+            self._spinner_anim = qta.Spin(self.btn_play, interval=16, step=10)
+            self.btn_play.setIcon(qta.icon('fa5s.circle-notch', color=THEME["play_color"], animation=self._spinner_anim))
         else:
+            if self._spinner_anim is not None:
+                try:
+                    self._spinner_anim.stop()
+                except Exception:
+                    pass
+                self._spinner_anim = None
             self.set_playing_state(self._last_playing_state)
 
     def set_playing_state(self, is_playing):

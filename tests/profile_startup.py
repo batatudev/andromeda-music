@@ -1,3 +1,4 @@
+# tests/profile_startup.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -9,8 +10,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-t_prev = time.perf_counter()
-
+t_script_start = time.perf_counter()
+t_prev = t_script_start
 
 def log_step(step_name):
     global t_prev
@@ -18,7 +19,6 @@ def log_step(step_name):
     elapsed = (now - t_prev) * 1000.0
     print(f"  [STARTUP STEP] {step_name:<45} : {elapsed:8.2f} ms")
     t_prev = now
-
 
 print("================================================================")
 print("     ANDROMEDA MUSIC — PROFILOWANIE STARTU APLIKACJI            ")
@@ -39,7 +39,7 @@ log_step("Import theme_manager")
 t_start_theme = time.perf_counter()
 theme_manager.reload_theme()
 t_theme_elapsed = (time.perf_counter() - t_start_theme) * 1000.0
-log_step(f"Wywołanie theme_manager.reload_theme() (darkdetect)")
+log_step("Wywołanie theme_manager.reload_theme() (darkdetect)")
 
 import qtawesome as qta
 log_step("Import qtawesome")
@@ -67,8 +67,10 @@ t_show = time.perf_counter()
 w.show()
 log_step("Wywołanie w.show() (POKAZANIE OKNA NA EKRANIE)")
 
+total_startup_ms = (time.perf_counter() - t_script_start) * 1000.0
+
 print("================================================================")
-print(f" CAŁKOWITY CZAS DO POKAZANIA OKNA: {(time.perf_counter() - t_start_theme + t_theme_elapsed):.2f} ms")
+print(f" CAŁKOWITY CZAS DO POKAZANIA OKNA: {total_startup_ms:.2f} ms")
 print("================================================================")
 
 QApplication.processEvents()

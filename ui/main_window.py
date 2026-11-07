@@ -353,15 +353,17 @@ class MainWindow(QMainWindow):
                 self.player_bar.pb_fav_btn.update_icon('fa5s.heart' if is_fav else 'fa5.heart')
 
     def _handle_async(self, callback, result, task_id):
+        self._is_fetching = False
+        self.sidebar.setCursor(Qt.ArrowCursor)
+
         if task_id is not None and task_id != self.current_page_task_id:
             return
+
         if callback:
             try:
                 callback(result)
             except Exception as e:
                 logger.log(f"Async UI Callback Error: {e}")
-        self._is_fetching = False
-        self.sidebar.setCursor(Qt.ArrowCursor)
 
     def run_async(self, task_func, callback_func=None, page_bound=False):
         if page_bound:
@@ -537,7 +539,7 @@ class MainWindow(QMainWindow):
             self.router.navigate(Pages.NOW_PLAYING)
 
     def _refresh_current(self):
-        if not self._is_fetching and getattr(self.router, 'current_route', None):
+        if getattr(self.router, 'current_route', None):
             self.current_page_task_id += 1
             idx = self.router.current_route["page"]
             target = self.get_or_create_page(idx)

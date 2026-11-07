@@ -1,3 +1,4 @@
+# engine/base_download_manager.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -72,6 +73,10 @@ class BaseDownloadManager(QObject):
         raise NotImplementedError
 
     def _reload_path_cache(self):
+        """
+        Fast in-memory path cache population from SQLite.
+        Physical file existence is verified lazily during playback via self-healing methods.
+        """
         try:
             conn = PathsManager.get_db_connection(self.db_path)
             cursor = conn.cursor()
@@ -81,7 +86,7 @@ class BaseDownloadManager(QObject):
             )
             self._path_cache = {
                 row[0]: row[1] for row in cursor.fetchall()
-                if row[1] and os.path.exists(row[1])
+                if row[1]
             }
             conn.close()
         except Exception as e:
