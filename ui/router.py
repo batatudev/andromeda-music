@@ -2,7 +2,7 @@
 import os
 os.environ["QT_API"] = "pyside6"
 
-from PySide6.QtCore import QObject, QPoint, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+from PySide6.QtCore import QObject, QPropertyAnimation, QEasingCurve
 from PySide6.QtWidgets import QStackedWidget, QScrollArea, QGraphicsOpacityEffect
 from config import Pages
 from core.enums import MediaType
@@ -36,6 +36,8 @@ class AppRouter(QObject):
             if hasattr(self.win, 'settings_view'):
                 self.win.settings_view.sync_values()
 
+        is_initial_navigation = (self.current_route is None)
+
         if not is_back and self.current_route:
             if self.current_route.get("page") != page_idx or self.current_route.get("data") != data:
                 self.history.append(self.current_route)
@@ -60,8 +62,8 @@ class AppRouter(QObject):
                 if not is_back:
                     target_widget.load()
 
-        if hasattr(self.win, 'anim_group') and self.win.anim_group.state() == QParallelAnimationGroup.State.Running:
-            self.win.anim_group.stop()
+        if hasattr(self.win, 'fade_anim') and self.win.fade_anim and self.win.fade_anim.state() == QPropertyAnimation.State.Running:
+            self.win.fade_anim.stop()
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
                 self.win.current_anim_page.setGraphicsEffect(None)
                 self.win.current_anim_page.move(0, 0)
@@ -76,7 +78,7 @@ class AppRouter(QObject):
         self.stack.setCurrentIndex(page_idx)
         self.win.current_anim_page = self.stack.currentWidget()
 
-        if page_idx == Pages.NOW_PLAYING:
+        if is_initial_navigation or page_idx == Pages.NOW_PLAYING:
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
                 self.win.current_anim_page.move(0, 0)
             self.win._update_sidebar_active_state()
@@ -87,24 +89,15 @@ class AppRouter(QObject):
         self.win.current_anim_page.setGraphicsEffect(self.win.page_effect)
 
         self.win.fade_anim = QPropertyAnimation(self.win.page_effect, b"opacity")
-        self.win.fade_anim.setDuration(250)
+        self.win.fade_anim.setDuration(180)
         self.win.fade_anim.setStartValue(0.0)
         self.win.fade_anim.setEndValue(1.0)
         self.win.fade_anim.setEasingCurve(QEasingCurve.OutCubic)
 
-        self.win.pos_anim = QPropertyAnimation(self.win.current_anim_page, b"pos")
-        self.win.pos_anim.setDuration(250)
-        self.win.pos_anim.setStartValue(QPoint(0, 10))
-        self.win.pos_anim.setEndValue(QPoint(0, 0))
-        self.win.pos_anim.setEasingCurve(QEasingCurve.OutCubic)
-
-        self.win.anim_group = QParallelAnimationGroup(self.win)
-        self.win.anim_group.addAnimation(self.win.fade_anim)
-        self.win.anim_group.addAnimation(self.win.pos_anim)
-
         def on_fade_finished():
             if hasattr(self.win, 'current_anim_page') and self.win.current_anim_page:
                 self.win.current_anim_page.setGraphicsEffect(None)
+                self.win.current_anim_page.move(0, 0)
             if hasattr(self.win, 'page_effect') and self.win.page_effect:
                 try:
                     self.win.page_effect.deleteLater()
@@ -112,9 +105,9 @@ class AppRouter(QObject):
                     pass
                 self.win.page_effect = None
 
-        self.win.anim_group.finished.connect(on_fade_finished)
+        self.win.fade_anim.finished.connect(on_fade_finished)
         self.win.page_effect.setOpacity(0.0)
-        self.win.anim_group.start()
+        self.win.fade_anim.start()
 
         self.win._update_sidebar_active_state()
 

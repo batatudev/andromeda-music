@@ -1,3 +1,4 @@
+# views/view_home.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -42,6 +43,7 @@ class ResponsiveCardRow(QWidget):
         return QSize(0, self.height() if self.height() > 0 else 280)
 
     def add_card(self, card):
+        card.setFixedSize(210, 280)
         self.cards.append(card)
         self.h_layout.addWidget(card)
 
@@ -222,8 +224,9 @@ class HomeView(LibraryScrollArea):
                 self.content_layout.addWidget(self.row_arts)
 
             self.content_layout.addStretch()
+            self._recalculate_rows()
             self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True
-            QTimer.singleShot(0, self._recalculate_rows)
+            QTimer.singleShot(50, self._recalculate_rows)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
