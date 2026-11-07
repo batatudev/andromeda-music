@@ -1,3 +1,4 @@
+# views/view_search.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -45,7 +46,7 @@ class SearchView(LibraryScrollArea):
         self.input_lay.addWidget(self.search_input)
 
         self.results_widget = QWidget()
-        self.results_widget.setStyleSheet("background: transparent;")
+        self.results_widget.setObjectName("SearchResultsContainer")
         self.results_layout = QVBoxLayout(self.results_widget)
         self.results_layout.setContentsMargins(0, 0, 0, 0)
 

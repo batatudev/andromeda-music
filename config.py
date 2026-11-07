@@ -1,3 +1,4 @@
+# config.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -392,7 +393,7 @@ def get_app_style():
     #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
     #CardOverlayArtist {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 500px; }}
 
-    #CardImgContainer, #SongImgContainer, #LibraryContentWidget, #DetailsContentWidget {{ background: transparent; border: none; }}
+    #CardImgContainer, #SongImgContainer, #LibraryContentWidget, #DetailsContentWidget, #SearchResultsContainer {{ background: transparent; border: none; }}
 
     #NowPlayingQueueFrame {{
         background-color: rgba({THEME.get('bg_main_rgb', '5,5,5')}, 100);
