@@ -87,7 +87,11 @@ class YTResolver:
             for f in formats:
                 if f.get('vcodec') and f.get('vcodec') != 'none':
                     h = f.get('height', 0)
-                    vc = f.get('vcodec', '')
+                    vc = str(f.get('vcodec', '')).lower()
+                    if 'av01' in vc or 'av1' in vc:
+                        continue
+                    if not any(c in vc for c in ('avc1', 'h264', 'vp9', 'vp09')):
+                        continue
                     if h and h <= h_limit:
                         if ('avc1' in vc and 'avc1' not in best_vcodec) or (h > best_h and ('avc1' in vc or 'avc1' not in best_vcodec)):
                             best_url = f.get('url')
@@ -102,15 +106,17 @@ class YTResolver:
         fps_filter = "[fps<=30]" if str(target_fps) == "30" else "[fps<=60]"
 
         format_selector = (
-            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01][vcodec^=avc1]/'
-            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01][vcodec^=vp09]/'
-            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01]/'
-            f'bestvideo[height<={h_limit}][vcodec!*=av01]/'
-            f'best[height<={h_limit}][vcodec!*=av01]/best'
+            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec~="^(avc|h264|vp9|vp09)"]/'
+            f'bestvideo[height<={h_limit}][vcodec~="^(avc|h264|vp9|vp09)"]/'
+            f'best[height<={h_limit}][vcodec~="^(avc|h264|vp9|vp09)"]/'
+            f'bestvideo[height<={h_limit}]{fps_filter}[vcodec!*=av01][vcodec!*=av1]/'
+            f'bestvideo[height<={h_limit}][vcodec!*=av01][vcodec!*=av1]/'
+            f'best[height<={h_limit}][vcodec!*=av01][vcodec!*=av1]'
         )
 
         return {
             'format': format_selector,
+            'format_sort': ['vcodec:vp9', 'vcodec:h264'],
             'quiet': True,
             'no_warnings': True,
             'noplaylist': True,
@@ -166,8 +172,10 @@ class YTResolver:
                 try:
                     info = ydl.extract_info(yt_link, download=False)
                     if 'url' in info and not current_event.is_set():
-                        self.engine.prefetched_yt_url = info['url']
-                        self.engine.prefetched_yt_info_dict = info
+                        vcodec = str(info.get('vcodec', '')).lower()
+                        if 'av01' not in vcodec and 'av1' not in vcodec:
+                            self.engine.prefetched_yt_url = info['url']
+                            self.engine.prefetched_yt_info_dict = info
                 except ValueError:
                     return
                 except Exception:
@@ -256,8 +264,10 @@ class YTResolver:
                     with yt_dlp.YoutubeDL(ydl_opts_file) as ydl:
                         info = ydl.extract_info(self.engine.current_yt_link, download=False)
                         if 'url' in info:
-                            success_url = info['url']
-                            self.engine._current_yt_info_dict = info
+                            vcodec = str(info.get('vcodec', '')).lower()
+                            if 'av01' not in vcodec and 'av1' not in vcodec:
+                                success_url = info['url']
+                                self.engine._current_yt_info_dict = info
                 except ValueError:
                     return
                 except Exception as e:
@@ -270,8 +280,10 @@ class YTResolver:
                     with yt_dlp.YoutubeDL(ydl_opts_fast) as ydl:
                         info = ydl.extract_info(self.engine.current_yt_link, download=False)
                         if 'url' in info:
-                            success_url = info['url']
-                            self.engine._current_yt_info_dict = info
+                            vcodec = str(info.get('vcodec', '')).lower()
+                            if 'av01' not in vcodec and 'av1' not in vcodec:
+                                success_url = info['url']
+                                self.engine._current_yt_info_dict = info
                 except ValueError:
                     return
                 except Exception as e:
@@ -293,9 +305,11 @@ class YTResolver:
                         with yt_dlp.YoutubeDL(ydl_opts_browser) as ydl:
                             info = ydl.extract_info(self.engine.current_yt_link, download=False)
                             if 'url' in info:
-                                success_url = info['url']
-                                self.engine._current_yt_info_dict = info
-                                break
+                                vcodec = str(info.get('vcodec', '')).lower()
+                                if 'av01' not in vcodec and 'av1' not in vcodec:
+                                    success_url = info['url']
+                                    self.engine._current_yt_info_dict = info
+                                    break
                     except ValueError:
                         return
                     except Exception as e:
@@ -317,8 +331,10 @@ class YTResolver:
                     with yt_dlp.YoutubeDL(ydl_opts_tv) as ydl:
                         info = ydl.extract_info(self.engine.current_yt_link, download=False)
                         if 'url' in info:
-                            success_url = info['url']
-                            self.engine._current_yt_info_dict = info
+                            vcodec = str(info.get('vcodec', '')).lower()
+                            if 'av01' not in vcodec and 'av1' not in vcodec:
+                                success_url = info['url']
+                                self.engine._current_yt_info_dict = info
                 except ValueError:
                     return
                 except Exception as e:

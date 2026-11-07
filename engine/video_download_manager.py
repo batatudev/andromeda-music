@@ -301,22 +301,20 @@ class VideoDownloadManager(BaseDownloadManager):
         target_fps = APP_CONFIG.get("video_offline_fps", "60")
         if str(target_fps) == "30":
             format_rule = (
-                f'bestvideo[height<={h_limit}][fps<=30][vcodec!*=av01][vcodec^=avc1][ext=mp4]/'
-                f'bestvideo[height<={h_limit}][fps<=30][vcodec!*=av01]/'
-                f'best[height<={h_limit}][fps<=30][vcodec!*=av01]/'
-                f'best[height<={h_limit}]/best'
+                f'bestvideo[height<={h_limit}][fps<=30][vcodec~="^(avc|h264)"][ext=mp4]/'
+                f'bestvideo[height<={h_limit}][fps<=30][vcodec~="^(avc|h264|vp9|vp09)"]/'
+                f'best[height<={h_limit}][fps<=30][vcodec!*=av01][vcodec!*=av1]'
             )
         else:
             format_rule = (
-                f'bestvideo[height<={h_limit}][fps<=60][vcodec!*=av01][vcodec^=avc1]/'
-                f'bestvideo[height<={h_limit}][fps<=60][vcodec!*=av01][vcodec^=vp09]/'
-                f'bestvideo[height<={h_limit}][fps<=60][vcodec!*=av01]/'
-                f'bestvideo[height<={h_limit}][vcodec!*=av01]/'
-                f'best[height<={h_limit}][vcodec!*=av01]/best'
+                f'bestvideo[height<={h_limit}][fps<=60][vcodec~="^(avc|h264|vp9|vp09)"]/'
+                f'bestvideo[height<={h_limit}][vcodec~="^(avc|h264|vp9|vp09)"]/'
+                f'best[height<={h_limit}][vcodec!*=av01][vcodec!*=av1]'
             )
 
         ydl_opts = {
             'format': format_rule,
+            'format_sort': ['vcodec:vp9', 'vcodec:h264'],
             'outtmpl': output_template,
             'quiet': True,
             'no_warnings': True,
