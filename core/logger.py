@@ -1,3 +1,4 @@
+# core/logger.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -65,15 +66,12 @@ class TelemetryRecorder:
         rows_to_write = list(self.buffer)
         self.buffer.clear()
 
-        def write_task():
-            try:
-                with open(self.log_file, "a", encoding="utf-8", newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerows(rows_to_write)
-            except Exception:
-                pass
-
-        threading.Thread(target=write_task, daemon=True).start()
+        try:
+            with open(self.log_file, "a", encoding="utf-8", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerows(rows_to_write)
+        except Exception:
+            pass
 
     def flush(self):
         with self.lock:
@@ -149,14 +147,11 @@ class AppLogger:
             self.last_msg = None
             self.count = 0
 
-            def write_log():
-                try:
-                    with open(self.log_file, "a", encoding="utf-8") as f:
-                        f.write(log_line + "\n")
-                except Exception:
-                    pass
-
-            threading.Thread(target=write_log, daemon=True).start()
+            try:
+                with open(self.log_file, "a", encoding="utf-8") as f:
+                    f.write(log_line + "\n")
+            except Exception:
+                pass
 
     def clear_logs(self):
         with self.lock:

@@ -1,3 +1,4 @@
+# views/dev/telemetry_window.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -108,7 +109,7 @@ class TelemetryWindow(QMainWindow):
 
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self._update_stats)
-        self.update_timer.start(100)
+        self.update_timer.start(250)
 
     def _update_stats(self):
         try:

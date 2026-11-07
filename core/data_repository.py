@@ -1,3 +1,4 @@
+# core/data_repository.py
 import time
 from PySide6.QtCore import QObject, Signal
 from api_client import NavidromeClient
@@ -11,7 +12,7 @@ class DataRepository(QObject):
         super().__init__()
         self.client = client
         self._cache = {}
-        self._cache_ttl = 300 
+        self._cache_ttl = 300
         from core.library_sync import LibrarySyncManager
         self.library_sync = LibrarySyncManager(self.client)
 
@@ -33,13 +34,17 @@ class DataRepository(QObject):
         if app:
             for w in app.topLevelWidgets():
                 if hasattr(w, 'network_monitor'):
-                    return not getattr(w.network_monitor, 'is_online', True)
+                    nm = getattr(w, 'network_monitor')
+                    if hasattr(nm, 'is_server_alive'):
+                        return not getattr(nm, 'is_server_alive', True)
+                    return not getattr(nm, 'is_online', True)
         return False
 
     def get_album(self, album_id: str) -> Album:
         key = f"album_{album_id}"
         cached = self._get_cached(key)
-        if cached: return cached
+        if cached:
+            return cached
 
         def offline_fallback():
             songs_data = self.library_sync.get_album_songs(album_id)
@@ -48,7 +53,8 @@ class DataRepository(QObject):
                 return Album({'id': album_id, 'name': album_name, 'song': songs_data})
             return None
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             album = self.client.get_album(album_id)
@@ -61,7 +67,8 @@ class DataRepository(QObject):
     def get_artist(self, artist_id: str) -> Artist:
         key = f"artist_{artist_id}"
         cached = self._get_cached(key)
-        if cached: return cached
+        if cached:
+            return cached
 
         def offline_fallback():
             artists = self.library_sync.get_all_artists()
@@ -72,7 +79,8 @@ class DataRepository(QObject):
                 return Artist(art_data)
             return None
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             artist = self.client.get_artist(artist_id)
@@ -85,12 +93,14 @@ class DataRepository(QObject):
     def get_artists(self) -> list[Artist]:
         key = "all_artists"
         cached = self._get_cached(key)
-        if cached: return cached
+        if cached:
+            return cached
 
         def offline_fallback():
             return [Artist(a) for a in self.library_sync.get_all_artists()]
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             arts = self.client.get_artists()
@@ -103,13 +113,15 @@ class DataRepository(QObject):
     def get_albums(self, offset: int = 0, limit: int = 30) -> list[Album]:
         key = f"albums_{offset}_{limit}"
         cached = self._get_cached(key)
-        if cached: return cached
+        if cached:
+            return cached
 
         def offline_fallback():
             albs = self.library_sync.get_all_albums()
             return [Album(a) for a in albs[offset:offset+limit]]
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             albs = self.client.get_albums(offset, limit)
@@ -123,11 +135,13 @@ class DataRepository(QObject):
         def offline_fallback():
             songs = self.library_sync.get_all_songs()
             import random
-            if not songs: return []
+            if not songs:
+                return []
             sampled = random.sample(songs, min(limit, len(songs)))
             return [Song(s) for s in sampled]
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             return self.client.get_random_songs(limit)
@@ -139,11 +153,13 @@ class DataRepository(QObject):
         def offline_fallback():
             albums = self.library_sync.get_all_albums()
             import random
-            if not albums: return []
+            if not albums:
+                return []
             sampled = random.sample(albums, min(limit, len(albums)))
             return [Album(a) for a in sampled]
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             return self.client.get_random_albums(limit)
@@ -154,14 +170,16 @@ class DataRepository(QObject):
     def get_top_songs_for_artist(self, artist_name: str, limit: int = 50) -> list[Song]:
         key = f"top_songs_{artist_name}_{limit}"
         cached = self._get_cached(key)
-        if cached: return cached
+        if cached:
+            return cached
 
         def offline_fallback():
             songs = self.library_sync.get_all_songs()
             matched = [Song(s) for s in songs if s.get('artist', '').lower() == artist_name.lower()]
             return matched[:limit]
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             songs = self.client.get_top_songs_for_artist(artist_name, limit)
@@ -177,7 +195,8 @@ class DataRepository(QObject):
             starred = [Song(s) for s in songs if s.get('starred')]
             return starred[:limit]
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             return self.client.get_starred(limit)
@@ -188,7 +207,8 @@ class DataRepository(QObject):
     def search(self, query: str, limit: int = 10) -> dict:
         key = f"search_{query}_{limit}"
         cached = self._get_cached(key)
-        if cached: return cached
+        if cached:
+            return cached
 
         def offline_fallback():
             q = query.lower()
@@ -196,7 +216,8 @@ class DataRepository(QObject):
             matched_songs = [Song(s) for s in songs if q in s.get('title', '').lower() or q in s.get('artist', '').lower()]
             return {'song': matched_songs[:limit]}
 
-        if self._is_offline(): return offline_fallback()
+        if self._is_offline():
+            return offline_fallback()
 
         try:
             res = self.client.search(query, limit)
