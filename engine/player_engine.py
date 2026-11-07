@@ -5,7 +5,7 @@ import sys
 import threading
 import time
 from PySide6.QtCore import QObject, Signal, QTimer, QUrl
-from PySide6.QtMultimedia import QMediaPlayer
+from PySide6.QtMultimedia import QMediaPlayer, QMediaMetaData
 from config import APP_CONFIG
 from utils import logger
 from core.enums import EngineState, VideoResolution
@@ -277,8 +277,8 @@ class PlayerEngine(QObject):
         if current_song and current_song.item_id == song_id:
             self.player.setSource(QUrl.fromLocalFile(path))
             self.loading_changed.emit(False)
+            self._audio_loaded_for_sync = True
             if getattr(self, '_sync_start_active', False):
-                self._audio_loaded_for_sync = True
                 self._check_sync_start()
             else:
                 self.player.play()
@@ -398,7 +398,8 @@ class PlayerEngine(QObject):
                 logger.decision("SMART VIDEO", "Znaleziono plik wideo offline", "Natychmiastowe ładowanie z dysku")
                 self._activate_sync_timer()
 
-                if force_mid_track:
+                is_audio_already_playing = (self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
+                if force_mid_track or is_audio_already_playing:
                     self._sync_start_active = False
                     self.video_needs_sync_on_load = True
                 elif getattr(self, '_is_new_track_starting', False):
@@ -421,18 +422,34 @@ class PlayerEngine(QObject):
             self.cache_manager.start_audio_download(next_song, is_prefetch=True)
 
     def _check_sync_start(self):
-        if self._sync_start_active:
-            if self._audio_loaded_for_sync:
-                if self._video_loaded_for_sync:
-                    self.sync_timeout_timer.stop()
-                    self._sync_start_active = False
-                    self._audio_loaded_for_sync = False
-                    self._video_loaded_for_sync = False
-                    self.current_engine_state = EngineState.PLAYING_SMOOTH
-                    self.loading_changed.emit(False)
-                    logger.decision("SYNC-START", "Audio i Wideo gotowe", "Jednoczesny start potoków A/V")
-                    self.player.play()
-                    self.video_player.play()
+        if not getattr(self, '_sync_start_active', False):
+            return
+
+        audio_is_ready = (
+            getattr(self, '_audio_loaded_for_sync', False)
+            or (self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState)
+            or (self.player.mediaStatus() in [
+                QMediaPlayer.MediaStatus.LoadedMedia,
+                QMediaPlayer.MediaStatus.BufferedMedia
+            ])
+        )
+
+        if audio_is_ready and getattr(self, '_video_loaded_for_sync', False):
+            self.sync_timeout_timer.stop()
+            self._sync_start_active = False
+            self._audio_loaded_for_sync = False
+            self._video_loaded_for_sync = False
+            self.current_engine_state = EngineState.PLAYING_SMOOTH
+            self.loading_changed.emit(False)
+            logger.decision("SYNC-START", "Audio i Wideo gotowe", "Jednoczesny start potoków A/V")
+
+            audio_pos = self.player.position()
+            self.video_player.setPosition(audio_pos)
+            self.video_player.setPlaybackRate(1.0)
+
+            if self.player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
+                self.player.play()
+            self.video_player.play()
 
     def _map_status(self, s):
         if s == QMediaPlayer.MediaStatus.NoMedia:
