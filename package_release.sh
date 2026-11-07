@@ -36,6 +36,14 @@ cp "${PROJECT_DIR}/requirements.txt" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/utils.py" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/install.sh" "${RELEASE_DIR}/"
 cp "${PROJECT_DIR}/uninstall.sh" "${RELEASE_DIR}/"
+cp "${PROJECT_DIR}/install-desktop.sh" "${RELEASE_DIR}/" 2>/dev/null || true
+
+# Kopiowanie dokumentacji i metadanych systemowych (BARDZO WAŻNE!)
+cp "${PROJECT_DIR}/README.md" "${RELEASE_DIR}/" 2>/dev/null || true
+cp "${PROJECT_DIR}/LICENSE" "${RELEASE_DIR}/" 2>/dev/null || true
+cp "${PROJECT_DIR}/CHANGELOG.md" "${RELEASE_DIR}/" 2>/dev/null || true
+cp "${PROJECT_DIR}/io.github.batatudev.AndromedaMusic.desktop" "${RELEASE_DIR}/" 2>/dev/null || true
+cp "${PROJECT_DIR}/io.github.batatudev.AndromedaMusic.metainfo.xml" "${RELEASE_DIR}/" 2>/dev/null || true
 
 # Kopiowanie bazy linków do wideo demo (demo_links.json) z automatycznym fallbackiem
 if [ -f "${PROJECT_DIR}/demo_links.json" ]; then
@@ -46,13 +54,13 @@ else
     cat << 'EOF' > "${RELEASE_DIR}/demo_links.json"
 [
   {
-    "artist": "Pornophonique",
-    "title": "Sad Robot",
-    "url": "https://www.youtube.com/watch?v=y3nE4r0z09c"
+    "artist": "Carter Vail",
+    "title": "Milk Carton",
+    "url": "https://youtu.be/UmoKf4D71F4"
   }
 ]
 EOF
-    echo -e "[OK] Wygenerowano domyślny demo_links.json z utworem Sad Robot."
+    echo -e "[OK] Wygenerowano domyślny demo_links.json z utworem Carter Vail."
 fi
 
 # Kopiowanie instrukcji dla twórcy
@@ -67,6 +75,7 @@ cp -r "${PROJECT_DIR}/ui" "${RELEASE_DIR}/"
 cp -r "${PROJECT_DIR}/views" "${RELEASE_DIR}/"
 cp -r "${PROJECT_DIR}/lang" "${RELEASE_DIR}/"
 cp -r "${PROJECT_DIR}/assets" "${RELEASE_DIR}/"
+cp -r "${PROJECT_DIR}/tests" "${RELEASE_DIR}/" 2>/dev/null || true
 
 echo -e "\n[2/5] Przygotowywanie konfiguracji z fabrycznym serwerem Demo..."
 cp "${PROJECT_DIR}/config.example.ini" "${RELEASE_DIR}/config.ini"
@@ -82,6 +91,7 @@ find "${RELEASE_DIR}" -type f -name "*.log" -delete
 
 chmod +x "${RELEASE_DIR}/install.sh"
 chmod +x "${RELEASE_DIR}/uninstall.sh"
+chmod +x "${RELEASE_DIR}/install-desktop.sh" 2>/dev/null || true
 chmod +x "${RELEASE_DIR}/main.py"
 
 echo -e "\n[4/5] Pakowanie do archiwum .tar.gz z zachowaniem uprawnień..."
@@ -100,7 +110,7 @@ echo -e "${C_BOLD}${C_GREEN}        PACZKA TESTOWA ZOSTAŁA POMYŚLNIE WYGENEROW
 echo -e "${C_BOLD}${C_GREEN}======================================================================${C_RESET}"
 echo -e "Gotowy plik do wysłania: ${C_BOLD}${OUTPUT_PATH}${C_RESET} (~${SIZE_MB} MB)"
 echo -e "\nPaczka zawiera:"
+echo -e "  • Pełną strukturę plików, kod źródłowy, dokumentację (README, LICENSE) i pakiet testów"
 echo -e "  • Prekonfigurowany serwer publiczny demo Navidrome"
 echo -e "  • Plik bazy linków YouTube dla utworów demo: demo_links.json"
-echo -e "  • Skrypty install.sh i uninstall.sh (zoptymalizowane pod openSUSE/KDE 6)"
-echo -e "  • Przewodnik dla twórcy: INSTRUKCJA_TESTERA.md\n"
+echo -e "  • Zoptymalizowane skrypty install.sh i uninstall.sh\n"

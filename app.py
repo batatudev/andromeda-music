@@ -75,7 +75,8 @@ def run():
 
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
-    app.setDesktopFileName(f"{raw_app_id}.desktop")
+    # Qt wymaga samej nazwy bazowej bez przyrostka .desktop
+    app.setDesktopFileName(raw_app_id)
     app.setWindowIcon(QIcon(APP_ICON_PATH))
     theme_manager.reload_theme()
 
