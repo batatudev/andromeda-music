@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QL
 from PySide6.QtCore import Qt, QTimer
 from config import THEME
 from core.i18n import tr
+from core.telemetry_service import get_telemetry
 
 class TelemetryWindow(QMainWindow):
     def __init__(self, main_window):
@@ -109,12 +110,8 @@ class TelemetryWindow(QMainWindow):
         self.update_timer.start(100)
 
     def _update_stats(self):
-        engine = self.main_window.engine
-
         try:
-            from core.telemetry_service import get_telemetry
-            t_data = get_telemetry()
-
+            t_data = get_telemetry(self.main_window)
             for key, val in t_data.items():
                 if key in self.labels:
                     self.labels[key].setText(str(val))
@@ -123,6 +120,9 @@ class TelemetryWindow(QMainWindow):
 
     def closeEvent(self, event):
         self.update_timer.stop()
-        if hasattr(self.parent(), 'telemetry_window'):
-            self.parent().telemetry_window = None
+        parent = self.parent()
+        if parent and hasattr(parent, 'telemetry_window'):
+            parent.telemetry_window = None
+        if hasattr(self.main_window, 'telemetry_window'):
+            self.main_window.telemetry_window = None
         event.accept()

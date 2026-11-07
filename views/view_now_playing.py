@@ -2,6 +2,7 @@ import os
 os.environ["QT_API"] = "pyside6"
 
 import sys
+import time
 import qtawesome as qta
 
 from PySide6.QtWidgets import (
@@ -62,9 +63,12 @@ Item {
 class VideoQuickWidget(QQuickWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_fps = 30
-        self.last_motion_score = 1.0
+        self.current_fps = 0.0
+        self.last_motion_score = 0.0
         self._target_sink = None
+        self._sink_connected = False
+        self._frame_count = 0
+        self._last_fps_calc_time = time.time()
 
         self.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
         self.setAttribute(Qt.WA_AlwaysStackOnTop, False)
@@ -80,21 +84,55 @@ class VideoQuickWidget(QQuickWidget):
         self.setSource(QUrl.fromLocalFile(str(qml_path)))
         self.statusChanged.connect(self._on_status_changed)
 
+        self._fps_timer = QTimer(self)
+        self._fps_timer.setInterval(500)
+        self._fps_timer.timeout.connect(self._compute_fps)
+        self._fps_timer.start()
+
+    def _hook_sink(self, sink):
+        if sink is not None and not self._sink_connected:
+            try:
+                sink.videoFrameChanged.connect(self._on_video_frame)
+                self._sink_connected = True
+            except Exception:
+                pass
+
+    def _on_video_frame(self, frame=None):
+        self._frame_count += 1
+
+    def _compute_fps(self):
+        now = time.time()
+        dt = now - self._last_fps_calc_time
+        if dt > 0.1:
+            raw_fps = self._frame_count / dt
+            self.current_fps = round(raw_fps, 1) if raw_fps > 0.5 else 0.0
+            self.last_motion_score = round(min(1.0, self.current_fps / 30.0), 2)
+        else:
+            self.current_fps = 0.0
+            self.last_motion_score = 0.0
+        self._frame_count = 0
+        self._last_fps_calc_time = now
+
     def _on_status_changed(self, status):
         if status == QQuickWidget.Status.Ready:
             root = self.rootObject()
             if root:
-                self._target_sink = root.property("videoSink")
+                sink = root.property("videoSink")
+                if sink:
+                    self._target_sink = sink
+                    self._hook_sink(sink)
 
     @property
     def video_item(self):
         if self._target_sink:
+            self._hook_sink(self._target_sink)
             return self._target_sink
         root = self.rootObject()
         if root:
             sink = root.property("videoSink")
             if sink:
                 self._target_sink = sink
+                self._hook_sink(sink)
                 return sink
             item = root.property("videoOutputItem")
             if item:

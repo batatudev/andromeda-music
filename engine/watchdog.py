@@ -7,7 +7,6 @@ from PySide6.QtMultimedia import QMediaPlayer
 from core.enums import EngineState, TelemetryEvent
 from utils import logger
 
-
 class WatchdogService(QObject):
     def __init__(self, main_window):
         super().__init__()
@@ -65,7 +64,7 @@ class WatchdogService(QObject):
 
         state_str = engine.current_engine_state
         needs_mask = False
-        fps = getattr(now_playing.video_widget, 'current_fps', 0)
+        fps = getattr(now_playing.video_widget, 'current_fps', 0.0)
         buf_pct = engine.video_player.bufferProgress() * 100
         buf_sec = engine.get_buf_sec()
 
