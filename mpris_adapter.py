@@ -1,10 +1,11 @@
+# mpris_adapter.py
 import os
 os.environ["QT_API"] = "pyside6"
 
 import re
 import threading
 from pathlib import Path
-from PySide6.QtCore import QObject, Signal, Qt
+from PySide6.QtCore import QObject, Signal, Qt, QTimer
 from PySide6.QtMultimedia import QMediaPlayer
 
 from config import APP_NAME
@@ -34,6 +35,8 @@ class MprisSignals(QObject):
     loop_status_changed = Signal(str)
     shuffle_changed = Signal(bool)
     volume_changed = Signal(float)
+    quit_requested = Signal()
+    raise_requested = Signal()
 
 class MprisPlayer:
     dbus = """
@@ -93,7 +96,7 @@ class MprisPlayer:
         self._playback_status = "Stopped"
         self._loop_status = "None"
         self._shuffle = False
-        self._volume = 1.0
+        self._volume = 0.8
         self._position_us = 0
         self._can_go_next = True
         self._can_go_previous = True
@@ -139,10 +142,10 @@ class MprisPlayer:
         return ["audio/mpeg", "audio/mp4", "audio/x-wav", "video/mp4", "video/webm"]
 
     def Quit(self):
-        pass
+        self.signals.quit_requested.emit()
 
     def Raise(self):
-        pass
+        self.signals.raise_requested.emit()
 
     def Next(self):
         self.signals.next_requested.emit()
@@ -266,6 +269,10 @@ class MprisService:
         self.signals.shuffle_changed.connect(self._handle_shuffle, Qt.QueuedConnection)
         self.signals.volume_changed.connect(self._handle_volume, Qt.QueuedConnection)
 
+        self.signals.quit_requested.connect(self._handle_quit, Qt.QueuedConnection)
+        self.signals.raise_requested.connect(self._handle_raise, Qt.QueuedConnection)
+        self.engine.volume_changed.connect(self._on_engine_volume_changed)
+
         self.loop = GLib.MainLoop()
         self._loop_thread = threading.Thread(target=self.loop.run, daemon=True)
         self._loop_thread.start()
@@ -298,6 +305,29 @@ class MprisService:
         self.engine.queue_cleared.connect(self._on_queue_cleared)
 
         self._emit_current_state()
+
+    def _handle_quit(self):
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.quit()
+
+    def _handle_raise(self):
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            for w in app.topLevelWidgets():
+                if hasattr(w, 'show') and hasattr(w, 'raise_'):
+                    w.show()
+                    w.raise_()
+                    w.activateWindow()
+                    break
+
+    def _on_engine_volume_changed(self, v):
+        mpris_vol = max(0.0, min(1.0, float(v) / 100.0))
+        self.player._volume = mpris_vol
+        changed = {"Volume": mpris_vol}
+        GLib.idle_add(self._notify_properties_changed, changed)
 
     def _resolve_cover_uri(self, song):
         if not song:
@@ -365,6 +395,22 @@ class MprisService:
 
         return meta
 
+    def _recheck_cover_uri(self, song):
+        if not song:
+            return
+        cur_song = self.engine.queue_mgr.current_song() if hasattr(self.engine, 'queue_mgr') else None
+        if not cur_song or cur_song.item_id != song.item_id:
+            return
+
+        new_art_uri = self._resolve_cover_uri(song)
+        if new_art_uri:
+            current_art = self.player._metadata.get("mpris:artUrl")
+            current_art_str = current_art.get_string() if current_art else ""
+            if current_art_str != str(new_art_uri):
+                self.player._metadata["mpris:artUrl"] = GLib.Variant('s', str(new_art_uri))
+                changed = {"Metadata": self.player._metadata}
+                GLib.idle_add(self._notify_properties_changed, changed)
+
     def _emit_current_state(self):
         try:
             changed = {
@@ -376,7 +422,8 @@ class MprisService:
                 "CanGoNext": self.player._can_go_next,
                 "CanGoPrevious": self.player._can_go_previous,
                 "LoopStatus": self.player._loop_status,
-                "Shuffle": self.player._shuffle
+                "Shuffle": self.player._shuffle,
+                "Volume": self.player._volume
             }
             GLib.idle_add(self._notify_properties_changed, changed)
         except Exception as e:
@@ -404,6 +451,9 @@ class MprisService:
             "CanGoPrevious": self.player._can_go_previous
         }
         GLib.idle_add(self._notify_properties_changed, changed)
+
+        if song and song.cover_id:
+            QTimer.singleShot(700, lambda s=song: self._recheck_cover_uri(s))
 
     def _on_state_changed(self, is_playing):
         if is_playing:

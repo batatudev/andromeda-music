@@ -1,3 +1,4 @@
+# tests/test_integrity.py
 import os
 os.environ["QT_API"] = "pyside6"
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -25,6 +26,7 @@ from core.paths import PathsManager
 from core.i18n import tr, _translator
 from api_client import NavidromeClient
 from engine.yt_resolver import YtErrorType, classify_yt_error
+from core.network_monitor import NetworkMonitor
 import utils
 
 class IntegrityTestSuite:
@@ -287,9 +289,94 @@ class IntegrityTestSuite:
             "YtClassifier: poprawny fallback dla nieznanych błędów"
         )
 
+    def test_network_monitor_port_and_state(self):
+        print("\n--- 7. TEST MONITOROWANIA SIECI I DETEKCJI PORTÓW ---")
+
+        nm = NetworkMonitor("http://localhost:4533")
+        self.assert_true(nm.is_online, "NetworkMonitor: optymistyczny start is_online = True")
+        self.assert_true(nm.is_server_alive, "NetworkMonitor: optymistyczny start is_server_alive = True")
+
+        # Port HTTPS standardowy (None w urlparse -> 443)
+        h, p = nm._extract_host_and_port("https://demo.navidrome.org")
+        self.assert_equal(h, "demo.navidrome.org", "NetworkMonitor: hostname dla https")
+        self.assert_equal(p, 443, "NetworkMonitor: domyślny port HTTPS to 443")
+
+        # Port HTTP standardowy (None w urlparse -> 80)
+        h, p = nm._extract_host_and_port("http://music.lan")
+        self.assert_equal(h, "music.lan", "NetworkMonitor: hostname dla http")
+        self.assert_equal(p, 80, "NetworkMonitor: domyślny port HTTP to 80")
+
+        # Port niestandardowy w URL
+        h, p = nm._extract_host_and_port("http://192.168.1.100:4533")
+        self.assert_equal(h, "192.168.1.100", "NetworkMonitor: IP host")
+        self.assert_equal(p, 4533, "NetworkMonitor: poprawny odczyt niestandardowego portu 4533")
+
+    def test_mpris_compliance_and_types(self):
+        print("\n--- 8. TEST SPECYFIKACJI I TYPÓW D-BUS MPRIS v2.2 ---")
+
+        try:
+            from mpris_adapter import MprisPlayer, MprisSignals, MprisService, HAS_MPRIS
+            from gi.repository import GLib
+        except ImportError:
+            print("  [POMIJAM] Brak bibliotek pydbus/gi w środowisku testowym.")
+            return
+
+        signals = MprisSignals()
+        player = MprisPlayer(signals)
+
+        # Właściwości bazowe
+        self.assert_equal(player.CanQuit, True, "MPRIS: właściwość CanQuit = True")
+        self.assert_equal(player.CanRaise, True, "MPRIS: właściwość CanRaise = True")
+        self.assert_equal(player.CanControl, True, "MPRIS: właściwość CanControl = True")
+
+        # Głośność w zakresie 0.0 - 1.0 (double)
+        self.assert_true(0.0 <= player.Volume <= 1.0, "MPRIS: domyślna głośność Volume w przedziale [0.0, 1.0]")
+
+        # Budowanie metadanych dla utworu
+        class MockEngine:
+            queue = []
+            client = None
+            queue_mgr = None
+
+        mpris_service = MprisService.__new__(MprisService)
+        mpris_service.engine = MockEngine()
+
+        test_song = Song({
+            "id": "trk_abc-123.xyz",
+            "title": "Test Title",
+            "artist": "Test Artist",
+            "album": "Test Album",
+            "duration": 185
+        })
+
+        meta = mpris_service._build_metadata(test_song)
+
+        # Weryfikacja typu trackid (musi być ObjectPath 'o')
+        self.assert_true("mpris:trackid" in meta, "MPRIS: obecność klucza mpris:trackid")
+        trackid_variant = meta["mpris:trackid"]
+        self.assert_equal(trackid_variant.get_type_string(), "o", "MPRIS: mpris:trackid ma poprawny typ D-Bus 'o' (ObjectPath)")
+        trackid_str = trackid_variant.get_string()
+        self.assert_true(trackid_str.startswith("/org/mpris/MediaPlayer2/Track/"), "MPRIS: ścieżka zaczyna się od /")
+
+        # D-Bus ObjectPath może zawierać wyłącznie znaki alfanumeryczne i podkreślenia
+        path_suffix = trackid_str.replace("/org/mpris/MediaPlayer2/Track/", "")
+        import re
+        self.assert_true(bool(re.match(r'^[a-zA-Z0-9_]+$', path_suffix)), "MPRIS: czysta ścieżka ObjectPath bez znaków zakazanych")
+
+        # Weryfikacja czasu trwania w mikrosekundach (typ 'x')
+        length_variant = meta.get("mpris:length")
+        self.assert_true(length_variant is not None, "MPRIS: obecność mpris:length")
+        self.assert_equal(length_variant.get_type_string(), "x", "MPRIS: mpris:length ma typ D-Bus 'x' (int64)")
+        self.assert_equal(length_variant.get_int64(), 185000000, "MPRIS: poprawny przelicznik sekund na mikrosekundy")
+
+        # Weryfikacja artysty jako tablicy ciągów (typ 'as')
+        artist_variant = meta.get("xesam:artist")
+        self.assert_true(artist_variant is not None, "MPRIS: obecność xesam:artist")
+        self.assert_equal(artist_variant.get_type_string(), "as", "MPRIS: xesam:artist ma rygorystyczny typ 'as' (Array of Strings)")
+
     def run_all(self):
         print("================================================================")
-        print("     ANDROMEDA MUSIC — PAKIET TESTÓW INTEGRALNOŚCI (v14.20+)     ")
+        print("     ANDROMEDA MUSIC — PAKIET TESTÓW INTEGRALNOŚCI (v14.26+)     ")
         print("================================================================")
 
         self.test_domain_models()
@@ -298,6 +385,8 @@ class IntegrityTestSuite:
         self.test_i18n_symmetry_and_fallbacks()
         self.test_subsonic_auth_protocol()
         self.test_yt_error_classifier()
+        self.test_network_monitor_port_and_state()
+        self.test_mpris_compliance_and_types()
 
         print("\n================================================================")
         print(f" WYNIKI: Wszystkich testów: {self.passed + self.failed} | Zaliczono: {self.passed} | Błędy: {self.failed}")

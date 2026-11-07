@@ -36,6 +36,7 @@ class PlayerEngine(QObject):
     queue_updated = Signal()
     queue_cleared = Signal()
     loading_changed = Signal(bool)
+    volume_changed = Signal(int)
 
     video_ready = Signal(str)
     video_resolve_failed = Signal(str)
@@ -520,6 +521,7 @@ class PlayerEngine(QObject):
         vol_float = (v / 100.0) ** 2
         self.audio_ctrl.set_volume(vol_float)
         APP_CONFIG["volume"] = v
+        self.volume_changed.emit(v)
 
     def play_list(self, songs, start_idx):
         self.queue_mgr.set_queue(songs, start_idx)
