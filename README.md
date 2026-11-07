@@ -1,23 +1,34 @@
 <div align="center">
 
-<img src="assets/logo.png" alt="Andromeda Music Logo" width="140" height="140" />
+<img src="assets/logo.png" alt="Andromeda Music Logo" width="135" height="135" />
 
 # Andromeda Music
 ### *High-performance Linux music player & ambient video visualizer for Navidrome & YouTube*
 
-[![Version](https://img.shields.io/badge/Release-v1.0.0--rc1%20%22Sirrah%22-8A2BE2.svg?style=flat-square)](https://github.com/batatudev/andromeda-music/releases)
+[![CI Test Suite](https://github.com/batatudev/andromeda-music/actions/workflows/ci.yml/badge.svg)](https://github.com/batatudev/andromeda-music/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/badge/Release-v1.0.0--rc1%20%22Sirrah%22-8A2BE2.svg?style=flat-square)](https://github.com/batatudev/andromeda-music/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![GUI: PySide6 / Qt6](https://img.shields.io/badge/GUI-PySide6%20%2F%20Qt6-41CD52.svg?style=flat-square&logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20(Wayland%20%2F%20X11)-FCC624.svg?style=flat-square&logo=linux&logoColor=black)](https://www.kernel.org/)
 [![Audio: PipeWire & PulseAudio](https://img.shields.io/badge/Audio-PipeWire%20%2F%20PulseAudio-00A4DC.svg?style=flat-square)](https://pipewire.org/)
 
+<br />
+
+<img src="assets/screenshots/demo.gif" alt="Andromeda Music Live Ambient Video Demo" width="85%" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+
+<p><em>Real-time hardware-accelerated GLSL kinetic video ambient blur (~2–3% CPU overhead)</em></p>
+
+**100% Native (0% Electron)** &nbsp;&bull;&nbsp; **21,420 lines of code** &nbsp;&bull;&nbsp; **113 files** &nbsp;&bull;&nbsp; **190 commits** &nbsp;&bull;&nbsp; **6+ months of craftsmanship**
+
 <p align="center">
-  <a href="#why-i-built-andromeda-music">Why I Built It</a> •
-  <a href="#the-manifesto">Manifesto</a> •
+  <a href="#quick-test-drive">Quick Test Drive</a> •
+  <a href="#why-i-built-it--author-note">Why I Built It</a> •
+  <a href="#benchmarks">Benchmarks</a> •
   <a href="#key-features">Key Features</a> •
+  <a href="#user-interface">Screenshots</a> •
   <a href="#installation">Installation</a> •
-  <a href="#system-requirements">Requirements</a> •
+  <a href="#community-testing">Community Testing</a> •
   <a href="#license">License</a>
 </p>
 
@@ -25,23 +36,52 @@
 
 ---
 
-## Why I Built Andromeda Music (Author's Note)
+> [!TIP]
+> ### 🚀 Quick Test Drive (No Server Setup Required)
+> Andromeda Music comes pre-configured with the public **Navidrome Demo Server** (`demo.navidrome.org`).  
+> *(Note: As a shared public demo, music streaming may occasionally buffer slower than on a private LAN/VPS server).*
+> 
+> **Want to test live synchronized video ambient immediately without your own library?**  
+> 1. Launch Andromeda Music and click the **`-Andromeda Music`** playlist in the sidebar.  
+> 2. Or search for tracks by artist **Carter Vail**: ***Melatonin***, ***Milk Carton***, or ***Tigers On Trains***.  
+> 3. Hit play and toggle the **Video** icon on the player bar — music videos are already pre-linked and ready to stream!
 
-> *"I created Andromeda Music because none of the existing Linux music players met my expectations. The available apps were either sluggish Electron wrappers consuming gigabytes of RAM or bloated with cluttered, dated menus — and none offered unique visual features like a cinematic ambient music video backdrop.*
+---
+
+## Why I Built It & Author Note
+
+> *"I created Andromeda Music because none of the existing Linux music players met my expectations. Available options were either sluggish Electron web-wrappers consuming gigabytes of RAM or bloated with cluttered, dated menus — and none offered unique visual immersion like a synchronized, ambient kinetic video backdrop.*
 >
-> *It all started out of pure curiosity: 'Can I use AI as an engineering partner to build a simple Python script to play music from my private Navidrome server?' What began as a weekend experiment turned into over half a year of dedicated development, hundreds of hours of fine-tuning, and more than 130 commits.*
+> *To be 100% transparent with the open-source community: this project was built through dedicated **AI-assisted engineering ('vibe-coding')**. However, it is not an automated prompt dump — it represents over half a year of relentless passion and hands-on craftsmanship. Every feature, architecture decision, state machine, and UI layout was conceptualized, designed, tested, and profiled on Linux kernel interfaces by me personally, utilizing AI as a high-velocity coding partner.*
 >
-> *At a certain point, I realized this project had evolved into a full-fledged, rock-solid desktop application that outshines existing alternatives. I decided to polish it to production standards, publish the code, and give back to the Linux open-source community."*
+> *What began as a curiosity turned into a production-grade desktop player with over 21,400 lines of modular code across 190 commits. I am proud to share it and give back to the Linux community."*
 >
 > — **batatudev**, Creator of Andromeda Music
 
 ---
 
-## The Manifesto: Native, Lightweight & Independent
+## The Manifesto & Benchmarks
 
-* **Say NO to Electron Bloat:** Web-wrapped desktop players easily consume 800 MB to 1.5 GB of RAM just to play an audio track. Andromeda Music is written natively in **Python 3 and PySide6 (Qt6)**. It utilizes direct GPU hardware shaders via **Qt RHI and QML MultiEffect**, sipping just **~120 MB of RAM** and maintaining **<450 ms cold startup times**.
-* **Zero Walled Gardens (Self-Hosted Freedom):** Your music library lives on your own self-hosted **Navidrome / Subsonic** server. No streaming platform can revoke your favorite albums due to regional licensing deals.
-* **Cinematic Video with True Audio-First Reliability:** YouTube music videos provide a gorgeous, blurred kinetic ambiance behind your tracks. However, audio is sacred: network drops or video glitches will **never interrupt or stall your music playback**.
+* **Say NO to Electron Bloat:** Web-wrapped desktop players easily consume 800 MB to 1.5 GB of RAM just to play audio. Andromeda Music is written natively in **Python 3 and PySide6 (Qt6)**. It utilizes direct GPU hardware shaders via **Qt RHI and QML MultiEffect**, sipping just **~120–240 MB of RAM** and launching in **<450 ms**.
+* **Zero Walled Gardens (Self-Hosted Freedom):** Your music library lives on your own self-hosted **Navidrome / Subsonic** server. No streaming platform can revoke your favorite tracks.
+* **Cinematic Video with True Audio-First Reliability:** Ambient music videos provide kinetic ambiance behind your tracks. Audio is sacred: network drops or video issues will **never interrupt or stall your music playback**.
+
+<details id="benchmarks">
+<summary><b>📊 Real-World Linux Benchmark: Andromeda vs Electron (Click to expand)</b></summary>
+<br>
+
+*Tested on Intel Core i5-8350U, UHD Graphics 620 on Fedora / KDE Plasma / Wayland (Kernel measurement via `/proc/smaps_rollup` & DRM fdinfo):*
+
+| Metric / Scenario | 🥇 Andromeda Music | Spotify (Electron) | Feishin (Electron) | Brave Browser |
+| :--- | :---: | :---: | :---: | :---: |
+| **Idle Memory (PSS / RSS)** | **233 MB** / 359 MB | 922 MB / 1561 MB | 455 MB / 888 MB | 505 MB / 1569 MB |
+| **Audio Playback CPU** | **1.15%** (9% of 1 core) | 4.64% (37% of 1 core) | 2.19% (17% of 1 core) | 1.51% (12% of 1 core) |
+| **Video Ambient Composition** | **Zero-Copy GPU (GLSL)** | N/A | N/A | Software Canvas |
+| **Active System Processes** | **1 single process** | 11 processes | 14 processes | 14 processes |
+
+> **Key takeaway:** While Electron wrappers wake up CPUs continuously and spawn dozens of helper processes, Andromeda executes in a single native process with negligible background CPU footprint.
+
+</details>
 
 ---
 
@@ -53,7 +93,7 @@
 * **Fractional Scaling on Wayland:** Crisp vector iconography (QtAwesome) and high-DPI cover art rendering at 125%, 150%, 175%, and 200% scale factors.
 
 ### 2. 🎵 Hi-Fi Lossless Audio & Offline-First Browsing
-* **Direct Stream Playback:** Native bitstream playback of **FLAC, ALAC, Opus, AAC, and MP3** files directly from your server without lossy server-side transcoding.
+* **Direct Stream Playback:** Native bitstream playback of **FLAC, ALAC, Opus, AAC, OGG, and MP3** files directly from your server without lossy server-side transcoding.
 * **Instant SQLite WAL Cache:** Library browsing is backed by a local SQLite database running in Write-Ahead Logging (WAL) mode. If your server goes down or your Wi-Fi drops, Andromeda switches to **Offline-First fallback** instantly without throwing errors.
 * **Multi-Server Partitioning:** Connect to multiple Navidrome servers with fully isolated caches, offline databases, and custom artwork per profile.
 
@@ -80,14 +120,36 @@
 
 <div align="center">
   <img src="assets/screenshots/now_playing.png" alt="Now Playing View with Cinematic Ambient Blur" width="85%" />
-  <p><em>Now Playing screen with GPU-accelerated live video ambient blur</em></p>
+  <p><em>Cinematic playback view with hardware-accelerated ambient video blur</em></p>
 </div>
 
 <div align="center">
-  <img src="assets/screenshots/home_grid.png" alt="Andromeda Music Home Library View" width="48%" />
+  <img src="assets/screenshots/home_grid.png" alt="Responsive Library Grid" width="48%" />
   <img src="assets/screenshots/downloads_view.png" alt="Zenith-style Download and Storage Center" width="48%" />
-  <p><em>Responsive Library Grid (Left) and Offline Storage & Download Center (Right)</em></p>
 </div>
+
+<div align="center">
+  <img src="assets/screenshots/playlist_view.png" alt="Playlist Details View" width="48%" />
+  <img src="assets/screenshots/search_view.png" alt="Instant Library Search" width="48%" />
+  <p><em>From left to right: Home Grid, Offline Transfer Center, Playlist Details, and Instant Search</em></p>
+</div>
+
+---
+
+## Command Line Interface (CLI Flags)
+
+Andromeda Music includes convenient flags for terminal launchers, keybind scripts, and diagnostic reporting:
+
+```bash
+# Print sanitized system, audio, graphics, and server diagnostics for bug reporting:
+andromeda-music --diagnostics
+
+# Automatically play a specific playlist on startup:
+andromeda-music --play-playlist "Synthwave"
+
+# Force startup directly in music video mode:
+andromeda-music --video
+```
 
 ---
 
@@ -113,8 +175,6 @@ andromeda-music
 
 ### Method 2: Manual Development Setup
 
-If you prefer to configure your own environment:
-
 ```bash
 # Create virtual environment with system site-packages (required for D-Bus / MPRIS)
 python3 -m venv --system-site-packages .venv
@@ -133,6 +193,19 @@ python3 main.py
 
 ### Method 3: Flatpak (Flathub)
 > *Flatpak package manifest (`io.github.batatudev.AndromedaMusic`) is currently being prepared for official Flathub submission.*
+
+---
+
+> [!NOTE]
+> ### 🐧 Community Testing & First Release Disclaimer
+> While hundreds of hours have been invested into fine-tuning Andromeda on modern Linux desktops, the Linux ecosystem is extraordinarily vast and diverse — encompassing hundreds of distributions, Wayland vs. X11 display servers, dynamic tiling window managers (Hyprland, Sway), and distinct GPU drivers (Intel VA-API, AMD RADV, Nvidia GBM).
+> 
+> As an independent solo developer, it is physically impossible to test every single hardware and distro combination alone. This is Andromeda's first public Release Candidate (`v1.0.0-rc1`).
+> 
+> If you encounter any bugs, crashes, or visual glitches, please report them via [GitHub Issues](https://github.com/batatudev/andromeda-music/issues)! To help me diagnose issues quickly, simply attach the output of:
+> ```bash
+> andromeda-music --diagnostics
+> ```
 
 ---
 
@@ -165,19 +238,10 @@ Andromeda will automatically detect and prioritize this file for all streaming a
 
 ---
 
-## Contributing
-
-Contributions, bug reports, and feedback are warmly welcomed!
-1. Check existing issues or open a new one to discuss suggestions.
-2. Fork the repository and create your feature branch: `git checkout -b feature/awesome-feature`.
-3. Verify that the test suite passes: `python3 tests/test_integrity.py`.
-4. Commit your changes and open a Pull Request.
-
----
-
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)**.  
 See the [LICENSE](LICENSE) file for the full license text.
 
 Copyright (C) 2026 **batatudev** and Andromeda Music Authors.
+```
