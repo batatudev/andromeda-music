@@ -1,3 +1,4 @@
+# views/library_base.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -22,6 +23,8 @@ class LibraryScrollArea(SmoothScrollArea):
         self._is_loaded = False
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
         self.content_widget = QWidget()
         self.content_widget.setObjectName("LibraryContentWidget")
         self.content_layout = QVBoxLayout(self.content_widget)

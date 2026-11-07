@@ -1,3 +1,4 @@
+# config.py
 import os
 os.environ["QT_API"] = "pyside6"
 
@@ -347,7 +348,14 @@ def get_app_style():
         color: {THEME.get('text_main', '#ffffff')};
         font-family: "Noto Sans", sans-serif;
     }}
-    QScrollArea {{ border: none; background-color: transparent; }}
+    QStackedWidget {{
+        background-color: {THEME.get('bg_main', '#050505')};
+        border: none;
+    }}
+    QScrollArea {{
+        border: none;
+        background-color: {THEME.get('bg_main', '#050505')};
+    }}
     QScrollBar:vertical {{ border: none; background: transparent; width: 8px; margin: 0px; }}
     QScrollBar::handle:vertical {{ background: {THEME.get('nav_bg', '#222222')}; min-height: 30px; border-radius: 4px; }}
     QScrollBar::handle:vertical:hover {{ background: {THEME.get('nav_hover', '#333333')}; }}
@@ -398,7 +406,11 @@ def get_app_style():
     #CardOverlay {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 12px; }}
     #CardOverlayArtist {{ background-color: rgba(0,0,0,0.55); border: none; border-radius: 500px; }}
 
-    #CardImgContainer, #SongImgContainer, #LibraryContentWidget, #DetailsContentWidget, #SearchResultsContainer {{ background: transparent; border: none; }}
+    #CardImgContainer, #SongImgContainer {{ background: transparent; border: none; }}
+    #LibraryContentWidget, #DetailsContentWidget, #SearchResultsContainer {{
+        background-color: {THEME.get('bg_main', '#050505')};
+        border: none;
+    }}
 
     #NowPlayingQueueFrame {{
         background-color: rgba({THEME.get('bg_main_rgb', '5,5,5')}, 100);

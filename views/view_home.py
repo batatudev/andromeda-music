@@ -99,8 +99,9 @@ class HomeView(LibraryScrollArea):
         self.row_arts = None
 
         lbl = QLabel(tr("common.loading", "Wczytywanie..."))
-        lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px;")
+        lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px; background: transparent;")
         lbl.setAlignment(Qt.AlignCenter)
+        self.content_layout.addStretch()
         self.content_layout.addWidget(lbl)
         self.content_layout.addStretch()
         self.content_widget.setUpdatesEnabled(True)
@@ -227,6 +228,5 @@ class HomeView(LibraryScrollArea):
             self._recalculate_rows()
             self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True
-            QTimer.singleShot(50, self._recalculate_rows)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
