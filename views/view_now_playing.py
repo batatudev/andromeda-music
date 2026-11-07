@@ -325,10 +325,13 @@ class NowPlayingWidget(QFrame):
         self.queue_scroll.setObjectName("NowPlayingQueueScroll")
         self.queue_scroll.setWidgetResizable(True)
         self.queue_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.queue_scroll.setStyleSheet("background: transparent; border: none;")
         self.queue_scroll.viewport().setAttribute(Qt.WA_TranslucentBackground, True)
+        self.queue_scroll.viewport().setStyleSheet("background: transparent; border: none;")
 
         self.queue_content = DragDropContainer()
         self.queue_content.setObjectName("NowPlayingQueueContent")
+        self.queue_content.setStyleSheet("background: transparent; border: none;")
         self.queue_layout = QVBoxLayout(self.queue_content)
         self.queue_layout.setAlignment(Qt.AlignTop)
         self.queue_layout.setContentsMargins(0, 10, 0, 10)

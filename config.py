@@ -354,7 +354,7 @@ def get_app_style():
     }}
     QScrollArea {{
         border: none;
-        background-color: {THEME.get('bg_main', '#050505')};
+        background-color: transparent;
     }}
     QScrollBar:vertical {{ border: none; background: transparent; width: 8px; margin: 0px; }}
     QScrollBar::handle:vertical {{ background: {THEME.get('nav_bg', '#222222')}; min-height: 30px; border-radius: 4px; }}
@@ -416,6 +416,11 @@ def get_app_style():
         background-color: rgba({THEME.get('bg_main_rgb', '5,5,5')}, 100);
         border-radius: 12px;
         border: 1px solid {THEME.get('border', '#121212')};
+    }}
+    #NowPlayingQueueScroll, #NowPlayingQueueScroll > QWidget, #NowPlayingQueueScroll > QWidget > QWidget {{
+        background-color: transparent;
+        background: transparent;
+        border: none;
     }}
     #NowPlayingUiContainer, #NowPlayingMediaContainer, #NowPlayingArtWrapper, #NowPlayingQueueContent, #NowPlayingRightSpacer {{
         background: transparent;
