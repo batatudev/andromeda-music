@@ -3,9 +3,9 @@ import os
 os.environ["QT_API"] = "pyside6"
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QGraphicsOpacityEffect
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
 )
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QPalette, QColor
 import random
 import qtawesome as qta
@@ -19,9 +19,8 @@ from core.i18n import tr
 
 class LoadingOverlay(QWidget):
     """
-    Czysta, nieprzezroczysta kurtyna ładowania przykrywająca obszar roboczy
-    na czas pobierania danych z serwera i stabilizacji geometrii widżetów.
-    Posiada płynną animację zanikania (Fade-Out).
+    Czysta, w 100% nieprzezroczysta kurtyna ładowania na litym tle #050505.
+    Pozostaje całkowicie kryjąca do momentu ustabilizowania geometrii widżetów.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -30,15 +29,6 @@ class LoadingOverlay(QWidget):
         pal = self.palette()
         pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
         self.setPalette(pal)
-
-        self._opacity_effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(self._opacity_effect)
-        self._opacity_effect.setOpacity(1.0)
-
-        self._fade_anim = QPropertyAnimation(self._opacity_effect, b"opacity")
-        self._fade_anim.setDuration(220)
-        self._fade_anim.setEasingCurve(QEasingCurve.OutQuad)
-        self._fade_anim.finished.connect(self._on_fade_finished)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
@@ -62,11 +52,6 @@ class LoadingOverlay(QWidget):
         layout.addWidget(self.spinner_lbl, 0, Qt.AlignCenter)
         layout.addWidget(self.text_lbl, 0, Qt.AlignCenter)
         self.hide()
-
-    def _on_fade_finished(self):
-        if self._opacity_effect.opacity() <= 0.05:
-            self.hide()
-            self._opacity_effect.setOpacity(1.0)
 
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
@@ -95,6 +80,7 @@ class LibraryScrollArea(SmoothScrollArea):
         self.setWidget(self.content_widget)
 
         self.loading_overlay = LoadingOverlay(self.viewport())
+        self.show_loading()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -103,9 +89,6 @@ class LibraryScrollArea(SmoothScrollArea):
 
     def show_loading(self, text=None):
         if hasattr(self, 'loading_overlay') and self.loading_overlay:
-            if self.loading_overlay._fade_anim.state() == QPropertyAnimation.State.Running:
-                self.loading_overlay._fade_anim.stop()
-            self.loading_overlay._opacity_effect.setOpacity(1.0)
             if text:
                 self.loading_overlay.text_lbl.setText(text)
             else:
@@ -114,19 +97,12 @@ class LibraryScrollArea(SmoothScrollArea):
             self.loading_overlay.show()
             self.loading_overlay.raise_()
 
-    def hide_loading(self, delay_ms=250):
+    def hide_loading(self, delay_ms=180):
         if hasattr(self, 'loading_overlay') and self.loading_overlay:
             if delay_ms > 0:
-                QTimer.singleShot(delay_ms, self._start_fade_out)
+                QTimer.singleShot(delay_ms, self.loading_overlay.hide)
             else:
                 self.loading_overlay.hide()
-
-    def _start_fade_out(self):
-        if hasattr(self, 'loading_overlay') and self.loading_overlay and self.loading_overlay.isVisible():
-            self.loading_overlay._fade_anim.stop()
-            self.loading_overlay._fade_anim.setStartValue(self.loading_overlay._opacity_effect.opacity())
-            self.loading_overlay._fade_anim.setEndValue(0.0)
-            self.loading_overlay._fade_anim.start()
 
     def invalidate_cache(self):
         self._is_loaded = False

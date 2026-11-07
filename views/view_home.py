@@ -228,6 +228,6 @@ class HomeView(LibraryScrollArea):
             self.content_layout.activate()
             self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True
-            self.hide_loading(delay_ms=250)
+            self.hide_loading(delay_ms=180)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)

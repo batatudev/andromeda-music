@@ -52,6 +52,7 @@ class MediaCard(QFrame):
         placeholder_icon = 'fa5s.user' if type_str == MediaType.ARTIST else 'fa5s.music'
         self.img = RoundedImage(size=None, radius=self.radius, placeholder_icon=placeholder_icon)
         self.img.setParent(self.img_container)
+        self.img.move(0, 0)
 
         self.overlay = QFrame(self.img_container)
         if type_str == MediaType.ARTIST:
@@ -60,6 +61,7 @@ class MediaCard(QFrame):
             self.overlay.setObjectName("CardOverlay")
 
         self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.overlay.move(0, 0)
         self.overlay.hide()
 
         self.play_btn = QPushButton(
