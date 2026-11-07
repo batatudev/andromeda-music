@@ -15,6 +15,43 @@ from utils import MediaItem
 from core.enums import MediaType
 from ui.widgets import FlowLayout, DragDropContainer, SmoothScrollArea
 from ui.components import SongItem, MediaCard, MediaHeader, HeroSection, QueueHeader
+from core.i18n import tr
+
+class LoadingOverlay(QWidget):
+    """
+    Czysta, nieprzezroczysta kurtyna ładowania przykrywająca obszar roboczy
+    na czas pobierania danych z serwera i stabilizacji geometrii widżetów.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("LoadingOverlay")
+        self.setAutoFillBackground(True)
+        pal = self.palette()
+        pal.setColor(QPalette.Window, QColor(THEME.get("bg_main", "#050505")))
+        self.setPalette(pal)
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(14)
+
+        self.spinner_lbl = QLabel()
+        self.spinner_lbl.setFixedSize(36, 36)
+        self.spinner_lbl.setAlignment(Qt.AlignCenter)
+        self.spinner_lbl.setStyleSheet("background: transparent; border: none;")
+        self._spin_anim = qta.Spin(self.spinner_lbl, interval=16, step=10)
+        self.spinner_lbl.setPixmap(
+            qta.icon('fa5s.circle-notch', color=THEME.get('accent', '#aa00ff'), animation=self._spin_anim).pixmap(30, 30)
+        )
+
+        self.text_lbl = QLabel(tr("common.loading", "Wczytywanie..."))
+        self.text_lbl.setStyleSheet(
+            f"color: {THEME.get('text_muted', '#888888')}; font-size: 14px; font-weight: 500; background: transparent; border: none;"
+        )
+        self.text_lbl.setAlignment(Qt.AlignCenter)
+
+        layout.addWidget(self.spinner_lbl, 0, Qt.AlignCenter)
+        layout.addWidget(self.text_lbl, 0, Qt.AlignCenter)
+        self.hide()
 
 class LibraryScrollArea(SmoothScrollArea):
     def __init__(self, main_window):
@@ -41,6 +78,30 @@ class LibraryScrollArea(SmoothScrollArea):
         self.content_layout.setContentsMargins(30, 30, 30, 30)
         self.content_layout.setSpacing(15)
         self.setWidget(self.content_widget)
+
+        self.loading_overlay = LoadingOverlay(self.viewport())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'loading_overlay') and self.loading_overlay:
+            self.loading_overlay.resize(self.viewport().size())
+
+    def show_loading(self, text=None):
+        if hasattr(self, 'loading_overlay') and self.loading_overlay:
+            if text:
+                self.loading_overlay.text_lbl.setText(text)
+            else:
+                self.loading_overlay.text_lbl.setText(tr("common.loading", "Wczytywanie..."))
+            self.loading_overlay.resize(self.viewport().size())
+            self.loading_overlay.show()
+            self.loading_overlay.raise_()
+
+    def hide_loading(self, delay_ms=60):
+        if hasattr(self, 'loading_overlay') and self.loading_overlay:
+            if delay_ms > 0:
+                QTimer.singleShot(delay_ms, self.loading_overlay.hide)
+            else:
+                self.loading_overlay.hide()
 
     def invalidate_cache(self):
         self._is_loaded = False

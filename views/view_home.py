@@ -93,17 +93,11 @@ class HomeView(LibraryScrollArea):
         if not force and self._is_loaded:
             return
 
+        self.show_loading()
         self.content_widget.setUpdatesEnabled(False)
         self._clear()
         self.row_albs = None
         self.row_arts = None
-
-        lbl = QLabel(tr("common.loading", "Wczytywanie..."))
-        lbl.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 16px; background: transparent;")
-        lbl.setAlignment(Qt.AlignCenter)
-        self.content_layout.addStretch()
-        self.content_layout.addWidget(lbl)
-        self.content_layout.addStretch()
         self.content_widget.setUpdatesEnabled(True)
 
         def fetch():
@@ -133,7 +127,9 @@ class HomeView(LibraryScrollArea):
 
         def on_ready(data):
             if not data:
+                self.hide_loading(0)
                 return
+
             self.content_widget.setUpdatesEnabled(False)
             self._clear()
             stars, albs, songs, r_arts = data
@@ -178,6 +174,9 @@ class HomeView(LibraryScrollArea):
             )
 
             sc = QWidget()
+            sc.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            if songs:
+                sc.setFixedHeight(len(songs) * 65 + max(0, len(songs) - 1) * 5)
             vl = QVBoxLayout(sc)
             vl.setContentsMargins(0, 0, 0, 0)
             vl.setSpacing(5)
@@ -226,7 +225,9 @@ class HomeView(LibraryScrollArea):
 
             self.content_layout.addStretch()
             self._recalculate_rows()
+            self.content_layout.activate()
             self.content_widget.setUpdatesEnabled(True)
             self._is_loaded = True
+            self.hide_loading(delay_ms=60)
 
         self.main_window.run_async(fetch, on_ready, page_bound=True)
